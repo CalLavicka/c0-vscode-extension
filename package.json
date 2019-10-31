@@ -69,7 +69,7 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
-		"compile": "tsc -b",
+		"compile": "cd server && npm run nearley && cd .. && tsc -b",
 		"watch": "tsc -b -w",
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
 		"test": "node ./out/test/runTest.js"
@@ -78,6 +78,7 @@
 		"@types/mocha": "^5.2.0",
 		"@types/node": "^8.0.0",
 		"tslint": "^5.16.0",
-		"typescript": "^3.5.1"
+		"typescript": "^3.5.1",
+		"npm-run-all": "^4.1.3"
 	}
 }

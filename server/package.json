@@ -6,7 +6,18 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "^5.2.1"
+		"vscode-languageserver": "^5.2.1",
+		"moo": "^0.4.3",
+		"nearley": "^2.15.1"
 	},
-	"scripts": {}
+	"scripts": {
+		"nearley:expression": "nearleyc syntax/expression.ne -o src/expression-rules.ts",
+		"nearley:statement": "nearleyc syntax/statement.ne -o src/statement-rules.ts",
+		"nearley:program": "nearleyc syntax/program.ne -o src/program-rules.ts",
+		"nearley": "npm-run-all --parallel nearley:expression nearley:statement nearley:program"
+	},
+	"devDependencies": {
+		"@types/moo": "^0.4.2",
+		"@types/nearley": "^2.11.0"
+	}
 }

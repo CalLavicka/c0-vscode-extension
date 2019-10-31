@@ -11,122 +11,271 @@ import {
     CompletionItemKind,
     TextDocumentPositionParams,
     Position
-  } from 'vscode-languageserver';
+} from 'vscode-languageserver';
 import { listeners } from 'cluster';
-  
-  // Create a connection for the server. The connection uses Node's IPC as a transport.
-  // Also include all preview / proposed LSP features.
-  let connection = createConnection(ProposedFeatures.all);
-  
-  // Create a simple text document manager. The text document manager
-  // supports full document sync only
-  let documents: TextDocuments = new TextDocuments();
-  
-  let hasConfigurationCapability: boolean = false;
-  let hasWorkspaceFolderCapability: boolean = false;
-  let hasDiagnosticRelatedInformationCapability: boolean = false;
-  
-  connection.onInitialize((params: InitializeParams) => {
+
+import * as nearley from 'nearley';
+import grammar from './program-rules';
+import * as parsed from "./parse/parsedsyntax";
+import { TypeLexer } from './lex';
+import * as ast from "./ast";
+import { Lang } from './lang';
+
+// Overwrite nearley's error reporting because it is broken
+function myReportError(parser: nearley.Parser, token: any) {
+    var lines: string[] = [];
+    var tokenDisplay = (token.type ? token.type + " token: " : "") + JSON.stringify(token.value !== undefined ? token.value : token);
+    lines.push(parser.lexer.formatError(token, "Syntax error"));
+    lines.push('Unexpected ' + tokenDisplay + '.');
+    return lines.join("\n");
+}
+
+// Create a connection for the server. The connection uses Node's IPC as a transport.
+// Also include all preview / proposed LSP features.
+let connection = createConnection(ProposedFeatures.all);
+
+// Create a simple text document manager. The text document manager
+// supports full document sync only
+let documents: TextDocuments = new TextDocuments();
+
+let hasConfigurationCapability: boolean = false;
+let hasWorkspaceFolderCapability: boolean = false;
+let hasDiagnosticRelatedInformationCapability: boolean = false;
+
+connection.onInitialize((params: InitializeParams) => {
     let capabilities = params.capabilities;
-  
+
     // Does the client support the `workspace/configuration` request?
     // If not, we will fall back using global settings
     hasConfigurationCapability =
-      !!capabilities.workspace && !!capabilities.workspace.configuration;
+    !!capabilities.workspace && !!capabilities.workspace.configuration;
     hasWorkspaceFolderCapability =
-      !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
+    !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
     hasDiagnosticRelatedInformationCapability =
-      !!capabilities.textDocument &&
-      !!capabilities.textDocument.publishDiagnostics &&
-      !!capabilities.textDocument.publishDiagnostics.relatedInformation;
-  
+    !!capabilities.textDocument &&
+    !!capabilities.textDocument.publishDiagnostics &&
+    !!capabilities.textDocument.publishDiagnostics.relatedInformation;
+
     return {
-      capabilities: {
-        textDocumentSync: documents.syncKind,
-        // Tell the client that the server supports code completion
-        completionProvider: {
-          resolveProvider: true
+        capabilities: {
+            textDocumentSync: documents.syncKind,
+            // Tell the client that the server supports code completion
+            completionProvider: {
+                resolveProvider: true
+            }
         }
-      }
     };
-  });
-  
-  connection.onInitialized(() => {
+});
+
+connection.onInitialized(() => {
     if (hasConfigurationCapability) {
-      // Register for all configuration changes.
-      connection.client.register(DidChangeConfigurationNotification.type, undefined);
+        // Register for all configuration changes.
+        connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
     if (hasWorkspaceFolderCapability) {
-      connection.workspace.onDidChangeWorkspaceFolders(_event => {
-        connection.console.log('Workspace folder change event received.');
-      });
+        connection.workspace.onDidChangeWorkspaceFolders(_event => {
+            connection.console.log('Workspace folder change event received.');
+        });
     }
-  });
-  
-  // The example settings
-  interface ExampleSettings {
+});
+
+// The example settings
+interface ExampleSettings {
     maxNumberOfProblems: number;
-  }
-  
-  // The global settings, used when the `workspace/configuration` request is not supported by the client.
-  // Please note that this is not the case when using this server with the client provided in this example
-  // but could happen with other clients.
-  const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
-  let globalSettings: ExampleSettings = defaultSettings;
-  
-  // Cache the settings of all open documents
-  let documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
-  
-  connection.onDidChangeConfiguration(change => {
+}
+
+// The global settings, used when the `workspace/configuration` request is not supported by the client.
+// Please note that this is not the case when using this server with the client provided in this example
+// but could happen with other clients.
+const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
+let globalSettings: ExampleSettings = defaultSettings;
+
+// Cache the settings of all open documents
+let documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
+
+connection.onDidChangeConfiguration(change => {
     if (hasConfigurationCapability) {
-      // Reset all cached document settings
-      documentSettings.clear();
+        // Reset all cached document settings
+        documentSettings.clear();
     } else {
-      globalSettings = <ExampleSettings>(
-        (change.settings.languageServerExample || defaultSettings)
-      );
-    }
-  
+        globalSettings = <ExampleSettings>(
+            (change.settings.languageServerExample || defaultSettings)
+            );
+        }
+
     // Revalidate all open text documents
     documents.all().forEach(validateTextDocument);
-  });
-  
-  function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+});
+
+function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
     if (!hasConfigurationCapability) {
-      return Promise.resolve(globalSettings);
+        return Promise.resolve(globalSettings);
     }
     let result = documentSettings.get(resource);
     if (!result) {
-      result = connection.workspace.getConfiguration({
-        scopeUri: resource,
-        section: 'c0LanguageServer'
-      });
-      documentSettings.set(resource, result);
+        result = connection.workspace.getConfiguration({
+            scopeUri: resource,
+            section: 'c0LanguageServer'
+        });
+        documentSettings.set(resource, result);
     }
     return result;
-  }
-  
-  // Only keep settings for open documents
-  documents.onDidClose(e => {
+}
+
+// Only keep settings for open documents
+documents.onDidClose(e => {
     documentSettings.delete(e.document.uri);
-  });
-  
-  // The content of a text document has changed. This event is emitted
-  // when the text document first opened or when its content has changed.
-  documents.onDidChangeContent(change => {
+});
+
+// The content of a text document has changed. This event is emitted
+// when the text document first opened or when its content has changed.
+documents.onDidChangeContent(change => {
     validateTextDocument(change.document);
-  });
-  
-  async function validateTextDocument(textDocument: TextDocument): Promise<void> {
+});
+
+function* semicolonSplit(s: string) {
+    let ndx = s.indexOf(";");
+    while (ndx > 0) {
+        yield { last: false, segment: s.slice(0, ndx) };
+        s = s.slice(ndx + 1);
+        ndx = s.indexOf(";");
+    }
+    yield { last: true, segment: s };
+}
+
+async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     // In this simple example we get the settings for every validate run.
     let settings = await getDocumentSettings(textDocument.uri);
-  
+
     // The validator creates diagnostics for all uppercase words length 2 and more
     let text = textDocument.getText();
-  
+    const lines = text.split("\n");
+
     let problems = 0;
     let diagnostics: Diagnostic[] = [];
-    const lines = text.split("\n");
+
+    const parser: any = new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
+    const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
+    // Overwrite the reportError function cause otherwise it loops :(
+    parser.reportError = function(token: any) {
+        return myReportError(this, token);
+    };
+
+    // Send through the parser semicolon-by-semicolon
+    const segments = semicolonSplit(text);
+    let parsed: boolean = true;
+    let decls: parsed.Declaration[] = [];
+    let size = 0;
+    let curOffset = 0;
+
+    function addError(line: number | null, columnOrOffset: number,
+        message: string, severity: DiagnosticSeverity) {
+        
+        let pos: Position;
+        if (line !== null) {
+            pos = Position.create(line, columnOrOffset);
+        } else {
+            pos = textDocument.positionAt(columnOrOffset);
+        }
+        const diagnostic: Diagnostic = {
+            severity: severity,
+            range: {
+                start: pos,
+                end: pos
+            },
+            message: message,
+            source: 'c0-language'
+        };
+        diagnostics.push(diagnostic);
+    }
+
+    for (let segment of segments) {
+        const state = parser.save();
+        curOffset += segment.segment.length;
+        try {
+            parser.feed(segment.segment);
+            const parsed = parser.finish();
+            if (parsed.length > 1) {
+                console.log("Parse ambiguous:");
+                console.log(JSON.stringify(parsed[0]));
+                console.log(JSON.stringify(parsed[1]));
+                console.log(JSON.stringify(parsed[2]));
+                console.log(JSON.stringify(parsed[3]));
+                console.log(JSON.stringify(parsed[4]));
+                console.log(JSON.stringify(parsed[5]));
+                console.log(JSON.stringify(parsed[parsed.length - 1]));
+            } else if (parsed.length === 0) {
+                if (segment.last) {
+                    addError(null, curOffset, "Incomplete parse at the end of the file", DiagnosticSeverity.Warning);
+                    // TODO: Add error
+                } else {
+                    parser.feed(";");
+                }
+            } else {
+                // parsed.length === 1
+                const parsedGlobalDecls = parsed[0];
+                for (let i = size; i < parsedGlobalDecls.length - 1; i++) {
+                    if (
+                        parsedGlobalDecls[i].tag === "TypeDefinition" ||
+                        parsedGlobalDecls[i].tag === "FunctionTypeDefinition"
+                    ) {
+                        addError(null, curOffset, `typedef is missing its trailing semicolon`, DiagnosticSeverity.Error);
+                    }
+                }
+                if (segment.last) {
+                    if (parsedGlobalDecls.length > size) {
+                        const possibleTypeDef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
+                        if (
+                            possibleTypeDef.tag === "TypeDefinition" ||
+                            possibleTypeDef.tag === "FunctionTypeDefinition"
+                        ) {
+                            addError(null, curOffset, 
+                                `typedef without a final semicolon at the end of the file`, 
+                                DiagnosticSeverity.Error);
+                        }
+                    }
+                    decls = decls.concat(parsedGlobalDecls);
+                } else {
+                    if (parsedGlobalDecls.length === 0) { throw new Error(`semicolon at beginning of file`); }
+    
+                    const possibleTypedef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
+                    if (parsedGlobalDecls.length === size) {
+                        addError(null, curOffset, `too many semicolons after a ${possibleTypedef.tag}`, 
+                            DiagnosticSeverity.Error);
+                    }
+                    size = parsedGlobalDecls.length;
+    
+                    switch (possibleTypedef.tag) {
+                        case "TypeDefinition":
+                        case "FunctionTypeDefinition": {
+                            lexer.addIdentifier(possibleTypedef.definition.id.name);
+                            break;
+                        }
+                        default:
+                            addError(null, curOffset, 
+                                `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
+                                DiagnosticSeverity.Error);
+                    }
+                    parser.feed(" ");
+                }
+            }
+        } catch(err) {
+            // restore old state before the bad line
+            parser.restore(state);
+            for (let i = 0; i < segment.segment.length; i++) {
+                if (segment.segment.charAt(i) === '\n') {
+                    parser.feed("\n");
+                } else {
+                    parser.feed(" ");
+                }
+            }
+            connection.console.error(err.message);
+            console.error(JSON.stringify(err));
+            addError(err.token.line - 1, err.token.col, err.message, DiagnosticSeverity.Error);
+            parsed = false;
+        }
+    }
+    
     for (let i = 0; i < lines.length; i++) {
         if (lines[i].length > 80) {
             // More than 80 characters, so underline
@@ -142,74 +291,74 @@ import { listeners } from 'cluster';
             diagnostics.push(diagnostic);
         }
     }
-  
+
     // Send the computed diagnostics to VS Code.
     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
-  }
-  
-  connection.onDidChangeWatchedFiles(_change => {
+}
+
+connection.onDidChangeWatchedFiles(_change => {
     // Monitored files have change in VS Code
     connection.console.log('We received an file change event');
-  });
-  
-  // This handler provides the initial list of the completion items.
-  connection.onCompletion(
+});
+
+// This handler provides the initial list of the completion items.
+connection.onCompletion(
     (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-      // The pass parameter contains the position of the text document in
-      // which code complete got requested. For the example we ignore this
-      // info and always provide the same completion items.
-      return [
-        {
-          label: 'TypeScript',
-          kind: CompletionItemKind.Text,
-          data: 1
-        },
-        {
-          label: 'JavaScript',
-          kind: CompletionItemKind.Text,
-          data: 2
-        }
-      ];
+        // The pass parameter contains the position of the text document in
+        // which code complete got requested. For the example we ignore this
+        // info and always provide the same completion items.
+        return [
+            {
+                label: 'TypeScript',
+                kind: CompletionItemKind.Text,
+                data: 1
+            },
+            {
+                label: 'JavaScript',
+                kind: CompletionItemKind.Text,
+                data: 2
+            }
+        ];
     }
-  );
-  
-  // This handler resolves additional information for the item selected in
-  // the completion list.
-  connection.onCompletionResolve(
+    );
+
+// This handler resolves additional information for the item selected in
+// the completion list.
+connection.onCompletionResolve(
     (item: CompletionItem): CompletionItem => {
-      if (item.data === 1) {
-        item.detail = 'TypeScript details';
-        item.documentation = 'TypeScript documentation';
-      } else if (item.data === 2) {
-        item.detail = 'JavaScript details';
-        item.documentation = 'JavaScript documentation';
-      }
-      return item;
+        if (item.data === 1) {
+            item.detail = 'TypeScript details';
+            item.documentation = 'TypeScript documentation';
+        } else if (item.data === 2) {
+            item.detail = 'JavaScript details';
+            item.documentation = 'JavaScript documentation';
+        }
+        return item;
     }
-  );
-  
-  
-  connection.onDidOpenTextDocument((params) => {
-      // A text document got opened in VS Code.
-      // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
-      // params.text the initial full content of the document.
-      connection.console.log(`${params.textDocument.uri} opened.`);
-  });
-  connection.onDidChangeTextDocument((params) => {
-      // The content of a text document did change in VS Code.
-      // params.uri uniquely identifies the document.
-      // params.contentChanges describe the content changes to the document.
-      connection.console.log(`${params.textDocument.uri} changed: ${JSON.stringify(params.contentChanges)}`);
-  });
-  connection.onDidCloseTextDocument((params) => {
-      // A text document got closed in VS Code.
-      // params.uri uniquely identifies the document.
-      connection.console.log(`${params.textDocument.uri} closed.`);
-  });
-  
-  // Make the text document manager listen on the connection
-  // for open, change and close text document events
-  documents.listen(connection);
-  
-  // Listen on the connection
-  connection.listen();
+    );
+
+
+connection.onDidOpenTextDocument((params) => {
+    // A text document got opened in VS Code.
+    // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
+    // params.text the initial full content of the document.
+    connection.console.log(`${params.textDocument.uri} opened.`);
+});
+connection.onDidChangeTextDocument((params) => {
+    // The content of a text document did change in VS Code.
+    // params.uri uniquely identifies the document.
+    // params.contentChanges describe the content changes to the document.
+    connection.console.log(`${params.textDocument.uri} changed: ${JSON.stringify(params.contentChanges)}`);
+});
+connection.onDidCloseTextDocument((params) => {
+    // A text document got closed in VS Code.
+    // params.uri uniquely identifies the document.
+    connection.console.log(`${params.textDocument.uri} closed.`);
+});
+
+// Make the text document manager listen on the connection
+// for open, change and close text document events
+documents.listen(connection);
+
+// Listen on the connection
+connection.listen();
