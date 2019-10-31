@@ -1,0 +1,12 @@
+{
+	"name": "c0-server",
+	"description": "Server for C0",
+	"version": "0.0.0",
+	"engines": {
+		"node": "*"
+	},
+	"dependencies": {
+		"vscode-languageserver": "^5.2.1"
+	},
+	"scripts": {}
+}
