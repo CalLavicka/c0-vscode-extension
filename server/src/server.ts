@@ -20,6 +20,9 @@ import * as parsed from "./parse/parsedsyntax";
 import { TypeLexer } from './lex';
 import * as ast from "./ast";
 import { Lang } from './lang';
+import { checkProgram } from './typecheck/programs';
+import { restrictDeclaration } from './parse/restrictsyntax';
+import { TypingError } from './error';
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {
@@ -168,6 +171,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     let size = 0;
     let curOffset = 0;
 
+    // Function to add a diagnostic for a parse error
     function addError(line: number | null, columnOrOffset: number,
         message: string, severity: DiagnosticSeverity) {
         
@@ -189,6 +193,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
         diagnostics.push(diagnostic);
     }
 
+    // Iterate through semicolon segments
     for (let segment of segments) {
         const state = parser.save();
         curOffset += segment.segment.length;
@@ -207,7 +212,6 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
             } else if (parsed.length === 0) {
                 if (segment.last) {
                     addError(null, curOffset, "Incomplete parse at the end of the file", DiagnosticSeverity.Warning);
-                    // TODO: Add error
                 } else {
                     parser.feed(";");
                 }
@@ -260,7 +264,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                 }
             }
         } catch(err) {
-            // restore old state before the bad line
+            // Restore old state before the bad line
             parser.restore(state);
             for (let i = 0; i < segment.segment.length; i++) {
                 if (segment.segment.charAt(i) === '\n') {
@@ -269,11 +273,40 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                     parser.feed(" ");
                 }
             }
-            connection.console.error(err.message);
-            console.error(JSON.stringify(err));
             addError(err.token.line - 1, err.token.col, err.message, DiagnosticSeverity.Error);
             parsed = false;
         }
+    }
+
+    if (parsed) {
+        let errors = new Set<TypingError>();
+        let restrict = new Array<ast.Declaration>();
+        decls.forEach(decl => {
+            try {
+                restrict.push(restrictDeclaration("C1", decl));
+            } catch(err) {
+                errors.add(err);
+            }
+        });
+        if (errors.size === 0) {
+            errors = checkProgram([], restrict);
+        }
+
+        // Show all of the errors gathered
+        errors.forEach(error => {
+            if (error.loc !== null) {
+                const diagnostic: Diagnostic = {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: Position.create(error.loc.start.line - 1, error.loc.start.column),
+                        end: Position.create(error.loc.end.line - 1, error.loc.end.column)
+                    },
+                    message: error.message,
+                    source: 'c0-language'
+                };
+                diagnostics.push(diagnostic);
+            }
+        });
     }
     
     for (let i = 0; i < lines.length; i++) {
