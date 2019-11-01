@@ -101,9 +101,9 @@ export function createAnnoLexer(): Lexer {
                 {
                     newline: { match: /\r?\n/, lineBreaks: true },
                     whitespace: { match: /[ \t\v\f\r]+/ },
-                    anno_start: { match: "/*@", push: "multiLineAnno" },
+                    anno_start: { match: "/*@", next: "multiLineAnno" },
                     comment_start: { match: "/*", push: "multiLineComment" },
-                    anno_line_start: { match: "//@", push: "lineAnno" },
+                    anno_line_start: { match: "//@", next: "lineAnno" },
                     comment_line_start: { match: "//", push: "lineComment" },
                     pragma: /#.*/
                 },
@@ -113,7 +113,7 @@ export function createAnnoLexer(): Lexer {
                 {
                     newline: { match: /\r?\n/, lineBreaks: true },
                     whitespace: { match: /[ \t\v\f\r]+/ },
-                    anno_end: { match: "@*/", pop: 1 },
+                    anno_end: { match: "@*/", next: "main" },
                     comment_start: { match: "/*", push: "multiLineComment" },
                     comment_line_start: { match: "//", push: "lineComment" },
                     annospace: { match: "@" }
@@ -122,7 +122,7 @@ export function createAnnoLexer(): Lexer {
             ),
             lineAnno: Object.assign(
                 {
-                    anno_end: { match: /\r?\n/, pop: 1, lineBreaks: true },
+                    anno_end: { match: /\r?\n/, next: "main", lineBreaks: true },
                     whitespace: { match: /[ \t\v\f]+/ },
                     comment_start: { match: "/*", push: "multiLineComment" },
                     comment_line_start: { match: "//", next: "lineComment" },

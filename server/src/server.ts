@@ -137,13 +137,29 @@ documents.onDidChangeContent(change => {
 });
 
 function* semicolonSplit(s: string) {
-    let ndx = s.indexOf(";");
-    while (ndx > 0) {
-        yield { last: false, segment: s.slice(0, ndx) };
-        s = s.slice(ndx + 1);
-        ndx = s.indexOf(";");
+    const normRegex = /(;|\/\/|\/\*)/g;
+    const cmtRegex = /(;|\n|\*\/)/g;
+    let ndx = s.search(normRegex);
+    let inComment = false;
+    while (ndx >= 0) {
+        const semi = s.charAt(ndx) === ';';
+        if (inComment && s.charAt(ndx) === '\n') {
+            ndx++;
+        } else if (inComment && s.charAt(ndx) === '*') {
+            ndx += 2;
+        }
+        yield { last: false, segment: s.slice(0, ndx), semicolon: semi};
+        s = s.slice(ndx + (semi ? 1 : 0));
+        if (!semi) {
+            inComment = !inComment;
+        }
+        if (inComment) {
+            ndx = s.search(cmtRegex);
+        } else {
+            ndx = s.search(normRegex);
+        }
     }
-    yield { last: true, segment: s };
+    yield { last: true, segment: s, semicolon: true };
 }
 
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
@@ -191,11 +207,12 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
             source: 'c0-language'
         };
         diagnostics.push(diagnostic);
+        parsed = false;
     }
 
     // Iterate through semicolon segments
     for (let segment of segments) {
-        const state = parser.save();
+        let parseState = parser.save();
         curOffset += segment.segment.length;
         try {
             parser.feed(segment.segment);
@@ -212,7 +229,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
             } else if (parsed.length === 0) {
                 if (segment.last) {
                     addError(null, curOffset, "Incomplete parse at the end of the file", DiagnosticSeverity.Warning);
-                } else {
+                } else if (segment.semicolon) {
                     parser.feed(";");
                 }
             } else {
@@ -263,16 +280,28 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
             }
         } catch(err) {
             // Restore old state before the bad line
-            parser.restore(state);
+            parser.restore(parseState);
             for (let i = 0; i < segment.segment.length; i++) {
-                if (segment.segment.charAt(i) === '\n') {
-                    parser.feed("\n");
-                } else {
+                const ch = segment.segment.charAt(i);
+                switch(ch) {
+                case '\n':
+                case '{':
+                case '}':
+                    parseState = parser.save();
+                    try {
+                        parser.feed(ch);
+                    }catch(err) {
+                        parser.restore(parseState);
+                        parser.feed(" ");
+                    }
+                default:
                     parser.feed(" ");
                 }
             }
-            addError(err.token.line - 1, err.token.col, err.message, DiagnosticSeverity.Error);
-            parsed = false;
+            if (segment.semicolon) {
+                parser.feed(" ");
+            }
+            addError(err.token.line - 1, err.token.col - 1, err.message, DiagnosticSeverity.Error);
         }
     }
 
