@@ -171,9 +171,6 @@ interface C0Parser extends nearley.Parser {
 }
 
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
-    // In this simple example we get the settings for every validate run.
-    let settings = await getDocumentSettings(textDocument.uri);
-
     // The validator creates diagnostics for all uppercase words length 2 and more
     let text = textDocument.getText();
     const lines = text.split("\n");
@@ -182,13 +179,13 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     let diagnostics: Diagnostic[] = [];
 
     const parser = <C0Parser>new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
-
-    // C0/C1 use the same lexer, so no point changing it here 
-    const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
     // Overwrite the reportError function cause otherwise it loops :(
     parser.reportError = function(token: any) {
         return myReportError(this, token);
     };
+
+    // C0/C1 use the same lexer, so no point changing it here 
+    const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
 
     // Send through the parser semicolon-by-semicolon
     const segments = semicolonSplit(text);
@@ -201,41 +198,35 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     function addError(line: number | null, columnOrOffset: number,
         message: string, severity: DiagnosticSeverity) {
         
-        let pos: Position;
-        if (line !== null) {
-            pos = Position.create(line, columnOrOffset);
-        } else {
-            pos = textDocument.positionAt(columnOrOffset);
-        }
+        const pos: Position = 
+            line === null 
+                ? textDocument.positionAt(columnOrOffset) 
+                : Position.create(line, columnOrOffset);
+
         const diagnostic: Diagnostic = {
-            severity: severity,
+            severity,
+            message,
+            source: 'c0-language',
             range: {
                 start: pos,
                 end: pos
-            },
-            message: message,
-            source: 'c0-language'
+            }
         };
+
+        problems++;
         diagnostics.push(diagnostic);
         parsed = false;
     }
 
     // Iterate through semicolon segments
-    for (let segment of segments) {
+    for (const segment of segments) {
         let parseState = parser.save();
         curOffset += segment.segment.length;
         try {
             parser.feed(segment.segment);
             const parsed = parser.finish();
             if (parsed.length > 1) {
-                console.log("Parse ambiguous:");
-                console.log(JSON.stringify(parsed[0]));
-                console.log(JSON.stringify(parsed[1]));
-                console.log(JSON.stringify(parsed[2]));
-                console.log(JSON.stringify(parsed[3]));
-                console.log(JSON.stringify(parsed[4]));
-                console.log(JSON.stringify(parsed[5]));
-                console.log(JSON.stringify(parsed[parsed.length - 1]));
+                console.error("Parse ambiguous:", parsed);
             } else if (parsed.length === 0) {
                 if (segment.last) {
                     addError(null, curOffset, "Incomplete parse at the end of the file", DiagnosticSeverity.Warning);
@@ -291,8 +282,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
         } catch(err) {
             // Restore old state before the bad line
             parser.restore(parseState);
-            for (let i = 0; i < segment.segment.length; i++) {
-                const ch = segment.segment.charAt(i);
+            for (const ch of segment.segment) {
                 switch(ch) {
                 case '\n':
                 case '{':
@@ -300,10 +290,13 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                     parseState = parser.save();
                     try {
                         parser.feed(ch);
-                    }catch(err) {
+                    } catch(err) {
                         parser.restore(parseState);
                         parser.feed(" ");
                     }
+
+                    // *** Missing break? Looks like we're always then 
+                    // feeding a character then a space 
                 default:
                     parser.feed(" ");
                 }
@@ -325,6 +318,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                 errors.add(err);
             }
         });
+        
         if (errors.size === 0) {
             errors = checkProgram([], restrict);
         }
