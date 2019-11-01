@@ -229,10 +229,8 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                 // parsed.length === 1
                 const parsedGlobalDecls = parsed[0];
                 for (let i = size; i < parsedGlobalDecls.length - 1; i++) {
-                    if (
-                        parsedGlobalDecls[i].tag === "TypeDefinition" ||
-                        parsedGlobalDecls[i].tag === "FunctionTypeDefinition"
-                    ) {
+                    if (parsedGlobalDecls[i].tag === "TypeDefinition" ||
+                        parsedGlobalDecls[i].tag === "FunctionTypeDefinition") {
                         addError(null, curOffset, `typedef is missing its trailing semicolon`, DiagnosticSeverity.Error);
                     }
                 }
@@ -304,12 +302,12 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 
         // Show all of the errors gathered
         errors.forEach(error => {
-            if (error.loc !== null) {
+            if (error.loc !== null && error.loc !== undefined) {
                 const diagnostic: Diagnostic = {
                     severity: DiagnosticSeverity.Error,
                     range: {
-                        start: Position.create(error.loc.start.line - 1, error.loc.start.column),
-                        end: Position.create(error.loc.end.line - 1, error.loc.end.column)
+                        start: Position.create(error.loc.start.line - 1, error.loc.start.column - 1),
+                        end: Position.create(error.loc.end.line - 1, error.loc.end.column - 1)
                     },
                     message: error.message,
                     source: 'c0-language'
