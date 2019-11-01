@@ -51,13 +51,13 @@ connection.onInitialize((params: InitializeParams) => {
     // Does the client support the `workspace/configuration` request?
     // If not, we will fall back using global settings
     hasConfigurationCapability =
-    !!capabilities.workspace && !!capabilities.workspace.configuration;
+        !!capabilities.workspace && !!capabilities.workspace.configuration;
     hasWorkspaceFolderCapability =
-    !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
+        !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
     hasDiagnosticRelatedInformationCapability =
-    !!capabilities.textDocument &&
-    !!capabilities.textDocument.publishDiagnostics &&
-    !!capabilities.textDocument.publishDiagnostics.relatedInformation;
+        !!capabilities.textDocument &&
+        !!capabilities.textDocument.publishDiagnostics &&
+        !!capabilities.textDocument.publishDiagnostics.relatedInformation;
 
     return {
         capabilities: {
@@ -146,6 +146,14 @@ function* semicolonSplit(s: string) {
     yield { last: true, segment: s };
 }
 
+/**
+ * Overrides the error reporting function
+ * to prevent issues with nontermination w/ Nearly
+ */
+interface C0Parser extends nearley.Parser {
+    reportError: (token: any) => string;
+}
+
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     // In this simple example we get the settings for every validate run.
     let settings = await getDocumentSettings(textDocument.uri);
@@ -157,7 +165,9 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     let problems = 0;
     let diagnostics: Diagnostic[] = [];
 
-    const parser: any = new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
+    const parser = <C0Parser>new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
+
+    // C0/C1 use the same lexer, so no point changing it here 
     const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
     // Overwrite the reportError function cause otherwise it loops :(
     parser.reportError = function(token: any) {
@@ -166,7 +176,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 
     // Send through the parser semicolon-by-semicolon
     const segments = semicolonSplit(text);
-    let parsed: boolean = true;
+    let parsed = true;
     let decls: parsed.Declaration[] = [];
     let size = 0;
     let curOffset = 0;
