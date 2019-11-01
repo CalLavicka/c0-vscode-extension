@@ -164,7 +164,7 @@ function* semicolonSplit(s: string) {
 
 /**
  * Overrides the error reporting function
- * to prevent issues with nontermination w/ Nearly
+ * to prevent issues with nontermination w/ Nearley
  */
 interface C0Parser extends nearley.Parser {
     reportError: (token: any) => string;

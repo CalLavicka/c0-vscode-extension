@@ -176,18 +176,26 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 const env = getEnvironmentFromParams(genv, decl.params);
                 const defined = getDefinedFromParams(decl.params);
                 for (let anno of decl.preconditions) {
-                    checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
-                    checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
-                        functionsUsed.add(x)
-                    );
+                    try {
+                        checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
+                        checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
+                            functionsUsed.add(x)
+                        );
+                    } catch(err) {
+                        errors.add(err);
+                    }
                 }
                 for (let anno of decl.postconditions) {
-                    checkExpression(genv, env, { tag: "@ensures", returns: decl.returns }, anno, {
-                        tag: "BoolType"
-                    });
-                    checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
-                        functionsUsed.add(x)
-                    );
+                    try {
+                        checkExpression(genv, env, { tag: "@ensures", returns: decl.returns }, anno, {
+                            tag: "BoolType"
+                        });
+                        checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
+                            functionsUsed.add(x)
+                        );
+                    } catch(err) {
+                        errors.add(err);
+                    }
                 }
 
                 // Check previous functions match
@@ -241,7 +249,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 });
 
                 try {
-                    checkStatement(genv, env, decl.body, decl.returns, false);
+                    checkStatement(genv, env, decl.body, decl.returns, false, errors);
                     let constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
@@ -252,7 +260,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                     const functionAnalysis = checkStatementFlow(defined, constants, defined, decl.body);
                     if (decl.returns.tag !== "VoidType" && !functionAnalysis.returns) {
                         errors.add(new TypingError(
-                            decl.body,
+                            decl.id,
                             `function ${decl.id.name} has non-void return type but does not return along every path`
                         ));
                     }
