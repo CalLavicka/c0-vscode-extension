@@ -400,7 +400,7 @@ connection.onCompletionResolve(
     }
     );
 
-
+/*
 connection.onDidOpenTextDocument((params) => {
     // A text document got opened in VS Code.
     // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
@@ -417,7 +417,7 @@ connection.onDidCloseTextDocument((params) => {
     // A text document got closed in VS Code.
     // params.uri uniquely identifies the document.
     connection.console.log(`${params.textDocument.uri} closed.`);
-});
+});*/
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events
