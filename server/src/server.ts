@@ -295,8 +295,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                         parser.feed(" ");
                     }
 
-                    // *** Missing break? Looks like we're always then 
-                    // feeding a character then a space 
+                    break;
                 default:
                     parser.feed(" ");
                 }
