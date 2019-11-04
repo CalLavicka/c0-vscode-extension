@@ -259,7 +259,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                     if (parsedGlobalDecls.length === 0) { throw new Error(`semicolon at beginning of file`); }
     
                     const possibleTypedef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
-                    if (parsedGlobalDecls.length === size) {
+                    if (parsedGlobalDecls.length === size && segment.semicolon) {
                         addError(null, curOffset, `too many semicolons after a ${possibleTypedef.tag}`, 
                             DiagnosticSeverity.Error);
                     }
@@ -272,9 +272,11 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                             break;
                         }
                         default:
-                            addError(null, curOffset, 
-                                `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
-                                DiagnosticSeverity.Error);
+                            if(segment.semicolon) {
+                                addError(null, curOffset, 
+                                    `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
+                                    DiagnosticSeverity.Error);
+                            }
                     }
                     parser.feed(" ");
                 }
