@@ -221,7 +221,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     // Iterate through semicolon segments
     for (const segment of segments) {
         let parseState = parser.save();
-        curOffset += segment.segment.length;
+        curOffset += segment.segment.length + (segment.semicolon ? 1 : 0);
         try {
             parser.feed(segment.segment);
             const parsed = parser.finish();
@@ -256,29 +256,35 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
                     }
                     decls = decls.concat(parsedGlobalDecls);
                 } else {
-                    if (parsedGlobalDecls.length === 0) { throw new Error(`semicolon at beginning of file`); }
-    
-                    const possibleTypedef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
-                    if (parsedGlobalDecls.length === size && segment.semicolon) {
-                        addError(null, curOffset, `too many semicolons after a ${possibleTypedef.tag}`, 
-                            DiagnosticSeverity.Error);
-                    }
-                    size = parsedGlobalDecls.length;
-    
-                    switch (possibleTypedef.tag) {
-                        case "TypeDefinition":
-                        case "FunctionTypeDefinition": {
-                            lexer.addIdentifier(possibleTypedef.definition.id.name);
-                            break;
+                    if (parsedGlobalDecls.length === 0) {
+                        if (segment.semicolon) {
+                            addError(null, curOffset, `semicolon at beginning of file`, DiagnosticSeverity.Error);
                         }
-                        default:
-                            if(segment.semicolon) {
-                                addError(null, curOffset, 
-                                    `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
-                                    DiagnosticSeverity.Error);
+                    } else {
+                        const possibleTypedef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
+                        if (parsedGlobalDecls.length === size && segment.semicolon) {
+                            addError(null, curOffset, `too many semicolons after a ${possibleTypedef.tag}`, 
+                                DiagnosticSeverity.Error);
+                        }
+                        size = parsedGlobalDecls.length;
+        
+                        switch (possibleTypedef.tag) {
+                            case "TypeDefinition":
+                            case "FunctionTypeDefinition": {
+                                lexer.addIdentifier(possibleTypedef.definition.id.name);
+                                break;
                             }
+                            default:
+                                if(segment.semicolon) {
+                                    addError(null, curOffset, 
+                                        `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
+                                        DiagnosticSeverity.Error);
+                                }
+                        }
                     }
-                    parser.feed(" ");
+                    if (segment.semicolon) {
+                        parser.feed(" ");
+                    }
                 }
             }
         } catch(err) {
