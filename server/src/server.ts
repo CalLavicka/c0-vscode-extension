@@ -23,6 +23,7 @@ import { Lang } from './lang';
 import { checkProgram } from './typecheck/programs';
 import { restrictDeclaration } from './parse/restrictsyntax';
 import { TypingError } from './error';
+import { WordList, handleContextChange } from './word-list';
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {
@@ -134,6 +135,7 @@ documents.onDidClose(e => {
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
     validateTextDocument(change.document);
+    handleContextChange(change);
 });
 
 function* semicolonSplit(s: string) {
@@ -378,18 +380,7 @@ connection.onCompletion(
         // The pass parameter contains the position of the text document in
         // which code complete got requested. For the example we ignore this
         // info and always provide the same completion items.
-        return [
-            {
-                label: 'TypeScript',
-                kind: CompletionItemKind.Text,
-                data: 1
-            },
-            {
-                label: 'JavaScript',
-                kind: CompletionItemKind.Text,
-                data: 2
-            }
-        ];
+        return WordList.getList();
     }
     );
 
