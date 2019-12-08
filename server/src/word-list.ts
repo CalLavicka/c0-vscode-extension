@@ -14,7 +14,6 @@ import {
     Position,
     TextDocumentChangeEvent
 } from 'vscode-languageserver';
-// import * as Trie from 'triejs';
 
 // A data structure to keep track of the words used in this file
 // We currently use a set, can be changed to a trie for more efficient lookup
