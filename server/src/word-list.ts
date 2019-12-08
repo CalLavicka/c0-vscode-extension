@@ -1,63 +1,62 @@
-
 import {
-    createConnection,
-    TextDocuments,
     TextDocument,
-    Diagnostic,
-    DiagnosticSeverity,
-    ProposedFeatures,
-    InitializeParams,
-    DidChangeConfigurationNotification,
     CompletionItem,
     CompletionItemKind,
-    TextDocumentPositionParams,
-    Position,
     TextDocumentChangeEvent
 } from 'vscode-languageserver';
 
 // A data structure to keep track of the words used in this file
 // We currently use a set, can be changed to a trie for more efficient lookup
 class WordListClass {
-    set : Set<string>;
-    
+
+    // The keywords 
+    keywords : Set<string>;
+
+    // A mapping from files to the words in that file
+    dictionary: Map<TextDocument, Set<string>>;
+
     /**
      * Initialize the list to only contain the keywords
      *
-     * @param {string} word
+     * @param {string[]} word
+     * 
      */
+
     constructor(word: string[]) {
-        this.set = new Set();
+        this.keywords = new Set();
         for (let w of word) {
-          this.set.add(w);
+          this.keywords.add(w);
+        }
+        this.dictionary = new Map();
+    }
+
+    /**
+     * Add word to the autocomplete list for that particular document
+     *
+     * @param {string} word
+     * @param {TextDocument} d
+     * 
+     */
+    addWord(word: string, d: TextDocument) {
+
+        if (!this.dictionary.has(d)) {
+          this.dictionary.set(d,new Set());
+        }
+        if (this.dictionary.has(d)) {
+          this.dictionary.get(d)!.add(word);
         }
     }
 
     /**
-     * Add word to the autocomplete list
-     *
-     * @param {string} word
+     * Clear the set associated with a particular document 
+     * @param {TextDocument} d
+     * 
      */
-    addWord(word: string) {
-        // Active word is used to hide the given word from the autocomplete.
-        const item : CompletionItem = {label: word, kind: CompletionItemKind.Text};
-        this.set.add(word);
-    }
-
-    /**
-     * Remove word from the search index.
-     *
-     * @param {string} word
-     */
-    removeWord(word: string) {
-      this.set.delete(word);
-    }
-
-    /**
-     * Clear the wordlist
-     *
-     */
-    clear(){
-      this.set.clear();
+    clear(d: TextDocument){
+      if (this.dictionary.has(d)) {
+        this.dictionary.get(d)!.clear();      
+      }
+      
     }
 
     /**
@@ -65,11 +64,21 @@ class WordListClass {
      *
      */
     getList() : CompletionItem[] {
+      let set = new Set<string>();
       let res : CompletionItem[] = [];
-      for (let w of this.set.values()) {
-        res.push({label: w, kind: CompletionItemKind.Text});
+      for (let docWords of this.dictionary.values()) {
+        for (let word of docWords.values()){
+          set.add(word);
+        }
+      }
+      for (let word of this.keywords.values()){
+        set.add(word);
       }
 
+      for (let word of set.values()){
+        res.push({label: word, kind: CompletionItemKind.Text});
+      }
+      
       return res;
     }
 }
@@ -80,14 +89,11 @@ class WordListClass {
  * @param {TextDocumentChangeEvent} e
  */
 export function handleContextChange(e: TextDocumentChangeEvent) {
-    WordList.clear();
-    for (let w of keyWords) {
-      WordList.addWord(w);
-    }
+    WordList.clear(e.document);
     let text = e.document.getText();
     let words = text.split(/[^a-zA-Z\d\_]+/);
     for (let word of words) {
-        WordList.addWord(word);
+        WordList.addWord(word, e.document);
     }    
 }
 
