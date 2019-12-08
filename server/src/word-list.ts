@@ -18,12 +18,12 @@ import {
 
 
 class WordListClass {
-    set : Set<CompletionItem>;
+    set : Set<string>;
     
     constructor(word: string[]) {
         this.set = new Set();
         for (let w of word) {
-            this.set.add({label: w, kind: CompletionItemKind.Text});
+          this.set.add(w);
         }
     }
     /**
@@ -36,7 +36,7 @@ class WordListClass {
     addWord(word: string, document: TextDocument) {
         // Active word is used to hide the given word from the autocomplete.
         const item : CompletionItem = {label: word, kind: CompletionItemKind.Text};
-        this.set.add(item);
+        this.set.add(word);
     }
     /**
      * Remove word from the search index.
@@ -45,19 +45,23 @@ class WordListClass {
      * @param {any} trie
      */
     removeWord(word: string, document: TextDocument) {
-        this.set.delete({label: word, kind: CompletionItemKind.Text});
+      this.set.delete(word);
     }
 
     getList() : CompletionItem[] {
-        return Array.from(this.set.values());
+      let res : CompletionItem[] = [];
+      for (let w of this.set.values()) {
+        res.push({label: w, kind: CompletionItemKind.Text});
+      }
+
+      return res;
     }
 }
 
 
 export function handleContextChange(e: TextDocumentChangeEvent) {
     let text = e.document.getText();
-    let words = text.split(/[\s;>]+/);
-    console.log(words[0]);
+    let words = text.split(/[^a-zA-Z\d\_]+/);
     for (let word of words) {
         WordList.addWord(word, e.document);
     }
@@ -89,6 +93,6 @@ const keyWords: string[] = [
     "requires",
     "ensures",
     "loop_invariant"
-]
+];
 
 export const WordList = new WordListClass(keyWords);
