@@ -9,7 +9,6 @@
 		"vscode-languageserver": "^5.2.1",
 		"moo": "^0.4.3",
 		"nearley": "^2.15.1",
-		"triejs": "^0.1.5"
 	},
 	"scripts": {
 		"nearley:expression": "nearleyc syntax/expression.ne -o src/expression-rules.ts",
