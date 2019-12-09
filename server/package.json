@@ -8,7 +8,7 @@
 	"dependencies": {
 		"vscode-languageserver": "^5.2.1",
 		"moo": "^0.4.3",
-		"nearley": "^2.15.1",
+		"nearley": "^2.15.1"
 	},
 	"scripts": {
 		"nearley:expression": "nearleyc syntax/expression.ne -o src/expression-rules.ts",

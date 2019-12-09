@@ -17,13 +17,13 @@ import { listeners } from 'cluster';
 import * as nearley from 'nearley';
 import grammar from './program-rules';
 import * as parsed from "./parse/parsedsyntax";
-import { TypeLexer } from './lex';
+import { TypeLexer, basicLexing } from './lex';
 import * as ast from "./ast";
 import { Lang } from './lang';
 import { checkProgram } from './typecheck/programs';
 import { restrictDeclaration } from './parse/restrictsyntax';
 import { TypingError } from './error';
-import { WordList, handleContextChange } from './word-list';
+import { WordListClass } from './word-list';
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {
@@ -45,6 +45,7 @@ let documents: TextDocuments = new TextDocuments();
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
 let hasDiagnosticRelatedInformationCapability: boolean = false;
+const WordList: WordListClass = new WordListClass(basicLexing.identifier.keywords.keyword);
 
 connection.onInitialize((params: InitializeParams) => {
     let capabilities = params.capabilities;
@@ -59,6 +60,7 @@ connection.onInitialize((params: InitializeParams) => {
         !!capabilities.textDocument &&
         !!capabilities.textDocument.publishDiagnostics &&
         !!capabilities.textDocument.publishDiagnostics.relatedInformation;
+
 
     return {
         capabilities: {
@@ -135,7 +137,7 @@ documents.onDidClose(e => {
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
     validateTextDocument(change.document);
-    handleContextChange(change);
+    WordList.handleContextChange(change);
 });
 
 function* semicolonSplit(s: string) {
