@@ -12,7 +12,7 @@ import { Lang } from "./lang";
  *  2. Contain the character ` outside of a string/char/comment.
  *  3. Contain characters outside of the UTF-8 range.
  */
-const basicLexing = {
+export const basicLexing = {
     identifier: {
         match: /[A-Za-z_][A-Za-z0-9_]*/,
         keywords: {
