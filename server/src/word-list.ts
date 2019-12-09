@@ -60,13 +60,13 @@ export class WordListClass {
      */
     getList() : CompletionItem[] {
         let set = new Set<string>();
-        this.dictionary.forEach((docWords) => docWords.forEach((v)=>{set.add(v);}))
+        this.dictionary.forEach((docWords) => docWords.forEach((v)=>{set.add(v);}));
 
         // Get the keywords
         this.keywords.forEach((v)=>{set.add(v);});
         
         let res : CompletionItem[] = [];
-        set.forEach((word) => res.push({label: word, kind: CompletionItemKind.Text}))
+        set.forEach((word) => res.push({label: word, kind: CompletionItemKind.Text}));
         
         return res;
     }
