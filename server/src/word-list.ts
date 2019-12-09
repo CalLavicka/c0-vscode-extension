@@ -21,7 +21,6 @@ export class WordListClass {
      */
 
     constructor() {
-        // this.keywords = new Set();
         this.dictionary = new Map();
     }
 
@@ -88,8 +87,3 @@ export class WordListClass {
         words.forEach(w => this.addWord(w, e.document));
     }
 }
-
-
-
-
-// export const WordList = new WordListClass(keywords);
