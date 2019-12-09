@@ -9,15 +9,15 @@ import {
 // We currently use a set, can be changed to a trie for more efficient lookup
 export class WordListClass {
     // The keywords 
-    keywords : Set<string>;
+    private keywords : Set<string>;
 
     // A mapping from files to the words in that file
-    dictionary: Map<TextDocument, Set<string>>;
+    private dictionary: Map<TextDocument, Set<string>>;
 
     /**
      * Initialize the list to only contain the keywords
      *
-     * @param {string[]} word
+     * @param {string[]} keywords
      * 
      */
 
