@@ -17,7 +17,7 @@ import { listeners } from 'cluster';
 import * as nearley from 'nearley';
 import grammar from './program-rules';
 import * as parsed from "./parse/parsedsyntax";
-import { TypeLexer } from './lex';
+import { TypeLexer, basicLexing } from './lex';
 import * as ast from "./ast";
 import { Lang } from './lang';
 import { checkProgram } from './typecheck/programs';
@@ -45,7 +45,7 @@ let documents: TextDocuments = new TextDocuments();
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
 let hasDiagnosticRelatedInformationCapability: boolean = false;
-const WordList: WordListClass = new WordListClass();
+const WordList: WordListClass = new WordListClass(basicLexing.identifier.keywords.keyword);
 
 connection.onInitialize((params: InitializeParams) => {
     let capabilities = params.capabilities;

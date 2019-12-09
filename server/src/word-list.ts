@@ -4,11 +4,12 @@ import {
     CompletionItemKind,
     TextDocumentChangeEvent
 } from 'vscode-languageserver';
-import { basicLexing } from './lex'
 
 // A data structure to keep track of the words used in this file
 // We currently use a set, can be changed to a trie for more efficient lookup
 export class WordListClass {
+    // The keywords 
+    keywords : Set<string>;
 
     // A mapping from files to the words in that file
     dictionary: Map<TextDocument, Set<string>>;
@@ -20,7 +21,11 @@ export class WordListClass {
      * 
      */
 
-    constructor() {
+    constructor(keywords: string[]) {
+        this.keywords = new Set();
+        for (let w of keywords) {
+          this.keywords.add(w);
+        }
         this.dictionary = new Map();
     }
 
@@ -55,19 +60,21 @@ export class WordListClass {
      */
     getList() : CompletionItem[] {
         let set = new Set<string>();
-        for (let docWords of this.dictionary.values()) {
-            for (let word of docWords.values()){
-                set.add(word);
-            }
-        }
+        this.dictionary.forEach((docWords) => docWords.forEach(set.add))
+        // for (let docWords of this.dictionary.values()) {
+        //     for (let word of docWords.values()){
+        //         set.add(word);
+        //     }
+        // }
 
         // Get the keywords
-        basicLexing.identifier.keywords.keyword.forEach(set.add);
+        this.keywords.forEach(set.add);
         
         let res : CompletionItem[] = [];
-        for (let word of set.values()){
-            res.push({label: word, kind: CompletionItemKind.Text});
-        }
+        set.forEach((word) => res.push({label: word, kind: CompletionItemKind.Text}))
+        // for (let word of set.values()){
+        //     res.push({label: word, kind: CompletionItemKind.Text});
+        // }
         
         return res;
     }
