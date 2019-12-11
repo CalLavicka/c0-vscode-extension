@@ -9,7 +9,7 @@ import {
 // We currently use a set, can be changed to a trie for more efficient lookup
 export class WordListClass {
     // The keywords 
-    private keywords : Set<string>;
+    private keywords: Set<string>;
 
     // A mapping from files to the words in that file
     private dictionary: Map<TextDocument, Set<string>>;
@@ -20,11 +20,10 @@ export class WordListClass {
      * @param {string[]} keywords
      * 
      */
-
     constructor(keywords: string[]) {
         this.keywords = new Set();
         for (let w of keywords) {
-          this.keywords.add(w);
+            this.keywords.add(w);
         }
         this.dictionary = new Map();
     }
@@ -38,7 +37,7 @@ export class WordListClass {
      */
     addWord(word: string, d: TextDocument) {
         if (!this.dictionary.has(d)) {
-          this.dictionary.set(d,new Set());
+            this.dictionary.set(d, new Set());
         }
         this.dictionary.get(d)!.add(word);
     }
@@ -48,9 +47,9 @@ export class WordListClass {
      * @param {TextDocument} d
      * 
      */
-    clear(d: TextDocument){
+    clear(d: TextDocument) {
         if (this.dictionary.has(d)) {
-            this.dictionary.get(d)!.clear();      
+            this.dictionary.get(d)!.clear();
         }
     }
 
@@ -58,19 +57,19 @@ export class WordListClass {
      * Return the WordList as a list
      *
      */
-    getList() : CompletionItem[] {
+    getList(): CompletionItem[] {
         let set = new Set<string>();
-        this.dictionary.forEach((docWords) => docWords.forEach((v)=>{set.add(v);}));
+        this.dictionary.forEach((docWords) => docWords.forEach((v) => { set.add(v); }));
 
         // Get the keywords
-        this.keywords.forEach((v)=>{set.add(v);});
-        
-        let res : CompletionItem[] = [];
-        set.forEach((word) => res.push({label: word, kind: CompletionItemKind.Text}));
-        
+        this.keywords.forEach((v) => { set.add(v); });
+
+        let res: CompletionItem[] = [];
+        set.forEach((word) => res.push({ label: word, kind: CompletionItemKind.Text }));
+
         return res;
     }
-        
+
     /**
     * When the contents of a document are changed, regenerate the WordList
     *
@@ -78,7 +77,7 @@ export class WordListClass {
     */
     handleContextChange(e: TextDocumentChangeEvent) {
         if (this.dictionary.has(e.document)) {
-            this.dictionary.get(e.document)!.clear();      
+            this.dictionary.get(e.document)!.clear();
         }
 
         let text = e.document.getText();
