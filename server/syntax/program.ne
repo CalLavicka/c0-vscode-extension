@@ -16,7 +16,7 @@ GlobalDecl  -> %pragma
                                            {% util.StructDefinition %}
              | Tp _ Identifier _ "(" FunDeclArgs ")" _Annos _ FunDeclEnd
                                            {% util.FunctionDeclaration %}
-             | "typedef" _ Tp _ Identifier # Omits trailing semicolon
+             | "typedef" _ Tp _ Identifier _ # Omits trailing semicolon
                                            {% util.TypeDefinition %}
              | "typedef" _ Tp _ Identifier _ "(" FunDeclArgs ")" _Annos # Also omits trailing semicolon
                                            {% util.FunctionTypeDefinition %}
