@@ -287,7 +287,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)
-        restrictedDecls.push(restrictDeclaration("C1", decl));
+        restrictedDecls = restrictedDecls.concat(restrictDeclaration("C1", decl));
       } 
       catch (err) {
         errors.add(err);

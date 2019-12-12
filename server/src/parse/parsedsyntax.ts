@@ -286,7 +286,14 @@ export interface BlockStatement extends Syn {
     readonly body: Statement[];
 }
 
-export type Declaration = FunctionDeclaration | StructDeclaration | TypeDefinition | FunctionTypeDefinition;
+export type Declaration = 
+    | FunctionDeclaration 
+    | StructDeclaration 
+    | TypeDefinition 
+    | FunctionTypeDefinition
+    | PragmaUseLib 
+    | PragmaUseFile
+    | PragmaUnknown;
 
 export interface VariableDeclarationOnly extends Syn {
     readonly tag: "VariableDeclaration";
@@ -317,4 +324,19 @@ export interface TypeDefinition extends Syn {
 export interface FunctionTypeDefinition extends Syn {
     readonly tag: "FunctionTypeDefinition";
     readonly definition: FunctionDeclaration & { body: null };
+}
+
+export interface PragmaUseLib extends Syn {
+    readonly tag: "PragmaUseLib";
+    readonly name: string;
+}
+
+export interface PragmaUseFile extends Syn {
+    readonly tag: "PragmaUseFile";
+    readonly path: string;
+}
+
+export interface PragmaUnknown extends Syn {
+    readonly tag: "PragmaUnknown";
+    readonly text: string;
 }

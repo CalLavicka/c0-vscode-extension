@@ -701,15 +701,23 @@ export function restrictParams(
     }));
 }
 
-export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Declaration {
-    if (typeof decl === "string") { return decl; }
+export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Declaration[] {
+    // Should be impossible...
+    //if (typeof decl === "string") { return decl; }
     switch (decl.tag) {
+        case "PragmaUseLib": {
+            return [];
+        }
+        case "PragmaUnknown": {
+            console.warn("Unknown pragma", decl);
+            return [];
+        }
         case "FunctionDeclaration": {
             if (decl.body === null) { atleast(decl, lang, "L3", "function declarations"); }
             if (decl.id.name !== "main") { atleast(decl, lang, "L3", "functions aside from 'main'"); }
 
             const annos = restrictFunctionAnnos(lang, decl.annos);
-            return {
+            return [{
                 tag: "FunctionDeclaration",
                 returns: restrictType(lang, decl.returns),
                 id: decl.id,
@@ -724,13 +732,13 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                               body: decl.body.body.map(x => restrictStatement(lang, x)),
                               loc: decl.body.loc
                           }
-            };
+            }];
         }
         case "FunctionTypeDefinition": {
             atleast(decl, lang, "C1", "function types");
 
             const annos = restrictFunctionAnnos(lang, decl.definition.annos);
-            return {
+            return [{
                 tag: "FunctionTypeDefinition",
                 definition: {
                     tag: "FunctionDeclaration",
@@ -743,20 +751,20 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                     loc: decl.definition.loc
                 },
                 loc: decl.loc
-            };
+            }];
         }
         case "StructDeclaration": {
             atleast(decl, lang, "L4", "structs");
-            return {
+            return [{
                 tag: "StructDeclaration",
                 id: decl.id,
                 definitions: decl.definitions === null ? null : restrictParams(lang, decl.definitions),
                 loc: decl.loc
-            };
+            }];
         }
         case "TypeDefinition": {
             atleast(decl, lang, "L3", "typedefs");
-            return {
+            return [{
                 tag: "TypeDefinition",
                 definition: {
                     tag: "VariableDeclaration",
@@ -765,7 +773,7 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                     loc: decl.definition.loc
                 },
                 loc: decl.loc
-            };
+            }];
         }
         default:
             throw new ImpossibleError("impossible");

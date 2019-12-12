@@ -268,7 +268,7 @@ const grammar: Grammar = {
     {"name": "Program$ebnf$1", "symbols": ["Program$ebnf$1", "_GlobalDecl"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "Program", "symbols": ["Program$ebnf$1", "_"], "postprocess": x => x[0]},
     {"name": "_GlobalDecl", "symbols": ["_", "GlobalDecl"], "postprocess": x => x[1]},
-    {"name": "GlobalDecl", "symbols": [(lexer.has("pragma") ? {type: "pragma"} : pragma)]},
+    {"name": "GlobalDecl", "symbols": [(lexer.has("pragma") ? {type: "pragma"} : pragma)], "postprocess": util.PragmaDeclaration},
     {"name": "GlobalDecl", "symbols": [{"literal":"struct"}, "_", "StructName", "_", {"literal":";"}], "postprocess": util.StructDeclaration},
     {"name": "GlobalDecl$ebnf$1", "symbols": []},
     {"name": "GlobalDecl$ebnf$1$subexpression$1", "symbols": ["Tp", "_", "FieldName", "_", {"literal":";"}, "_"]},
