@@ -12,27 +12,10 @@ import {
     TextDocumentPositionParams,
     Position
 } from 'vscode-languageserver';
-import { listeners } from 'cluster';
 
-import * as nearley from 'nearley';
-import grammar from './program-rules';
-import * as parsed from "./parse/parsedsyntax";
-import { TypeLexer, basicLexing } from './lex';
-import * as ast from "./ast";
-import { Lang } from './lang';
-import { checkProgram } from './typecheck/programs';
-import { restrictDeclaration } from './parse/restrictsyntax';
-import { TypingError } from './error';
+import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
-
-// Overwrite nearley's error reporting because it is broken
-function myReportError(parser: nearley.Parser, token: any) {
-    var lines: string[] = [];
-    var tokenDisplay = (token.type ? token.type + " token: " : "") + JSON.stringify(token.value !== undefined ? token.value : token);
-    lines.push(parser.lexer.formatError(token, "Syntax error"));
-    lines.push('Unexpected ' + tokenDisplay + '.');
-    return lines.join("\n");
-}
+import { validateTextDocument } from "./validate-program";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -136,240 +119,19 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-    validateTextDocument(change.document);
+    validateTextDocument(change.document)
+        .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
+
     WordList.handleContextChange(change);
 });
 
-function* semicolonSplit(s: string) {
-    const normRegex = /(;|\/\/|\/\*)/g;
-    const cmtRegex = /(;|\n|\*\/)/g;
-    let ndx = s.search(normRegex);
-    let inComment = false;
-    while (ndx >= 0) {
-        const semi = s.charAt(ndx) === ';';
-        if (inComment && s.charAt(ndx) === '\n') {
-            ndx++;
-        } else if (inComment && s.charAt(ndx) === '*') {
-            ndx += 2;
-        }
-        yield { last: false, segment: s.slice(0, ndx), semicolon: semi};
-        s = s.slice(ndx + (semi ? 1 : 0));
-        if (!semi) {
-            inComment = !inComment;
-        }
-        if (inComment) {
-            ndx = s.search(cmtRegex);
-        } else {
-            ndx = s.search(normRegex);
-        }
-    }
-    yield { last: true, segment: s, semicolon: true };
-}
 
-/**
- * Overrides the error reporting function
- * to prevent issues with nontermination w/ Nearley
- */
-interface C0Parser extends nearley.Parser {
-    reportError: (token: any) => string;
-}
+// function validateTextDocument(textDocument: TextDocument) {
+//     // Send the computed diagnostics to VS Code.
 
-async function validateTextDocument(textDocument: TextDocument): Promise<void> {
-    // The validator creates diagnostics for all uppercase words length 2 and more
-    let text = textDocument.getText();
-    const lines = text.split("\n");
 
-    let problems = 0;
-    let diagnostics: Diagnostic[] = [];
-
-    const parser = <C0Parser>new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
-    // Overwrite the reportError function cause otherwise it loops :(
-    parser.reportError = function(token: any) {
-        return myReportError(this, token);
-    };
-
-    // C0/C1 use the same lexer, so no point changing it here 
-    const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
-
-    // Send through the parser semicolon-by-semicolon
-    const segments = semicolonSplit(text);
-    let parsed = true;
-    let decls: parsed.Declaration[] = [];
-    let size = 0;
-    let curOffset = 0;
-
-    // Function to add a diagnostic for a parse error
-    function addError(line: number | null, columnOrOffset: number,
-        message: string, severity: DiagnosticSeverity) {
-        
-        const pos: Position = 
-            line === null 
-                ? textDocument.positionAt(columnOrOffset) 
-                : Position.create(line, columnOrOffset);
-
-        const diagnostic: Diagnostic = {
-            severity,
-            message,
-            source: 'c0-language',
-            range: {
-                start: pos,
-                end: pos
-            }
-        };
-
-        problems++;
-        diagnostics.push(diagnostic);
-        parsed = false;
-    }
-
-    // Iterate through semicolon segments
-    for (const segment of segments) {
-        let parseState = parser.save();
-        curOffset += segment.segment.length + (segment.semicolon ? 1 : 0);
-        try {
-            parser.feed(segment.segment);
-            const parsed = parser.finish();
-            if (parsed.length > 1) {
-                console.error("Parse ambiguous:", parsed);
-            } else if (parsed.length === 0) {
-                if (segment.last) {
-                    addError(null, curOffset, "Incomplete parse at the end of the file", DiagnosticSeverity.Warning);
-                } else if (segment.semicolon) {
-                    parser.feed(";");
-                }
-            } else {
-                // parsed.length === 1
-                const parsedGlobalDecls = parsed[0];
-                for (let i = size; i < parsedGlobalDecls.length - 1; i++) {
-                    if (parsedGlobalDecls[i].tag === "TypeDefinition" ||
-                        parsedGlobalDecls[i].tag === "FunctionTypeDefinition") {
-                        addError(null, curOffset, `typedef is missing its trailing semicolon`, DiagnosticSeverity.Error);
-                    }
-                }
-                if (segment.last) {
-                    if (parsedGlobalDecls.length > size) {
-                        const possibleTypeDef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
-                        if (
-                            possibleTypeDef.tag === "TypeDefinition" ||
-                            possibleTypeDef.tag === "FunctionTypeDefinition"
-                        ) {
-                            addError(null, curOffset, 
-                                `typedef without a final semicolon at the end of the file`, 
-                                DiagnosticSeverity.Error);
-                        }
-                    }
-                    decls = decls.concat(parsedGlobalDecls);
-                } else {
-                    if (parsedGlobalDecls.length === 0) {
-                        if (segment.semicolon) {
-                            addError(null, curOffset, `semicolon at beginning of file`, DiagnosticSeverity.Error);
-                        }
-                    } else {
-                        const possibleTypedef: ast.Declaration = parsedGlobalDecls[parsedGlobalDecls.length - 1];
-                        if (parsedGlobalDecls.length === size && segment.semicolon) {
-                            addError(null, curOffset, `too many semicolons after a ${possibleTypedef.tag}`, 
-                                DiagnosticSeverity.Error);
-                        }
-                        size = parsedGlobalDecls.length;
-        
-                        switch (possibleTypedef.tag) {
-                            case "TypeDefinition":
-                            case "FunctionTypeDefinition": {
-                                lexer.addIdentifier(possibleTypedef.definition.id.name);
-                                break;
-                            }
-                            default:
-                                if(segment.semicolon) {
-                                    addError(null, curOffset, 
-                                        `unnecessary semicolon at the top level after ${possibleTypedef.tag}`,
-                                        DiagnosticSeverity.Error);
-                                }
-                        }
-                    }
-                    if (segment.semicolon) {
-                        parser.feed(" ");
-                    }
-                }
-            }
-        } catch(err) {
-            // Restore old state before the bad line
-            parser.restore(parseState);
-            for (const ch of segment.segment) {
-                switch(ch) {
-                case '\n':
-                case '{':
-                case '}':
-                    parseState = parser.save();
-                    try {
-                        parser.feed(ch);
-                    } catch(err) {
-                        parser.restore(parseState);
-                        parser.feed(" ");
-                    }
-
-                    break;
-                default:
-                    parser.feed(" ");
-                }
-            }
-            if (segment.semicolon) {
-                parser.feed(" ");
-            }
-            addError(err.token.line - 1, err.token.col - 1, err.message, DiagnosticSeverity.Error);
-        }
-    }
-
-    if (parsed) {
-        let errors = new Set<TypingError>();
-        let restrict = new Array<ast.Declaration>();
-        decls.forEach(decl => {
-            try {
-                restrict.push(restrictDeclaration("C1", decl));
-            } catch(err) {
-                errors.add(err);
-            }
-        });
-        
-        if (errors.size === 0) {
-            errors = checkProgram([], restrict);
-        }
-
-        // Show all of the errors gathered
-        errors.forEach(error => {
-            if (error.loc !== null && error.loc !== undefined) {
-                const diagnostic: Diagnostic = {
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: Position.create(error.loc.start.line - 1, error.loc.start.column - 1),
-                        end: Position.create(error.loc.end.line - 1, error.loc.end.column - 1)
-                    },
-                    message: error.message,
-                    source: 'c0-language'
-                };
-                diagnostics.push(diagnostic);
-            }
-        });
-    }
-    
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].length > 80) {
-            // More than 80 characters, so underline
-            const diagnostic: Diagnostic = {
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: Position.create(i, 0),
-                    end: Position.create(i, Number.MAX_VALUE)
-                },
-                message: `There are ${lines[i].length} characters in this line.\nPlease lower it to < 80.`,
-                source: 'c0-language'
-            };
-            diagnostics.push(diagnostic);
-        }
-    }
-
-    // Send the computed diagnostics to VS Code.
-    connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
-}
+//     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+// }
 
 connection.onDidChangeWatchedFiles(_change => {
     // Monitored files have change in VS Code
