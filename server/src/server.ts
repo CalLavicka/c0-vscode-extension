@@ -142,9 +142,9 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         
         // This indicates that the user hovered over something that
         // wasn't an indentifier 
-        if (searchResult === null) return null;
+        if (searchResult === null || searchResult.data === null) return null;
 
-        const { name, type } = searchResult;
+        const { name, type } = searchResult.data;
 
         return {
             contents: {
