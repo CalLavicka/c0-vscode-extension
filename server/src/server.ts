@@ -10,12 +10,16 @@ import {
     CompletionItem,
     CompletionItemKind,
     TextDocumentPositionParams,
-    Position
+    Hover
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
+import { AnnoStatement } from './parse/parsedsyntax';
+
+import { Position, isInside, findStatement } from "./ast";
+import { typeToString } from './print';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -45,7 +49,8 @@ connection.onInitialize((params: InitializeParams) => {
             // Tell the client that the server supports code completion
             completionProvider: {
                 resolveProvider: true
-            }
+            },
+            hoverProvider: true
         }
     };
 });
@@ -109,6 +114,50 @@ connection.onCompletion(
 // This handler resolves additional information for the item selected in
 // the completion list.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => item);
+
+// connection.onHover((data: TextDocumentPositionParams): Hover | null => {
+//     const decls = openFiles.get(data.textDocument.uri);
+//     // Indicates no successful parse so far 
+//     if (decls === undefined) { return null; }
+
+//     // Note that VSCode 0-indexes positions,
+//     // so to be compatible with nearley we must
+//     // add 1 
+//     const hoverPos: Position = {
+//         column: data.position.character + 1,
+//         line: data.position.line + 1
+//     };
+
+//     // Search for which function we are in now
+//     // PERF: Cache the last function we found ourselves in
+//     // since it is likely we will return to it immediately after
+//     // That being said, this code is fairly efficient in my opinion
+//     for (const decl of decls.decls) {
+//         if (decl.tag !== "FunctionDeclaration") continue;
+//         if (decl.body === null) continue;
+
+//         if (!isInside(hoverPos, decl.body.loc)) continue;
+
+//         const searchResult = findStatement(decl.body, null, { pos: hoverPos, genv: decls });
+        
+//         // This indicates that the user hovered over something that
+//         // wasn't an indentifier 
+//         if (searchResult === null) return null;
+
+//         const { name, type } = searchResult;
+
+//         return {
+//             contents: {
+//                 kind: "markdown",
+//                 // FIXME: can we put C0 as the language? 
+//                 // using c++ for now so string gets highlighted
+//                 value: `\`\`\`cpp\n${name}: ${typeToString(type)}\n\`\`\``
+//             }
+//         };
+//     }
+
+//     return null;
+// });
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

@@ -15,6 +15,7 @@ import { checkExpression } from "./expressions";
 import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
 import { TypingError, ImpossibleError } from "../error";
+import { Either, Right, Left } from "../util";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
@@ -308,7 +309,9 @@ export function checkProgramFragment(libs: ast.Declaration[], decls: ast.Declara
     return genv;
 }
 
-export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]): Set<TypingError> {
+export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
+
+export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]): TypecheckResult {
     const genv = initMain();
     const functionsUsed = new Set<string>();
     const errors = new Set<TypingError>();
@@ -333,5 +336,10 @@ export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]):
         }
     );
 
-    return errors;
+    if (errors.size === 0) {
+        return Right(genv);
+    }
+    else {
+        return Left(errors);
+    }
 }

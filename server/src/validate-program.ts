@@ -20,12 +20,13 @@ import grammar from './program-rules';
 
 import "./util";
 import { Nothing } from "./util";
+import { GlobalEnv } from "./typecheck/globalenv";
 
 /** 
  * Map from TextDocument URI's to their last 
  * good ASTs. 
  */
-export const openFiles: Map<string, ast.Declaration[]> = new Map();
+export const openFiles: Map<string, GlobalEnv> = new Map();
 
 // Max length a line can be before we produce a diagnostic
 const MAX_LINE_LENGTH = 80;
@@ -288,7 +289,13 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
     // Finally, we run the typechecker
     if (errors.size === 0) {
-      errors = checkProgram([], restrictedDecls);
+      const typecheckResult = checkProgram([], restrictedDecls);
+      switch (typecheckResult.tag) {
+        case "left":
+          errors = typecheckResult.error; break;
+        case "right":
+          openFiles.set(textDocument.uri, typecheckResult.result);
+      }
     }
 
     // Show all of the errors gathered
@@ -311,10 +318,6 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
         };
         diagnostics.push(diagnostic);
       }
-    }
-
-    if (errors.size === 0) {
-      ast_map.set(textDocument.uri, restrictedDecls);
     }
   }
 

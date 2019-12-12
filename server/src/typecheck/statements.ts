@@ -5,6 +5,10 @@ import { checkExpression, synthExpression, synthLValue } from "./expressions";
 import { ImpossibleError, TypingError } from "../error";
 import { typeToString } from "../print";
 
+/** 
+ * Checks a group of statements, modifying env
+ * along the way
+ */
 function checkStatements(
     genv: GlobalEnv,
     env: Env,
@@ -102,6 +106,9 @@ export function checkStatement(
             checkStatement(genv, copyEnv(env), stm.body, returning, true, errors);
             return;
         }
+
+        // TODO: for loops can introduce a new variable, so they should
+        // technically also store their environments with them. 
         case "ForStatement": {
             const env0 = copyEnv(env);
             if (stm.init) { checkStatement(genv, env0, stm.init, null, false, errors); }
@@ -146,7 +153,10 @@ export function checkStatement(
             return;
         }
         case "BlockStatement": {
-            checkStatements(genv, copyEnv(env), stm.body, returning, inLoop, errors);
+            const newEnvironment = copyEnv(env);
+
+            checkStatements(genv, newEnvironment, stm.body, returning, inLoop, errors);
+            stm.environment = newEnvironment;
             return;
         }
         case "AssertStatement": {
