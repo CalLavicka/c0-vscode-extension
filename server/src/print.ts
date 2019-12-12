@@ -1,12 +1,6 @@
 import * as ast from "./ast";
 
-export function typeToString(
-    syn:
-        | ast.Type
-        | { tag: "AmbiguousNullPointer" }
-        | { tag: "NamedFunctionType"; definition: ast.FunctionDeclaration }
-        | { tag: "AnonymousFunctionTypePointer"; definition: ast.FunctionDeclaration }
-): string {
+export function typeToString(syn: ast.AnyType): string {
     switch (syn.tag) {
         case "Identifier":
             return syn.name;
@@ -36,6 +30,11 @@ export function typeToString(
             return `((${syn.definition.params.map(x => typeToString(x.kind)).join(",")}) => ${typeToString(
                 syn.definition.returns
             )})*`;
+
+        case "FunctionType":
+            return `${typeToString(syn.definition.returns)} ${syn.definition.id.name}(${
+                syn.definition.params.map(arg => `${typeToString(arg.kind)} ${arg.id.name}`).join(", ")
+            })`;
         default:
             return "Impossible";
     }

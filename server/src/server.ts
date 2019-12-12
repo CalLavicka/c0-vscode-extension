@@ -149,8 +149,6 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         return {
             contents: {
                 kind: "markdown",
-                // FIXME: can we put C0 as the language? 
-                // using c++ for now so string gets highlighted
                 value: `\`\`\`c0\n${name}: ${typeToString(type)}\n\`\`\``
             }
         };
