@@ -464,7 +464,8 @@ export type Declaration =
     | FunctionDeclaration
     | TypeDefinition
     | FunctionTypeDefinition
-    | Pragma;
+    | PragmaUseLib
+    | PragmaUseFile;
 
 /**
  * Struct definitions must have 1 or more definitions.
@@ -506,10 +507,14 @@ export interface FunctionTypeDefinition extends Syn {
     readonly definition: FunctionDeclaration;
 }
 
-export interface Pragma {
-    readonly tag: "Pragma";
-    readonly pragma: string;
-    readonly contents: string;
+export interface PragmaUseLib extends Syn {
+    readonly tag: "PragmaUseLib";
+    readonly name: string;
+}
+
+export interface PragmaUseFile extends Syn {
+    readonly tag: "PragmaUseFile";
+    readonly path: string;
 }
 
 /**

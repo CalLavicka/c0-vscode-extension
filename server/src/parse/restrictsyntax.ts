@@ -705,13 +705,14 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
     // Should be impossible...
     //if (typeof decl === "string") { return decl; }
     switch (decl.tag) {
-        case "PragmaUseLib": {
+        case "PragmaUseFile":
+        case "PragmaUseLib": 
+            return [decl];
+        // Throw away unknown pragmas. 
+        // Could warn about them instead by throwing an exception here
+        case "PragmaUnknown": 
             return [];
-        }
-        case "PragmaUnknown": {
-            console.warn("Unknown pragma", decl);
-            return [];
-        }
+
         case "FunctionDeclaration": {
             if (decl.body === null) { atleast(decl, lang, "L3", "function declarations"); }
             if (decl.id.name !== "main") { atleast(decl, lang, "L3", "functions aside from 'main'"); }

@@ -39,7 +39,13 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
 
 function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<string> {
     switch (decl.tag) {
-        case "Pragma": {
+        case "PragmaUseLib": {
+            // TODO: load library here
+            errors.add(new TypingError(decl, `unsupported library: '#use <${decl.name}>'`));
+            return new Set();
+        }
+        case "PragmaUseFile": {
+            errors.add(new TypingError(decl, `unsupported pragma: '#use "${decl.path}"'`));
             return new Set();
         }
         case "StructDeclaration": {
