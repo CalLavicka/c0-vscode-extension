@@ -527,19 +527,22 @@ export type ConcreteType =
     | { tag: "PointerType" }
     | { tag: "TaggedPointerType" };
 
-export type Ordering = 
-  | "Less"
-  | "Equal"
-  | "Greater"; 
+
+
+export enum Ordering {
+    Less = -1,
+    Equal = 0,
+    Greater = 1
+}
 
 export function comparePositions(a: Position, b: Position): Ordering {
-    if (a.line < b.line) return "Less";
-    if (a.line > b.line) return "Greater";
+    if (a.line < b.line) return Ordering.Less;
+    if (a.line > b.line) return Ordering.Greater;
 
-    if (a.column < b.column) return "Less";
-    if (a.column > b.column) return "Greater";
+    if (a.column < b.column) return Ordering.Less;
+    if (a.column > b.column) return Ordering.Greater;
 
-    return "Equal";
+    return Ordering.Equal;
 }
 
 export function isInside(a: Position, b?: SourceLocation): boolean {
@@ -548,11 +551,7 @@ export function isInside(a: Position, b?: SourceLocation): boolean {
     const start = comparePositions(a, b.start);
     const end = comparePositions(a, b.end);
 
-    const inside = 
-        (start === "Greater" || start === "Equal") &&
-        (end === "Less" || end === "Equal"); 
-
-    return inside;
+    return start >= Ordering.Equal && end <= Ordering.Equal;
 }
 
 export type SearchInfo = {
@@ -640,9 +639,11 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
                     }
                 };
             }
+
+        // TODO: write the other cases
     }
 
-    console.log("couldnt find");
+
     return { environment: currentEnv, data: null };
 }
 
@@ -681,8 +682,9 @@ export function findStatement(s: Statement, currentEnv: Map<string, Type> | null
             if (s.init && isInside(pos, s.init.loc))
                 return findExpression(s.init, currentEnv, info);
             break;
+
+        // TODO: write the other cases
     }
 
-    console.log("couldnt find");
     return { environment: currentEnv, data: null };
 }

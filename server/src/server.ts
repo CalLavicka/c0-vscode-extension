@@ -147,7 +147,7 @@ connection.onCompletion(
                     // For some reason the parser
                     // generates an AST node for the
                     // prototype always...except for main.
-                    // So main won't show in completions,
+                    // So main may or may not show in completions,
                     // but that's fine. C++ doesn't even let
                     // you recursively call main 
                     if (decl.body === null) {

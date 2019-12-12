@@ -272,11 +272,18 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
     let errors = new Set<TypingError>();
     let restrictedDecls = new Array<ast.Declaration>();
 
+    // FIXME: Pragmas are being inserted into
+    // decls as array for some reason instead of 
+    // ast.Pragma object. Need to track down why this is
     for (const decl of decls) {
       try {
         // TODO: If the current document is not a C1
         // document, then we need to update the language
         // level here accordingly.
+        // Should be able to do so using the URI 
+
+        // FIXME: see above about pragmas 
+        if (decl.tag === undefined) continue;
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)
