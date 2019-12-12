@@ -18,9 +18,6 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 import { AnnoStatement } from './parse/parsedsyntax';
 
-import { Position, isInside, findStatement } from "./ast";
-import { typeToString } from './print';
-
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
 let connection = createConnection(ProposedFeatures.all);

@@ -156,7 +156,6 @@ export function checkStatement(
             const newEnvironment = copyEnv(env);
 
             checkStatements(genv, newEnvironment, stm.body, returning, inLoop, errors);
-            stm.environment = newEnvironment;
             return;
         }
         case "AssertStatement": {
