@@ -15,7 +15,7 @@ import {
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
-import { validateTextDocument } from "./validate-program";
+import { openFiles, validateTextDocument } from "./validate-program";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -35,15 +35,9 @@ connection.onInitialize((params: InitializeParams) => {
 
     // Does the client support the `workspace/configuration` request?
     // If not, we will fall back using global settings
-    hasConfigurationCapability =
-        !!capabilities.workspace && !!capabilities.workspace.configuration;
-    hasWorkspaceFolderCapability =
-        !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
-    hasDiagnosticRelatedInformationCapability =
-        !!capabilities.textDocument &&
-        !!capabilities.textDocument.publishDiagnostics &&
-        !!capabilities.textDocument.publishDiagnostics.relatedInformation;
-
+    hasConfigurationCapability = Boolean(capabilities!.workspace!.configuration);
+    hasWorkspaceFolderCapability = Boolean(capabilities.workspace!.workspaceFolders);
+    hasDiagnosticRelatedInformationCapability = Boolean(capabilities.textDocument!.publishDiagnostics!.relatedInformation);
 
     return {
         capabilities: {
@@ -82,37 +76,9 @@ let globalSettings: ExampleSettings = defaultSettings;
 // Cache the settings of all open documents
 let documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
 
-connection.onDidChangeConfiguration(change => {
-    if (hasConfigurationCapability) {
-        // Reset all cached document settings
-        documentSettings.clear();
-    } else {
-        globalSettings = <ExampleSettings>(
-            (change.settings.languageServerExample || defaultSettings)
-            );
-        }
-
-    // Revalidate all open text documents
-    documents.all().forEach(validateTextDocument);
-});
-
-function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
-    if (!hasConfigurationCapability) {
-        return Promise.resolve(globalSettings);
-    }
-    let result = documentSettings.get(resource);
-    if (!result) {
-        result = connection.workspace.getConfiguration({
-            scopeUri: resource,
-            section: 'c0LanguageServer'
-        });
-        documentSettings.set(resource, result);
-    }
-    return result;
-}
-
 // Only keep settings for open documents
 documents.onDidClose(e => {
+    openFiles.delete(e.document.uri);
     documentSettings.delete(e.document.uri);
 });
 
@@ -124,14 +90,6 @@ documents.onDidChangeContent(change => {
 
     WordList.handleContextChange(change);
 });
-
-
-// function validateTextDocument(textDocument: TextDocument) {
-//     // Send the computed diagnostics to VS Code.
-
-
-//     connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
-// }
 
 connection.onDidChangeWatchedFiles(_change => {
     // Monitored files have change in VS Code
@@ -151,27 +109,6 @@ connection.onCompletion(
 // This handler resolves additional information for the item selected in
 // the completion list.
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => item);
-
-/*
-connection.onDidOpenTextDocument((params) => {
-    // A text document got opened in VS Code.
-    // params.uri uniquely identifies the document. For documents store on disk this is a file URI.
-    // params.text the initial full content of the document.
-    connection.console.log(`${params.textDocument.uri} opened.`);
-});
-connection.onDidChangeTextDocument((params) => {
-    // The content of a text document did change in VS Code.
-    // params.uri uniquely identifies the document.
-    // params.contentChanges describe the content changes to the document.
-    connection.console.log(`${params.textDocument.uri} changed: ${JSON.stringify(params.contentChanges)}`);
-});
-connection.onDidCloseTextDocument((params) => {
-    // A text document got closed in VS Code.
-    // params.uri uniquely identifies the document.
-    connection.console.log(`${params.textDocument.uri} closed.`);
-});*/
-
-// connection.onDocumentSymbol;
 
 // Make the text document manager listen on the connection
 // for open, change and close text document events

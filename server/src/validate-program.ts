@@ -19,6 +19,13 @@ import * as parsed from "./parse/parsedsyntax";
 import grammar from './program-rules';
 
 import "./util";
+import { Nothing } from "./util";
+
+/** 
+ * Map from TextDocument URI's to their last 
+ * good ASTs. 
+ */
+export const openFiles: Map<string, ast.Declaration[]> = new Map();
 
 // Max length a line can be before we produce a diagnostic
 const MAX_LINE_LENGTH = 80;
@@ -76,9 +83,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
   let diagnostics: Diagnostic[] = [];
 
-  const parser = <C0Parser>(
-    new nearley.Parser(nearley.Grammar.fromCompiled(grammar))
-  );
+  const parser = <C0Parser>(new nearley.Parser(nearley.Grammar.fromCompiled(grammar)));
   // Overwrite the reportError function cause otherwise it loops :(
   parser.reportError = function(token: any) {
     return myReportError(this, token);
@@ -261,10 +266,11 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
   // By this point we have an AST - we didn't encounter
   // any syntax errors 
 
-  // Here we check for forbidden language fureseat
+  // Here we check for forbidden language features
   if (parsed) {
     let errors = new Set<TypingError>();
-    let restrict = new Array<ast.Declaration>();
+    let restrictedDecls = new Array<ast.Declaration>();
+
     for (const decl of decls) {
       try {
         // TODO: If the current document is not a C1
@@ -273,7 +279,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)
-        restrict.push(restrictDeclaration("C1", decl));
+        restrictedDecls.push(restrictDeclaration("C1", decl));
       } 
       catch (err) {
         errors.add(err);
@@ -282,7 +288,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
     // Finally, we run the typechecker
     if (errors.size === 0) {
-      errors = checkProgram([], restrict);
+      errors = checkProgram([], restrictedDecls);
     }
 
     // Show all of the errors gathered
@@ -305,6 +311,10 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
         };
         diagnostics.push(diagnostic);
       }
+    }
+
+    if (errors.size === 0) {
+      ast_map.set(textDocument.uri, restrictedDecls);
     }
   }
 
