@@ -20,7 +20,7 @@ import { openFiles, validateTextDocument } from "./validate-program";
 import { AnnoStatement } from './parse/parsedsyntax';
 
 import { Position, isInside, findStatement } from "./ast";
-import { typeToString } from './print';
+import { typeToString, expressionToString } from './print';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -102,10 +102,22 @@ connection.onDidChangeWatchedFiles(_change => {
     connection.console.log('We received an file change event');
 });
 
+/**
+ * Turns a string with C0 code and wraps it
+ * with Markdown code fences
+ */
+function mkCodeString(s: string): string {
+    return `\`\`\`c0\n${s}\n\`\`\``;
+}
+
+/** 
+ * Turns a string with C0 code into a MarkupContent object,
+ * which can be sent as part of various LSP responses
+ */
 function mkMarkdownCode(s: string): MarkupContent {
     return {
         kind: "markdown",
-        value: `\`\`\`c0\n${s}\n\`\`\``
+        value: mkCodeString(s)
     };
 }
 
@@ -129,7 +141,7 @@ connection.onCompletion(
         if (decls === undefined) return keywords;
         
         // Add all gdecl names
-        const functionDecls = [];
+        const functionDecls: CompletionItem[] = [];
         const typedefs = [];
         const locals = [];
 
@@ -151,12 +163,25 @@ connection.onCompletion(
                     // but that's fine. C++ doesn't even let
                     // you recursively call main 
                     if (decl.body === null) {
+                        const functionHeader = mkMarkdownCode(`${
+                            typeToString({ tag: "FunctionType", definition: decl })
+                        }`);
+
+                        // We can't use these because contracts can be on both
+                        // the prototype and on the definition, and both count
+
+                        // const requires = decl.preconditions.map(precond => 
+                        //     ` - ${mkCodeString(expressionToString(precond))}\n`);
+                        // const ensures = decl.postconditions.map(postcond =>
+                        //     ` - ${mkCodeString(expressionToString(postcond))}\n`);
+
                         functionDecls.push({
                             label: decl.id.name,
                             kind: CompletionItemKind.Function,
-                            documentation: mkMarkdownCode(`${
-                                typeToString({ tag: "FunctionType", definition: decl })
-                            }`)
+                            documentation: {
+                                kind: "markdown",
+                                value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+                            }
                         });
 
                         break;
@@ -180,6 +205,9 @@ connection.onCompletion(
         }
 
         // Don't include keywords since that corrupts the list 
+        // FIXME: we can just use "sortText" to move them
+        // to the end of the completion list. But we then
+        // have to implement sortText for everything it seems 
         const completions = [...locals, ...functionDecls, ...typedefs];
 
         return completions;
@@ -208,6 +236,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
     // That being said, this code is fairly efficient in my opinion
     for (const decl of decls.decls) {
         if (decl.tag !== "FunctionDeclaration") continue;
+        // FIXME: look inside contracts too 
         if (decl.body === null) continue;
 
         if (!isInside(hoverPos, decl.body.loc)) continue;
