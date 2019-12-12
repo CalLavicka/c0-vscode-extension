@@ -17,6 +17,14 @@ import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunct
 import { TypingError, ImpossibleError } from "../error";
 import { Either, Right, Left } from "../util";
 
+import * as process from "process";
+import * as path from "path";
+import * as fs from "fs";
+import { TypeLexer } from "../lex";
+import nearley = require("nearley");
+import grammar from "../program-rules";
+import { restrictDeclaration } from "../parse/restrictsyntax";
+
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
     for (let param of params) { defined.add(param.id.name); }
@@ -40,8 +48,31 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
 function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<string> {
     switch (decl.tag) {
         case "PragmaUseLib": {
-            // TODO: load library here
-            errors.add(new TypingError(decl, `unsupported library: '#use <${decl.name}>'`));
+            // process.argv[1] is the path to this script
+            // Use it to get the out/ directory in which c0lib is
+            const libpath = `${path.dirname(process.argv[1])}/c0lib/${decl.name}.h0`;
+
+            console.log(libpath);
+            const libfile = fs.readFileSync(libpath, { encoding: "utf8" });
+              
+            const parser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar));
+            // Overwrite the reportError function cause otherwise it loops :(
+            (<any>parser).reportError = function(token: any) {
+              throw new Error("Unexpected error when loading library");
+            };
+            const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
+
+            parser.feed(libfile);
+            const results = parser.finish()[0];
+
+            let decls: ast.Declaration[] = [];
+
+            for (const result of results) {
+                for (const d of restrictDeclaration("C1", result)) {
+                    addDecl(true, genv, d);
+                }
+            }
+
             return new Set();
         }
         case "PragmaUseFile": {
