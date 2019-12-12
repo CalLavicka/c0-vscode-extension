@@ -1,3 +1,6 @@
+import { GlobalEnv } from "./typecheck/globalenv";
+import { expressionToString } from "./print";
+
 /**
  * C1 AST
  *
@@ -58,6 +61,10 @@ export interface Syn {
     readonly tag: string;
     readonly range?: [number, number];
     readonly loc?: SourceLocation;
+}
+
+export interface CreatesScope {
+    environment?: Map<string, Type>;
 }
 
 export interface Position {
@@ -393,7 +400,7 @@ export interface VariableDeclaration extends Syn {
     readonly init: Expression | null;
 }
 
-export interface IfStatement extends Syn {
+export interface IfStatement extends Syn, CreatesScope {
     readonly tag: "IfStatement";
     readonly test: Expression;
     readonly consequent: Statement;
@@ -421,7 +428,7 @@ export interface ReturnStatement extends Syn {
     readonly argument: Expression | null;
 }
 
-export interface BlockStatement extends Syn {
+export interface BlockStatement extends Syn, CreatesScope {
     readonly tag: "BlockStatement";
     readonly body: Statement[];
 }
@@ -512,3 +519,153 @@ export type ConcreteType =
     | { tag: "ArrayType" }
     | { tag: "PointerType" }
     | { tag: "TaggedPointerType" };
+
+export function isLeafStatement(s: Statement): boolean {
+    switch (s.tag) {
+        case "AssertStatement":
+        case "AssignmentStatement":
+        case "BreakStatement":
+        case "ContinueStatement":    
+        case "ErrorStatement":
+        case "ExpressionStatement":
+        case "ReturnStatement":
+        case "UpdateStatement":
+        case "VariableDeclaration":
+            return true;
+        default:
+            return false;        
+    }
+}
+
+export type Ordering = 
+    "Less"
+  | "Equal"
+  | "Greater"; 
+
+export function comparePositions(a: Position, b: Position): Ordering {
+    if (a.line < b.line) return "Less";
+    if (a.line > b.line) return "Greater";
+
+    if (a.column < b.column) return "Less";
+    if (a.column > b.column) return "Greater";
+
+    return "Equal";
+}
+
+export function isInside(a: Position, b?: SourceLocation): boolean {
+    if (b === null || b === undefined) return false;
+
+    const start = comparePositions(a, b.start);
+    const end = comparePositions(a, b.end);
+
+    const inside = 
+        (start === "Greater" || start === "Equal") &&
+        (end === "Less" || end === "Equal"); 
+
+    return inside;
+}
+
+export type SearchInfo = {
+    pos: Position,
+    genv: GlobalEnv
+};
+
+type AstSearchResult = null | {
+    name: string,
+    type: Type
+};
+
+function findExpression(e: Expression, currentEnv: Map<string, Type> | null, info: SearchInfo): AstSearchResult {
+    const { pos } = info;
+
+    switch (e.tag) {
+        case "BinaryExpression":
+            if (isInside(pos, e.left.loc)) return findExpression(e.left, currentEnv, info);
+            if (isInside(pos, e.right.loc)) return findExpression(e.right, currentEnv, info);
+            return null;
+
+        case "CallExpression":
+            // TODO: look up function name in a global environment
+            // and use that to create a hover item
+            // But that's blocked by multiple file support 
+            // if (isInside(pos, s.callee.loc)) ... 
+            for (const arg of e.arguments) {
+                if (isInside(pos, arg.loc)) return findExpression(arg, currentEnv, info);
+            }
+            return null;
+
+        case "Identifier":
+            if (currentEnv === null) return null;
+
+            const type = currentEnv.get(e.name);
+            if (type === undefined) return null; // Impossible
+
+            return { name: e.name, type };
+
+        case "StructMemberExpression":
+            // Here we would like hovering over "foo" in "foo->bar" 
+            // to return the type of foo,
+            // and hovering over "bar" to report "foo->bar: int" or whatever
+            if (isInside(pos, e.object.loc)) return findExpression(e.object, currentEnv, info);
+            else {
+                // Look for struct
+                // There's a StructMap function in struct.ts which would make this faster
+                // but that sounds like a later problem
+                for (const decl of info.genv.decls) {
+                    if (decl.tag !== "StructDeclaration") continue;
+                    if (decl.definitions === null) continue;
+
+                    if (decl.id.name === e.struct) {
+                        const field = decl.definitions.find(def => def.id.name === e.field.name);
+                        // Should be impossible - field should always be found unless there
+                        // is a bug in the typechecker 
+                        if (field === undefined) throw new Error("Field not found"); 
+                        return {
+                            name: expressionToString(e),
+                            type: field.kind
+                        };
+                    }
+                }
+            }
+    }
+
+    console.log("couldnt find");
+    return null;
+}
+
+export function findStatement(s: Statement, currentEnv: Map<string, Type> | null, info: SearchInfo): AstSearchResult {
+    const { pos } = info;
+
+    console.assert(isInside(pos, s.loc));
+
+    switch (s.tag) {
+        case "BlockStatement":
+            currentEnv = s.environment || currentEnv;
+            for (const child of s.body) {
+                if (isInside(pos, child.loc)) {
+                    return findStatement(child, currentEnv, info);
+                }
+            }
+            return null;
+
+        case "IfStatement":
+            if (isInside(pos, s.test.loc)) return findExpression(s.test, currentEnv, info);
+            if (isInside(pos, s.consequent.loc)) 
+                return findStatement(s.consequent, currentEnv, info);
+            if (s.alternate && isInside(pos, s.alternate.loc)) 
+                return findStatement(s.alternate, currentEnv, info);
+
+            return null;
+
+        case "ReturnStatement":
+            if (s.argument && isInside(pos, s.argument.loc)) 
+                return findExpression(s.argument, currentEnv, info);
+            return null;
+
+        case "ExpressionStatement":
+            return findExpression(s.expression, currentEnv, info);
+    }
+
+    console.log("couldnt find");
+    return null;
+}
