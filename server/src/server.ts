@@ -10,7 +10,8 @@ import {
     CompletionItem,
     CompletionItemKind,
     TextDocumentPositionParams,
-    Hover
+    Hover,
+    MarkupContent
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -101,14 +102,87 @@ connection.onDidChangeWatchedFiles(_change => {
     connection.console.log('We received an file change event');
 });
 
+function mkMarkdownCode(s: string): MarkupContent {
+    return {
+        kind: "markdown",
+        value: `\`\`\`c0\n${s}\n\`\`\``
+    };
+}
+
 // This handler provides the initial list of the completion items.
 connection.onCompletion(
     (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
         // The pass parameter contains the position of the text document in
         // which code complete got requested. 
-        return basicLexing.identifier.keywords.keyword
-            .map(word => ({ label: word, kind: CompletionItemKind.Text }));
-        // return WordList.getList();
+        let keywords: CompletionItem[] = 
+            basicLexing.identifier.keywords.keyword.map(word => ({ 
+                label: word, kind: 
+                CompletionItemKind.Keyword,
+             }));
+
+        const pos = {
+            column: textDocumentPosition.position.character + 1,
+            line: textDocumentPosition.position.line + 1
+        };
+
+        const decls = openFiles.get(textDocumentPosition.textDocument.uri);
+        if (decls === undefined) return keywords;
+        
+        // Add all gdecl names
+        const functionDecls = [];
+        const typedefs = [];
+        const locals = [];
+
+        for (const decl of decls.decls) {
+            switch (decl.tag) {
+                case "TypeDefinition":
+                    typedefs.push({
+                        label: decl.definition.id.name,
+                        kind: CompletionItemKind.Interface,
+                        documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`)
+                    });
+                    break;
+
+                case "FunctionDeclaration":
+                    // For some reason the parser
+                    // generates an AST node for the
+                    // prototype always...except for main.
+                    // So main won't show in completions,
+                    // but that's fine. C++ doesn't even let
+                    // you recursively call main 
+                    if (decl.body === null) {
+                        functionDecls.push({
+                            label: decl.id.name,
+                            kind: CompletionItemKind.Function,
+                            documentation: mkMarkdownCode(`${
+                                typeToString({ tag: "FunctionType", definition: decl })
+                            }`)
+                        });
+
+                        break;
+                    }  
+
+                    // Look in the function body for local variables 
+                    if (!isInside(pos, decl.body.loc)) break;
+            
+                    const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
+                    if (searchResult === null || searchResult.environment === null) break; 
+
+                    for (const [name, type] of searchResult.environment) {
+                        locals.push({
+                            label: name,
+                            kind: CompletionItemKind.Variable,
+                            documentation: mkMarkdownCode(`${typeToString(type)} ${name}`)
+                        });
+                    }
+                    break;
+                }
+        }
+
+        // Don't include keywords since that corrupts the list 
+        const completions = [...locals, ...functionDecls, ...typedefs];
+
+        return completions;
     });
 
 // This handler resolves additional information for the item selected in
@@ -147,10 +221,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const { name, type } = searchResult.data;
 
         return {
-            contents: {
-                kind: "markdown",
-                value: `\`\`\`c0\n${name}: ${typeToString(type)}\n\`\`\``
-            }
+            contents: mkMarkdownCode(`${name}: ${typeToString(type)}`)
         };
     }
 
