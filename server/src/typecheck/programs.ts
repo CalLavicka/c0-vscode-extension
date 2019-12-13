@@ -25,6 +25,8 @@ import nearley = require("nearley");
 import grammar from "../program-rules";
 import { restrictDeclaration } from "../parse/restrictsyntax";
 
+const cachedLibs: Map<string, ast.Declaration[]> = new Map();
+
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
     for (let param of params) { defined.add(param.id.name); }
@@ -48,6 +50,12 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
 function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<string> {
     switch (decl.tag) {
         case "PragmaUseLib": {
+            const cached = cachedLibs.get(decl.name);
+            if (cached !== undefined) {
+                cached.forEach(decl => addDecl(true, genv, decl));
+                return new Set();
+            }
+            
             // process.argv[1] is the path to this script
             // Use it to get the out/ directory in which c0lib is
             const libpath = `${path.dirname(process.argv[1])}/c0lib/${decl.name}.h0`;
@@ -69,7 +77,10 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
 
             for (const result of results) {
                 for (const d of restrictDeclaration("C1", result)) {
+                    decls.push(d);
                     addDecl(true, genv, d);
+
+                    cachedLibs.set(decl.name, decls);
                 }
             }
 
