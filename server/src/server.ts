@@ -141,9 +141,9 @@ connection.onCompletion(
         if (decls === undefined) return keywords;
         
         // Add all gdecl names
-        const functionDecls: CompletionItem[] = [];
-        const typedefs = [];
-        const locals = [];
+        const functionDecls: Map<string, CompletionItem> = new Map();
+        const typedefs: CompletionItem[] = [];
+        const locals: CompletionItem[] = [];
 
         for (const decl of decls.decls) {
             switch (decl.tag) {
@@ -155,60 +155,63 @@ connection.onCompletion(
                     });
                     break;
 
-                case "FunctionDeclaration":
+                case "FunctionDeclaration": {
                     // For some reason the parser
                     // generates an AST node for the
                     // prototype always...except for main.
                     // So main may or may not show in completions,
                     // but that's fine. C++ doesn't even let
                     // you recursively call main 
-                    if (decl.body === null) {
-                        const functionHeader = mkMarkdownCode(`${
-                            typeToString({ tag: "FunctionType", definition: decl })
-                        }`);
 
-                        // We can't use these because contracts can be on both
-                        // the prototype and on the definition, and both count
+                    // Despite this it still does seem like
+                    // we are getting duplicate entries 
+                    const functionHeader = mkMarkdownCode(`${
+                        typeToString({ tag: "FunctionType", definition: decl })
+                    }`);
 
-                        // const requires = decl.preconditions.map(precond => 
-                        //     ` - ${mkCodeString(expressionToString(precond))}\n`);
-                        // const ensures = decl.postconditions.map(postcond =>
-                        //     ` - ${mkCodeString(expressionToString(postcond))}\n`);
+                    // We can't use these because contracts can be on both
+                    // the prototype and on the definition, and both count
 
-                        functionDecls.push({
-                            label: decl.id.name,
-                            kind: CompletionItemKind.Function,
-                            documentation: {
-                                kind: "markdown",
-                                value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
-                            }
-                        });
+                    // const requires = decl.preconditions.map(precond => 
+                    //     ` - ${mkCodeString(expressionToString(precond))}\n`);
+                    // const ensures = decl.postconditions.map(postcond =>
+                    //     ` - ${mkCodeString(expressionToString(postcond))}\n`);
 
+                    functionDecls.set(decl.id.name, {
+                        label: decl.id.name,
+                        kind: CompletionItemKind.Function,
+                        documentation: {
+                            kind: "markdown",
+                            value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+                        }
+                    });
+                    if (decl.body) {
+                        // Look in the function body for local variables 
+                        if (!isInside(pos, decl.body.loc)) break;
+                
+                        const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
+                        if (searchResult === null || searchResult.environment === null) break; 
+
+                        for (const [name, type] of searchResult.environment) {
+                            locals.push({
+                                label: name,
+                                kind: CompletionItemKind.Variable,
+                                documentation: mkMarkdownCode(`${typeToString(type)} ${name}`)
+                            });
+                        }
                         break;
-                    }  
-
-                    // Look in the function body for local variables 
-                    if (!isInside(pos, decl.body.loc)) break;
-            
-                    const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
-                    if (searchResult === null || searchResult.environment === null) break; 
-
-                    for (const [name, type] of searchResult.environment) {
-                        locals.push({
-                            label: name,
-                            kind: CompletionItemKind.Variable,
-                            documentation: mkMarkdownCode(`${typeToString(type)} ${name}`)
-                        });
                     }
-                    break;
                 }
+            }
         }
 
         // Don't include keywords since that corrupts the list 
         // FIXME: we can just use "sortText" to move them
         // to the end of the completion list. But we then
         // have to implement sortText for everything it seems 
-        const completions = [...locals, ...functionDecls, ...typedefs];
+        const completions = [...locals, ...(functionDecls.values()), ...typedefs];
+
+        console.log(completions);
 
         return completions;
     });
