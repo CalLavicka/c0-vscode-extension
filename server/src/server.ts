@@ -19,8 +19,12 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 import { AnnoStatement } from './parse/parsedsyntax';
 
-import { Position, isInside, findStatement } from "./ast";
-import { typeToString, expressionToString } from './print';
+import { Position } from "./ast";
+import { isInside, findStatement} from "./ast-search";
+import { typeToString } from './print';
+
+import * as path from "path";
+import * as fs from "fs";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -62,7 +66,7 @@ connection.onInitialized(() => {
         connection.client.register(DidChangeConfigurationNotification.type, undefined);
     }
     if (hasWorkspaceFolderCapability) {
-        connection.workspace.onDidChangeWorkspaceFolders(_event => {
+        connection.workspace.onDidChangeWorkspaceFolders(event => {
             connection.console.log('Workspace folder change event received.');
         });
     }
@@ -91,7 +95,40 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-    validateTextDocument(change.document)
+    // Look for a config file
+    // TODO: cache the config file
+
+    const fname = path.basename(change.document.uri);
+    const dir = path.dirname(change.document.uri).substr(7);
+    // This should probably be relative to the workspace
+    // or maybe just use a VSCode config file...
+    const configPath = `${dir}/project.txt`;
+
+    let dependencies = [];    
+
+    if (fs.existsSync(configPath)) {
+        // Technically this is risky since someone
+        // could come and delete the file between 
+        // when we checked if it existed and
+        // when we read the file
+        const files = fs.readFileSync(configPath, { encoding: 'utf8'})
+            .split("\n").map(s => s.trim());
+
+        let found = false;
+        // Test if our current file is in there
+        for (const file of files) {
+            if (file === fname) {
+                found = true;
+                break;
+            }
+
+            dependencies.push(file);
+        }
+
+        if (!found) dependencies = [];
+    }
+
+    validateTextDocument(dependencies.map(d => `${dir}/${d}`), change.document)
         .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
 
     WordList.handleContextChange(change);
@@ -151,7 +188,8 @@ connection.onCompletion(
                     typedefs.push({
                         label: decl.definition.id.name,
                         kind: CompletionItemKind.Interface,
-                        documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`)
+                        documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
+                        detail: decl.loc?.source || undefined
                     });
                     break;
 
@@ -183,7 +221,8 @@ connection.onCompletion(
                         documentation: {
                             kind: "markdown",
                             value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
-                        }
+                        },
+                        detail: decl.loc?.source || undefined
                     });
                     if (decl.body) {
                         // Look in the function body for local variables 
@@ -196,7 +235,8 @@ connection.onCompletion(
                             locals.push({
                                 label: name,
                                 kind: CompletionItemKind.Variable,
-                                documentation: mkMarkdownCode(`${typeToString(type)} ${name}`)
+                                documentation: mkMarkdownCode(`${typeToString(type)} ${name}`),
+                                detail: decl.loc?.source || undefined
                             });
                         }
                         break;
@@ -210,8 +250,6 @@ connection.onCompletion(
         // to the end of the completion list. But we then
         // have to implement sortText for everything it seems 
         const completions = [...locals, ...(functionDecls.values()), ...typedefs];
-
-        console.log(completions);
 
         return completions;
     });
