@@ -161,8 +161,13 @@ export class TypeLexer {
     private typeIds: Set<string>;
     private coreLexer: Lexer;
     private parsePragma: (pragma: string) => Set<string>;
-    constructor(lang: Lang, typeIds: Set<string>, parsePragma?: (pragma: string) => Set<string>) {
+
+    public fileName: string;
+
+    constructor(lang: Lang, typeIds: Set<string>, fileName: string = "", parsePragma?: (pragma: string) => Set<string>) {
         this.typeIds = typeIds;
+        this.fileName = fileName;
+
         switch (lang) {
             case "L1":
             case "L2":
@@ -187,20 +192,24 @@ export class TypeLexer {
         this.typeIds = this.typeIds.add(typeIdentifier);
     }
     next(): Token | undefined {
-        const tok = this.coreLexer.next();
+        let tok = this.coreLexer.next();
         if (!tok) {
             return undefined;
         }
-        else if (tok["type"] === "pragma") {
-            this.parsePragma(tok.text).forEach(x => this.typeIds.add(x));
-            return tok;
-        } else if (tok["type"] === "identifier" && this.typeIds.has(tok.value)) {
-            return { ...tok, type: "type_identifier" };
-        } else if (tok["type"] === "identifier") {
-            return tok;
-        } else {
-            return tok;
+        switch (tok["type"]) {
+            case "pragma":
+                this.parsePragma(tok.text).forEach(this.typeIds.add);
+                break;
+
+            case "identifier":
+                if (this.typeIds.has(tok.value)) 
+                    tok = { ...tok, type: "type_identifier" };
+                break;
         }
+
+        tok.fileName = this.fileName;
+
+        return tok;
     }
     save(): LexerState {
         return this.coreLexer.save();

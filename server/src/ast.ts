@@ -1,6 +1,4 @@
-import { GlobalEnv, getStructDefinition, getFunctionDeclaration } from "./typecheck/globalenv";
-import { expressionToString } from "./print";
-
+import * as vscode from "vscode-languageserver";
 /**
  * C1 AST
  *
@@ -531,3 +529,17 @@ export type ConcreteType =
     | { tag: "ArrayType" }
     | { tag: "PointerType" }
     | { tag: "TaggedPointerType" };
+
+export function fromVscodePosition(pos: vscode.Position): Position {
+    return {
+        column: pos.character + 1,
+        line: pos.line + 1
+    };
+}
+
+export function toVscodePosition(pos: Position): vscode.Position {
+    return {
+        character: pos.column - 1,
+        line: pos.line - 1
+    };
+}

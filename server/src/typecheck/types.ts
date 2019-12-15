@@ -2,7 +2,9 @@ import { ActualType, actualType, GlobalEnv } from "./globalenv";
 import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";
 
-export type Env = Map<string, ast.Type>;
+/** An environment consists of variables, and where they are declared */
+export type EnvEntry = ast.Type & { position?: ast.SourceLocation };
+export type Env = Map<string, EnvEntry>;
 
 /**
  * Valid types for synthesis

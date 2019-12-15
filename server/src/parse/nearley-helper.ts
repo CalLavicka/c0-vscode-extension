@@ -13,15 +13,16 @@
 
 import { Token } from "moo";
 import * as syn from "./parsedsyntax";
-import { Position } from "../ast";
+import { Position, SourceLocation } from "../ast";
 import { ImpossibleError, ParsingError } from "../error";
 
 // This is incorrect, but Typescript doesn't check anyway
 // If whitespace gets captured or analyzed in the future this needs revisiting
 export type WS = { contents: (Token | WS)[] };
 
-function tokloc(tok: Token) {
+function tokloc(tok: Token): SourceLocation {
     return {
+        source: tok.fileName,
         start: { line: tok.line, column: tok.col },
         end: tok.lineBreaks
             ? { line: tok.line + 1, column: 1 }
@@ -902,7 +903,7 @@ export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
     let match = text.match(matchLib);
 
     if (match !== null) {
-        // Library
+        // #use <libfoo>
         return {
             tag: "PragmaUseLib",
             name: match[1], // Could give a location for this too 
@@ -911,6 +912,7 @@ export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
     }
 
     match = text.match(matchFile);
+
     if (match !== null) {
         // #use "foo.c0"
         return {

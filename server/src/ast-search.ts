@@ -8,6 +8,7 @@ import {
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
+import { Env } from "./typecheck/types";
 
 export enum Ordering {
   Less = -1,
@@ -40,7 +41,7 @@ export type SearchInfo = {
 };
 
 export interface AstSearchResult {
-  environment: Map<string, Type> | null;
+  environment: Env | null;
   data: AstFoundIdent | null;
 }
 
@@ -109,7 +110,7 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
               const field = struct.definitions.find(def => def.id.name === e.field.name);
               // Should be impossible - field should always be found unless there
               // is a bug in the typechecker 
-              if (field === undefined) throw new Error("Field not found"); 
+              if (field === undefined) throw new Error("Field not found (typechecker bug, please report!)"); 
               return {
                   environment: currentEnv,
                   data: {

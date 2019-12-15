@@ -11,7 +11,8 @@ import {
     CompletionItemKind,
     TextDocumentPositionParams,
     Hover,
-    MarkupContent
+    MarkupContent,
+    LocationLink
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -19,9 +20,9 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 import { AnnoStatement } from './parse/parsedsyntax';
 
-import { Position } from "./ast";
+import { Position, fromVscodePosition, toVscodePosition } from "./ast";
 import { isInside, findStatement} from "./ast-search";
-import { typeToString } from './print';
+import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
 import * as fs from "fs";
@@ -53,9 +54,10 @@ connection.onInitialize((params: InitializeParams) => {
             textDocumentSync: documents.syncKind,
             // Tell the client that the server supports code completion
             completionProvider: {
-                resolveProvider: true
+                resolveProvider: false
             },
-            hoverProvider: true
+            hoverProvider: true,
+            definitionProvider: true 
         }
     };
 });
@@ -189,7 +191,7 @@ connection.onCompletion(
                         label: decl.definition.id.name,
                         kind: CompletionItemKind.Interface,
                         documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
-                        detail: decl.loc?.source || undefined
+                        detail: (decl.loc?.source) || undefined
                     });
                     break;
 
@@ -211,10 +213,15 @@ connection.onCompletion(
                     // the prototype and on the definition, and both count
 
                     // const requires = decl.preconditions.map(precond => 
-                    //     ` - ${mkCodeString(expressionToString(precond))}\n`);
+                    //     ` - ${mkCodeString("//@requires " + expressionToString(precond))}\n`);
                     // const ensures = decl.postconditions.map(postcond =>
-                    //     ` - ${mkCodeString(expressionToString(postcond))}\n`);
+                    //     ` - ${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
 
+                    // const existingItem = functionDecls.get(decl.id.name);
+                    // if (existingItem) {
+                    //     // Append new contracts
+                    //     //existingItem.
+                    // }    
                     functionDecls.set(decl.id.name, {
                         label: decl.id.name,
                         kind: CompletionItemKind.Function,
@@ -266,10 +273,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
     // Note that VSCode 0-indexes positions,
     // so to be compatible with nearley we must
     // add 1 
-    const hoverPos: Position = {
-        column: data.position.character + 1,
-        line: data.position.line + 1
-    };
+    const hoverPos: Position = fromVscodePosition(data.position);
 
     // Search for which function we are in now
     // PERF: Cache the last function we found ourselves in
@@ -296,6 +300,53 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
     }
 
     return null;
+});
+
+connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
+    const genv = openFiles.get(data.textDocument.uri);
+    // Indicates no successful parse so far 
+    if (genv === undefined) { return null; }
+
+    const pos: Position = fromVscodePosition(data.position);
+
+    // This needs to be extracted to a function lol
+    for (const decl of genv.decls) {
+        if (decl.tag !== "FunctionDeclaration") continue;
+        // FIXME: look inside contracts too 
+        if (decl.body === null) continue;
+
+        if (!isInside(pos, decl.body.loc)) continue;
+
+        const searchResult = findStatement(decl.body, null, { pos, genv });
+        
+        // This indicates that the user hovered over something that
+        // wasn't an indentifier 
+        if (searchResult === null || searchResult.data === null) return null;
+
+        const { name } = searchResult.data;
+        const definition = searchResult.environment?.get(name);
+        
+        if (definition === undefined || definition.position === undefined) return null;
+
+        const item = [{
+            targetRange: {
+                start: toVscodePosition(definition.position.start),
+                end: toVscodePosition(definition.position.end)
+            },
+            targetUri: data.textDocument.uri,
+            targetSelectionRange: {
+                start: toVscodePosition(definition.position.start),
+                end: toVscodePosition(definition.position.end)
+            }
+        }];
+
+        console.log(item);
+
+        return item;
+    }
+
+    return null;
+    
 });
 
 // Make the text document manager listen on the connection

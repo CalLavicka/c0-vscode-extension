@@ -10,7 +10,7 @@ import {
     getStructDefinition,
     actualType
 } from "./globalenv";
-import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType } from "./types";
+import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType, EnvEntry } from "./types";
 import { checkExpression } from "./expressions";
 import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
@@ -34,14 +34,15 @@ function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string
 }
 
 function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
-    const env = new Map<string, ast.Type>();
+    const env = new Map<string, EnvEntry>();
     for (let param of params) {
         checkTypeInDeclaration(genv, param.kind, true);
         if (env.has(param.id.name)) {
             // TODO: Previous location
+            // We can get the previous location from the environment now
             throw new TypingError(param, `local ${param.id.name} declared a second time`);
         } else {
-            env.set(param.id.name, param.kind);
+            env.set(param.id.name, { ...param.kind, position: param.id.loc });  
         }
     }
     return env;
@@ -69,6 +70,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
               throw new Error("Unexpected error when loading library");
             };
             const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
+            lexer.fileName = `library <${decl.name}>`;
 
             parser.feed(libfile);
             const results = parser.finish()[0];
@@ -79,11 +81,10 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 for (const d of restrictDeclaration("C1", result)) {
                     decls.push(d);
                     addDecl(true, genv, d);
-
-                    cachedLibs.set(decl.name, decls);
                 }
             }
-
+            
+            cachedLibs.set(decl.name, decls);
             return new Set();
         }
         case "PragmaUseFile": {

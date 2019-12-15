@@ -22,6 +22,9 @@ import "./util";
 import { Nothing } from "./util";
 import { GlobalEnv } from "./typecheck/globalenv";
 
+import * as fs from "fs";
+import * as path from "path";
+
 /** 
  * Map from TextDocument URI's to their last 
  * good ASTs. 
@@ -77,7 +80,7 @@ interface C0Parser extends nearley.Parser {
   reportError: (token: any) => string;
 }
 
-export async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let text = textDocument.getText();
   const lines = text.split("\n");
@@ -91,7 +94,9 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
   };
 
   // C0/C1 use the same lexer, so no point changing it here
-  const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set()));
+  // We could maybe add a property to the lexer
+  // with the currently open path 
+  const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set(), path.basename(textDocument.uri)));
 
   // Send through the parser semicolon-by-semicolon
   const segments = semicolonSplit(text);
@@ -99,6 +104,45 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
   let decls: parsed.Declaration[] = [];
   let size = 0;
   let curOffset = 0;
+
+  let restrictedDecls = new Array<ast.Declaration>();
+
+  // Run through all dependencies, aborting if there is an error
+  for (const dependency of dependencies) {
+    try {
+      const text = fs.readFileSync(dependency, { encoding: 'utf8' });
+      const parsed: parsed.Declaration[] = [];
+
+
+      // We can't feed semicolons into the parser
+      // for gdecls 
+      for (const segment of semicolonSplit(text)) {
+        parser.feed(segment.segment);
+        const result = parser.finish()[0];
+
+        // Need to update the lexer. Will need
+        // to pull out a lot of the code below 
+        parsed.push(result);
+      }
+
+      for (const parsedDecl of parsed) {
+        for (const decl of restrictDeclaration("C1", parsedDecl)) {
+          restrictedDecls.push(decl);
+        }
+      }
+    }
+    catch (_e) {
+      return [{
+        severity: DiagnosticSeverity.Error,
+        message: `Failed to parse '${dependency}'. Code completion and other features will not be available`,
+        source: "c0-language",
+        range: {
+          start: Position.create(0, 0),
+          end: Position.create(0, 0)
+        }
+      }];
+    }
+  }
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
@@ -270,11 +314,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
   // Here we check for forbidden language features
   if (parsed) {
     let errors = new Set<TypingError>();
-    let restrictedDecls = new Array<ast.Declaration>();
 
-    // FIXME: Pragmas are being inserted into
-    // decls as array for some reason instead of 
-    // ast.Pragma object. Need to track down why this is
     for (const decl of decls) {
       try {
         // TODO: If the current document is not a C1
@@ -282,8 +322,7 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
         // level here accordingly.
         // Should be able to do so using the URI 
 
-        // FIXME: see above about pragmas 
-        if (decl.tag === undefined) continue;
+        console.assert(decl.tag !== undefined);
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)

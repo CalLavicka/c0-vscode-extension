@@ -1,6 +1,6 @@
 import * as ast from "../ast";
 import { GlobalEnv, concreteType } from "./globalenv";
-import { Env, checkTypeInDeclaration, actualSynthed } from "./types";
+import { Env, checkTypeInDeclaration, actualSynthed, EnvEntry } from "./types";
 import { checkExpression, synthExpression, synthLValue } from "./expressions";
 import { ImpossibleError, TypingError } from "../error";
 import { typeToString } from "../print";
@@ -21,7 +21,7 @@ function checkStatements(
 }
 
 function copyEnv(env: Env) {
-    const envCopy = new Map<string, ast.Type>();
+    const envCopy = new Map<string, EnvEntry>();
     env.forEach((v, k) => envCopy.set(k, v));
     return envCopy;
 }
@@ -86,7 +86,7 @@ export function checkStatement(
                         errors.add(err);
                     }
                 }
-                env.set(stm.id.name, stm.kind);
+                env.set(stm.id.name, { ...stm.kind, position: stm.id.loc });
             } catch(err) {
                 errors.add(err);
             }
@@ -153,7 +153,7 @@ export function checkStatement(
             return;
         }
         case "BlockStatement": {
-            const newEnvironment = copyEnv(env);
+            const newEnvironment: Env = copyEnv(env);
 
             checkStatements(genv, newEnvironment, stm.body, returning, inLoop, errors);
             stm.environment = newEnvironment;
