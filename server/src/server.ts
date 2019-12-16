@@ -17,6 +17,7 @@ import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 import { AnnoStatement } from './parse/parsedsyntax';
+import { parse } from './lang';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -87,7 +88,8 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-    validateTextDocument(change.document)
+    const uri = change.document.uri;
+    validateTextDocument(change.document, parse(uri.substring(uri.lastIndexOf('.') + 1)))
         .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
 
     WordList.handleContextChange(change);

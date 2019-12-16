@@ -17,6 +17,7 @@ import { TypingError } from "./error";
 import * as ast from "./ast";
 import * as parsed from "./parse/parsedsyntax";
 import grammar from './program-rules';
+import { Lang } from './lang';
 
 import "./util";
 import { Nothing } from "./util";
@@ -77,10 +78,13 @@ interface C0Parser extends nearley.Parser {
   reportError: (token: any) => string;
 }
 
-export async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function validateTextDocument(textDocument: TextDocument, lang: Lang | null): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let text = textDocument.getText();
   const lines = text.split("\n");
+
+  // Default to C1 with wrong extension
+  if (lang === null) lang = 'C1';
 
   let diagnostics: Diagnostic[] = [];
 
@@ -271,13 +275,9 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
   for (const decl of decls) {
     try {
-      // TODO: If the current document is not a C1
-      // document, then we need to update the language
-      // level here accordingly.
-
       // restrictDeclaration() checks for language features allowed
       // (e.g. void*, function pointers, break, continue)
-      restrictedDecls.push(restrictDeclaration("C1", decl));
+      restrictedDecls.push(restrictDeclaration(lang, decl));
     } 
     catch (err) {
       errors.add(err);
