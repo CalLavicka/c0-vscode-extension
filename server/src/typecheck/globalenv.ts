@@ -8,6 +8,19 @@ export type GlobalEnv = {
 };
 
 /**
+ * Merges the library information and decls of 
+ * environments a and b. There can be repeats of 
+ * library functions, but not decls 
+ */
+export function mergeGlobalEnv(a: GlobalEnv, b: GlobalEnv): GlobalEnv {
+    return {
+        libstructs: new Set([...a.libstructs, ...b.libstructs]),
+        libfuncs: new Set([...a.libfuncs, ...b.libfuncs]),
+        decls: a.decls.concat(b.decls)
+    };
+}
+
+/**
  * An ActualType is the (non-identifier) type that can be typedefed.
  */
 export type ActualType =

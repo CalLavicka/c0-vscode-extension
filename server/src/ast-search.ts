@@ -4,7 +4,7 @@ import {
   Type,
   AnyType,
   Expression,
-  Statement 
+  Statement
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
@@ -128,7 +128,7 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
   return { environment: currentEnv, data: null };
 }
 
-export function findStatement(s: Statement, currentEnv: Map<string, Type> | null, info: SearchInfo): AstSearchResult {
+export function findStatement(s: Statement, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
   const { pos } = info;
 
   console.assert(isInside(pos, s.loc));

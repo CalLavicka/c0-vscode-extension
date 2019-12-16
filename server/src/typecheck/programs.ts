@@ -48,6 +48,15 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
     return env;
 }
 
+/**
+ * Typechecks the given gdecl and returns 
+ * a set of all function names used
+ * 
+ * @param library Whether this function is a library - controls whether a function body is required
+ * @param genv Global context so far
+ * @param decl Declaration to check
+ * @param errors Set to add typing errors to as they are encountered
+ */
 function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<string> {
     switch (decl.tag) {
         case "PragmaUseLib": {
@@ -79,6 +88,8 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
 
             for (const result of results) {
                 for (const d of restrictDeclaration("C1", result)) {
+                    if (d.loc) d.loc.source = libpath;
+
                     decls.push(d);
                     addDecl(true, genv, d);
                 }
@@ -88,7 +99,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
             return new Set();
         }
         case "PragmaUseFile": {
-            errors.add(new TypingError(decl, `unsupported pragma: '#use "${decl.path}"'`));
+            errors.add(new TypingError(decl, `in pragma: '#use "${decl.path}"'\nincluding other files not supported in VSCode`));
             return new Set();
         }
         case "StructDeclaration": {

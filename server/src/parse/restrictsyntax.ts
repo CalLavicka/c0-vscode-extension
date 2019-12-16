@@ -702,14 +702,11 @@ export function restrictParams(
 }
 
 export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Declaration[] {
-    // Should be impossible...
-    //if (typeof decl === "string") { return decl; }
     switch (decl.tag) {
         case "PragmaUseFile":
         case "PragmaUseLib": 
             return [decl];
         // Throw away unknown pragmas. 
-        // Could warn about them instead by throwing an exception here
         case "PragmaUnknown": 
             return [];
 

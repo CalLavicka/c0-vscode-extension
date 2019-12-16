@@ -36,7 +36,7 @@ export function typeToString(syn: ast.AnyType): string {
                 syn.definition.params.map(arg => `${typeToString(arg.kind)} ${arg.id.name}`).join(", ")
             })`;
         default:
-            return "Impossible";
+            throw new Error("Impossible case - please report!");
     }
 }
 

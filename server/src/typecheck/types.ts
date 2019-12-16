@@ -3,7 +3,10 @@ import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";
 
 /** An environment consists of variables, and where they are declared */
-export type EnvEntry = ast.Type & { position?: ast.SourceLocation };
+export type EnvEntry = ast.Type & { 
+    /** Position of this variable's declaration */
+    position?: ast.SourceLocation 
+};
 export type Env = Map<string, EnvEntry>;
 
 /**

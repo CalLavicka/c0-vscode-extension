@@ -12,7 +12,8 @@ import {
     TextDocumentPositionParams,
     Hover,
     MarkupContent,
-    LocationLink
+    LocationLink,
+    CompletionParams
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -26,6 +27,7 @@ import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
 import * as fs from "fs";
+import { EnvEntry } from './typecheck/types';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -161,105 +163,91 @@ function mkMarkdownCode(s: string): MarkupContent {
 }
 
 // This handler provides the initial list of the completion items.
-connection.onCompletion(
-    (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-        // The pass parameter contains the position of the text document in
-        // which code complete got requested. 
-        let keywords: CompletionItem[] = 
-            basicLexing.identifier.keywords.keyword.map(word => ({ 
-                label: word, kind: 
-                CompletionItemKind.Keyword,
-             }));
+connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => {
+    // TODO: use completionInfo to figure out if we should add keywords or not
 
-        const pos = {
-            column: textDocumentPosition.position.character + 1,
-            line: textDocumentPosition.position.line + 1
-        };
+    // The pass parameter contains the position of the text document in
+    // which code complete got requested. 
+    let keywords: CompletionItem[] = 
+        basicLexing.identifier.keywords.keyword.map(word => ({ 
+            label: word, kind: 
+            CompletionItemKind.Keyword,
+        }));
 
-        const decls = openFiles.get(textDocumentPosition.textDocument.uri);
-        if (decls === undefined) return keywords;
-        
-        // Add all gdecl names
-        const functionDecls: Map<string, CompletionItem> = new Map();
-        const typedefs: CompletionItem[] = [];
-        const locals: CompletionItem[] = [];
+    const pos = fromVscodePosition(completionInfo.position);
 
-        for (const decl of decls.decls) {
-            switch (decl.tag) {
-                case "TypeDefinition":
-                    typedefs.push({
-                        label: decl.definition.id.name,
-                        kind: CompletionItemKind.Interface,
-                        documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
-                        detail: (decl.loc?.source) || undefined
-                    });
-                    break;
+    const decls = openFiles.get(completionInfo.textDocument.uri);
+    if (decls === undefined) return keywords;
+    
+    // Add all gdecl names
+    const functionDecls: Map<string, CompletionItem> = new Map();
+    const typedefs: CompletionItem[] = [];
+    const locals: CompletionItem[] = [];
 
-                case "FunctionDeclaration": {
-                    // For some reason the parser
-                    // generates an AST node for the
-                    // prototype always...except for main.
-                    // So main may or may not show in completions,
-                    // but that's fine. C++ doesn't even let
-                    // you recursively call main 
+    for (const decl of decls.decls) {
+        switch (decl.tag) {
+            case "TypeDefinition":
+                typedefs.push({
+                    label: decl.definition.id.name,
+                    kind: CompletionItemKind.Interface,
+                    documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
+                    detail: (decl.loc?.source) || undefined
+                });
+                break;
 
-                    // Despite this it still does seem like
-                    // we are getting duplicate entries 
-                    const functionHeader = mkMarkdownCode(`${
-                        typeToString({ tag: "FunctionType", definition: decl })
-                    }`);
+            case "FunctionDeclaration": {
+                // We can't use these because contracts can be on both
+                // the prototype and on the definition, and both count
 
-                    // We can't use these because contracts can be on both
-                    // the prototype and on the definition, and both count
+                // const requires = decl.preconditions.map(precond => 
+                //     ` - ${mkCodeString("//@requires " + expressionToString(precond))}\n`);
+                // const ensures = decl.postconditions.map(postcond =>
+                //     ` - ${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
 
-                    // const requires = decl.preconditions.map(precond => 
-                    //     ` - ${mkCodeString("//@requires " + expressionToString(precond))}\n`);
-                    // const ensures = decl.postconditions.map(postcond =>
-                    //     ` - ${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
+                // const existingItem = functionDecls.get(decl.id.name);
+                // if (existingItem) {
+                //     // Append new contracts
+                //     //existingItem.
+                // }    
+                functionDecls.set(decl.id.name, {
+                    label: decl.id.name,
+                    kind: CompletionItemKind.Function,
+                    documentation: {
+                        kind: "markdown",
+                        value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+                    },
+                    detail: decl.loc?.source || undefined
+                });
+                if (decl.body) {
+                    // Look in the function body for local variables 
+                    if (!isInside(pos, decl.body.loc)) break;
+            
+                    const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
+                    if (searchResult === null || searchResult.environment === null) break; 
 
-                    // const existingItem = functionDecls.get(decl.id.name);
-                    // if (existingItem) {
-                    //     // Append new contracts
-                    //     //existingItem.
-                    // }    
-                    functionDecls.set(decl.id.name, {
-                        label: decl.id.name,
-                        kind: CompletionItemKind.Function,
-                        documentation: {
-                            kind: "markdown",
-                            value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
-                        },
-                        detail: decl.loc?.source || undefined
-                    });
-                    if (decl.body) {
-                        // Look in the function body for local variables 
-                        if (!isInside(pos, decl.body.loc)) break;
-                
-                        const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
-                        if (searchResult === null || searchResult.environment === null) break; 
-
-                        for (const [name, type] of searchResult.environment) {
-                            locals.push({
-                                label: name,
-                                kind: CompletionItemKind.Variable,
-                                documentation: mkMarkdownCode(`${typeToString(type)} ${name}`),
-                                detail: decl.loc?.source || undefined
-                            });
-                        }
-                        break;
+                    for (const [name, type] of searchResult.environment) {
+                        locals.push({
+                            label: name,
+                            kind: CompletionItemKind.Variable,
+                            documentation: mkMarkdownCode(`${typeToString(type)} ${name}`),
+                            detail: decl.loc?.source || undefined
+                        });
                     }
+                    break;
                 }
             }
         }
+    }
 
-        // Don't include keywords since that corrupts the list 
-        // FIXME: we can just use "sortText" to move them
-        // to the end of the completion list. But we then
-        // have to implement sortText for everything it seems 
-        const completions = [...locals, ...(functionDecls.values()), ...typedefs];
+    // Don't include keywords since that corrupts the list 
+    // FIXME: we can just use "sortText" to move them
+    // to the end of the completion list. But we then
+    // have to implement sortText for everything it seems 
 
-        return completions;
-    });
+    const completions = [...locals, ...(functionDecls.values()), ...typedefs];
+
+    return completions;
+});
 
 // This handler resolves additional information for the item selected in
 // the completion list.
@@ -324,23 +312,21 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         if (searchResult === null || searchResult.data === null) return null;
 
         const { name } = searchResult.data;
-        const definition = searchResult.environment?.get(name);
+        const definition: EnvEntry | undefined = searchResult.environment?.get(name);
         
         if (definition === undefined || definition.position === undefined) return null;
 
-        const item = [{
-            targetRange: {
+        const item: LocationLink[] = [{
+            targetSelectionRange: {
                 start: toVscodePosition(definition.position.start),
                 end: toVscodePosition(definition.position.end)
             },
             targetUri: data.textDocument.uri,
-            targetSelectionRange: {
-                start: toVscodePosition(definition.position.start),
+            targetRange: {
+                start: toVscodePosition(definition.loc?.start || definition.position.end),
                 end: toVscodePosition(definition.position.end)
             }
         }];
-
-        console.log(item);
 
         return item;
     }

@@ -58,7 +58,7 @@ import * as vscode from "vscode-languageserver";
 export interface Syn {
     readonly tag: string;
     readonly range?: [number, number];
-    readonly loc?: SourceLocation;
+    loc?: SourceLocation;
 }
 
 export interface CreatesScope {
@@ -73,7 +73,7 @@ export interface Position {
 export interface SourceLocation {
     readonly start: Position;
     readonly end: Position;
-    readonly source?: string | null;
+    source?: string | null;
 }
 
 export interface Identifier extends Syn {

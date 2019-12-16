@@ -19,7 +19,7 @@ import * as parsed from "./parse/parsedsyntax";
 import grammar from './program-rules';
 
 import "./util";
-import { Nothing } from "./util";
+import { Nothing, Either, Right, Left } from "./util";
 import { GlobalEnv } from "./typecheck/globalenv";
 
 import * as fs from "fs";
@@ -76,73 +76,67 @@ function myReportError(parser: nearley.Parser, token: any) {
  * Overrides the error reporting function
  * to prevent issues with nontermination w/ Nearley
  */
-interface C0Parser extends nearley.Parser {
+export interface C0Parser extends nearley.Parser {
   reportError: (token: any) => string;
+}  
+
+function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagnostic[] {
+  const diagnostics = [];
+
+  for (const error of errors) {
+    if (error.loc !== null && error.loc !== undefined) {
+      const diagnostic: Diagnostic = {
+        severity: DiagnosticSeverity.Error,
+        range: {
+          start: Position.create(
+            error.loc.start.line - 1,
+            error.loc.start.column - 1
+          ),
+          end: Position.create(
+            error.loc.end.line - 1,
+            error.loc.end.column - 1
+          )
+        },
+        message: error.message,
+        source: "c0-language"
+      };
+      diagnostics.push(diagnostic);
+    }
+  }
+
+  return diagnostics;
 }
+ 
+type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 
-export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
-  // The validator creates diagnostics for all uppercase words length 2 and more
-  let text = textDocument.getText();
-  const lines = text.split("\n");
+/**
+ * Parses the given document
+ * 
+ * @param text 
+ * Either a file path (for a file which is not the one being currently edited)
+ * or a vscode TextDocument object.
+ * 
+ * @param parser The parser to use
+ * @param lexer The lexer to use. It will be updated with any typedefs encountered
+ * 
+ * @returns
+ * Either a list of errors encountered when parsing/typechecking,
+ * or a list of declarations encountered. Note that we do not typecheck
+ * the returned declarations .
+ */
+function parseDocument(text: string | TextDocument, parser: C0Parser): ParseResult {
+  const diagnostics: Diagnostic[] = [];
 
-  let diagnostics: Diagnostic[] = [];
-
-  const parser = <C0Parser>(new nearley.Parser(nearley.Grammar.fromCompiled(grammar)));
-  // Overwrite the reportError function cause otherwise it loops :(
-  parser.reportError = function(token: any) {
-    return myReportError(this, token);
-  };
-
-  // C0/C1 use the same lexer, so no point changing it here
-  // We could maybe add a property to the lexer
-  // with the currently open path 
-  const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", new Set(), path.basename(textDocument.uri)));
+  const lexer = <TypeLexer>parser.lexer;
 
   // Send through the parser semicolon-by-semicolon
-  const segments = semicolonSplit(text);
+  const segments = semicolonSplit(typeof text === "string" ? text : text.getText());
   let parsed = true;
   let decls: parsed.Declaration[] = [];
   let size = 0;
   let curOffset = 0;
 
   let restrictedDecls = new Array<ast.Declaration>();
-
-  // Run through all dependencies, aborting if there is an error
-  for (const dependency of dependencies) {
-    try {
-      const text = fs.readFileSync(dependency, { encoding: 'utf8' });
-      const parsed: parsed.Declaration[] = [];
-
-
-      // We can't feed semicolons into the parser
-      // for gdecls 
-      for (const segment of semicolonSplit(text)) {
-        parser.feed(segment.segment);
-        const result = parser.finish()[0];
-
-        // Need to update the lexer. Will need
-        // to pull out a lot of the code below 
-        parsed.push(result);
-      }
-
-      for (const parsedDecl of parsed) {
-        for (const decl of restrictDeclaration("C1", parsedDecl)) {
-          restrictedDecls.push(decl);
-        }
-      }
-    }
-    catch (_e) {
-      return [{
-        severity: DiagnosticSeverity.Error,
-        message: `Failed to parse '${dependency}'. Code completion and other features will not be available`,
-        source: "c0-language",
-        range: {
-          start: Position.create(0, 0),
-          end: Position.create(0, 0)
-        }
-      }];
-    }
-  }
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
@@ -153,9 +147,11 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     severity: DiagnosticSeverity
   ) {
     const pos: Position =
-      line === null
-        ? textDocument.positionAt(columnOrOffset)
-        : Position.create(line, columnOrOffset);
+      typeof text === "string" 
+        ? Position.create(0, 0) 
+        : (line === null 
+            ? text.positionAt(columnOrOffset) 
+            : Position.create(line, columnOrOffset));
 
     const diagnostic: Diagnostic = {
       severity,
@@ -230,7 +226,8 @@ export async function validateTextDocument(dependencies: string[], textDocument:
             }
           }
           decls = decls.concat(parsedGlobalDecls);
-        } else {
+        } 
+        else {
           if (parsedGlobalDecls.length === 0) {
             if (segment.semicolon) {
               addError(
@@ -333,55 +330,113 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       }
     }
 
-    // Finally, we run the typechecker
     if (errors.size === 0) {
-      const typecheckResult = checkProgram([], restrictedDecls);
-      switch (typecheckResult.tag) {
-        case "left":
-          errors = typecheckResult.error; break;
-        case "right":
-          openFiles.set(textDocument.uri, typecheckResult.result);
-      }
+      // Don't run the typechecker. It needs all decls at once
+      return Right(restrictedDecls);
+
+      // const typecheckResult = checkProgram([], restrictedDecls);
+
+      // switch (typecheckResult.tag) {
+      //   case "left":
+      //     errors = typecheckResult.error; break;
+      //   case "right":
+      //     //if (typeof text !== "string") openFiles.set(text.uri, typecheckResult.result);
+      //     return Right(typecheckResult.result);
+      // }
     }
 
     // Show all of the errors gathered
-    for (const error of errors) {
-      if (error.loc !== null && error.loc !== undefined) {
-        const diagnostic: Diagnostic = {
+    diagnostics.push(...typingErrorsToDiagnostics(errors));
+  }
+
+  return Left(diagnostics);
+}
+
+function mkParser(typeIds: Set<string>, filename?: string): C0Parser {
+  const parser = <C0Parser>(new nearley.Parser(nearley.Grammar.fromCompiled(grammar)));
+  // Overwrite the reportError function cause otherwise it loops :(
+  parser.reportError = function(token: any) {
+    return myReportError(this, token);
+  };
+
+  // C0/C1 use the same lexer, so no point changing it here
+  // We could maybe add a property to the lexer
+  // with the currently open path 
+  const lexer: TypeLexer = (parser.lexer = new TypeLexer("C1", typeIds, filename));
+
+  return parser;
+}
+
+export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
+  // The validator creates diagnostics for all uppercase words length 2 and more
+  let text = textDocument.getText();
+  const lines = text.split("\n");
+
+  let diagnostics: Diagnostic[] = [];
+
+  let typeIds: Set<string> = new Set();
+
+  const decls = [];
+
+  for (const dep of dependencies) {
+    const parser = mkParser(typeIds, dep);
+
+    const parseResult = parseDocument(fs.readFileSync(dep, { encoding: "utf-8" }), parser);
+    switch (parseResult.tag) {
+      case "left":
+        // Give up if there's an error in another file
+        return [{
           severity: DiagnosticSeverity.Error,
+          message: `Failed to parse '${dep}'. Code completion and other features will not be available`,
+          source: "c0-language",
           range: {
-            start: Position.create(
-              error.loc.start.line - 1,
-              error.loc.start.column - 1
-            ),
-            end: Position.create(
-              error.loc.end.line - 1,
-              error.loc.end.column - 1
-            )
-          },
-          message: error.message,
-          source: "c0-language"
-        };
-        diagnostics.push(diagnostic);
-      }
+            start: Position.create(0, 0),
+            end: Position.create(0, 0),
+          }
+        }];  
+
+      case "right":
+        decls.push(...parseResult.result);
+        typeIds = (<TypeLexer>parser.lexer).getTypeIds();
     }
+  }
+
+  const parser = mkParser(typeIds, path.basename(textDocument.uri));
+
+  const parseResult = parseDocument(textDocument, parser);
+  switch (parseResult.tag) {
+    case "left":
+      return parseResult.error;
+    case "right":
+      decls.push(...parseResult.result);
+      //openFiles.set(textDocument.uri, parseResult.result);
+  }
+
+  // At this point we have gathered all the declarations, so we
+  // can run the typechecker
+
+  const typecheckResult = checkProgram([], decls);
+  switch (typecheckResult.tag) {
+    case "left":
+      return typingErrorsToDiagnostics(typecheckResult.error);
+    case "right":
+      openFiles.set(textDocument.uri, typecheckResult.result);
+      return [];
   }
 
   // Warn about lines longer than 80 characters
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].length > MAX_LINE_LENGTH) {
-      const diagnostic: Diagnostic = {
-        severity: DiagnosticSeverity.Warning,
-        range: {
-          start: Position.create(i, 0),
-          end: Position.create(i, Number.MAX_VALUE)
-        },
-        message: `There are ${lines[i].length} characters in this line.\nPlease lower it to < 80.`,
-        source: "c0-language"
-      };
-      diagnostics.push(diagnostic);
-    }
-  }
-
-  return diagnostics;
+  // for (let i = 0; i < lines.length; i++) {
+  //   if (lines[i].length > MAX_LINE_LENGTH) {
+  //     const diagnostic: Diagnostic = {
+  //       severity: DiagnosticSeverity.Warning,
+  //       range: {
+  //         start: Position.create(i, 0),
+  //         end: Position.create(i, Number.MAX_VALUE)
+  //       },
+  //       message: `There are ${lines[i].length} characters in this line.\nPlease lower it to < 80.`,
+  //       source: "c0-language"
+  //     };
+  //     diagnostics.push(diagnostic);
+  //   }
+  // }
 }

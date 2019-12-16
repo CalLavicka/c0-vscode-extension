@@ -191,6 +191,11 @@ export class TypeLexer {
     addIdentifier(typeIdentifier: string) {
         this.typeIds = this.typeIds.add(typeIdentifier);
     }
+    /** Returns a list of typedef names known to this lexer */
+    getTypeIds(): Set<string> {
+        // dEfeNSiVe cOpIEs
+        return new Set([...this.typeIds]);
+    }
     next(): Token | undefined {
         let tok = this.coreLexer.next();
         if (!tok) {
