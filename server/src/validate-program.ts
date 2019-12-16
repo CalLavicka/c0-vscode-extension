@@ -285,14 +285,13 @@ export async function validateTextDocument(textDocument: TextDocument, lang: Lan
   }
 
   // Finally, we run the typechecker
-  if (errors.size === 0) {
-    const typecheckResult = checkProgram([], restrictedDecls);
-    switch (typecheckResult.tag) {
-      case "left":
-        errors = typecheckResult.error; break;
-      case "right":
-        openFiles.set(textDocument.uri, typecheckResult.result);
-    }
+  const typecheckResult = checkProgram([], restrictedDecls);
+  switch (typecheckResult.tag) {
+    case "left":
+      typecheckResult.error.forEach(error => errors.add(error));
+      break;
+    case "right":
+      openFiles.set(textDocument.uri, typecheckResult.result);
   }
 
   // Show all of the errors gathered
