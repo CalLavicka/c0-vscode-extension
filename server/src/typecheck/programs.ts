@@ -37,7 +37,7 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
     return env;
 }
 
-function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<string> {
+function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<ast.Identifier> {
     switch (decl.tag) {
         case "Pragma": {
             return new Set();
@@ -143,7 +143,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
             try {
                 const env = getEnvironmentFromParams(genv, decl.definition.params);
                 const defined = getDefinedFromParams(decl.definition.params);
-                const functionsUsed = new Set<string>();
+                const functionsUsed = new Set<ast.Identifier>();
                 for (let anno of decl.definition.preconditions) {
                     checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
@@ -172,7 +172,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 errors.add(err);
             }
 
-            let functionsUsed = new Set<string>();
+            let functionsUsed = new Set<ast.Identifier>();
             try {
                 const env = getEnvironmentFromParams(genv, decl.params);
                 const defined = getDefinedFromParams(decl.params);
@@ -254,7 +254,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                     let constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
-                            if (defined.has(x)) { constants.add(x); }
+                            if (defined.has(x.name)) { constants.add(x.name); }
                         });
                     });
 
@@ -284,7 +284,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
 
 export function checkProgramFragment(libs: ast.Declaration[], decls: ast.Declaration[]) {
     const genv = initMain();
-    const functionsUsed = new Set<string>();
+    const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
     libs.forEach(decl => {
         checkDeclaration(true, genv, decl, errors).forEach(f => functionsUsed.add(f));
@@ -296,12 +296,12 @@ export function checkProgramFragment(libs: ast.Declaration[], decls: ast.Declara
     });
 
     functionsUsed.forEach(
-        (name): void => {
-            const def = getFunctionDeclaration(genv, name);
-            if (def === null) { throw new ImpossibleError(`No definition for ${name}`); }
+        (f): void => {
+            const def = getFunctionDeclaration(genv, f.name);
+            if (def === null) { throw new ImpossibleError(`No definition for ${f.name}`); }
             if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
                 // TODO: Where was the function used?
-                throw new TypingError(def, `function ${name} is never defined`);
+                throw new TypingError(def, `function ${f.name} is never defined`);
             }
         }
     );
@@ -313,7 +313,7 @@ export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
 
 export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]): TypecheckResult {
     const genv = initMain();
-    const functionsUsed = new Set<string>();
+    const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
     libs.forEach(decl => {
         checkDeclaration(true, genv, decl, errors).forEach(f => functionsUsed.add(f));
@@ -326,12 +326,12 @@ export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]):
 
     //functionsUsed.add("main");
     functionsUsed.forEach(
-        (name): void => {
-            const def = getFunctionDeclaration(genv, name);
-            if (def === null) { console.error(`No definition for ${name}`); }
+        (f): void => {
+            const def = getFunctionDeclaration(genv, f.name);
+            if (def === null) { console.error(`No definition for ${f.name}`); }
             else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-                // TODO: Where was the function used?
-                errors.add(new TypingError(def.id, `function ${name} is never defined`));
+                errors.add(new TypingError(f, `function ${f.name} is never defined`));
+                errors.add(new TypingError(def.id, `function ${f.name} is never defined`));
             }
         }
     );
