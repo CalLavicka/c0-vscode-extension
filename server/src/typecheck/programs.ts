@@ -212,7 +212,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                             const newone = decl.body === null ? "declaration" : "definition";
                             // TODO: Previous location
                             errors.add(new TypingError(
-                                decl,
+                                decl.id,
                                 `function ${newone} for '${decl.id.name}' does not match previous function ${oldone}`
                             ));
                         }
@@ -331,7 +331,7 @@ export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]):
             if (def === null) { console.error(`No definition for ${name}`); }
             else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
                 // TODO: Where was the function used?
-                errors.add(new TypingError(def, `function ${name} is never defined`));
+                errors.add(new TypingError(def.id, `function ${name} is never defined`));
             }
         }
     );

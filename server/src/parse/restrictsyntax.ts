@@ -639,7 +639,7 @@ function restrictAssert(lang: Lang, [annos, stm]: [syn.AnnoStatement[], syn.Stat
     const asserts = annos.map<ast.Statement>(x => {
         if (x.anno !== "assert") {
             throw new ParsingError(
-                syn,
+                x.loc,
                 `The only annotations allowed with if-statements are assertions, ${x.tag} is not permitted`
             );
         }
@@ -661,7 +661,7 @@ function restrictLoopInvariants(lang: Lang, annos: syn.AnnoStatement[]): ast.Exp
     return annos.map(x => {
         if (x.anno !== "loop_invariant") {
             throw new ParsingError(
-                syn,
+                x.loc,
                 `The only annotations allowed are loop invariants, ${x.tag} is not permitted`
             );
         }
@@ -682,7 +682,7 @@ function restrictFunctionAnnos(
             postconditions.push(restrictExpression(lang, x.test));
         } else {
             throw new ParsingError(
-                syn,
+                x.loc,
                 `The only annotations allowed are requires and ensures, ${x.anno} is not permitted`
             );
         }

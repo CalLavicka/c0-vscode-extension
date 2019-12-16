@@ -95,7 +95,6 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
 
   // Send through the parser semicolon-by-semicolon
   const segments = semicolonSplit(text);
-  let parsed = true;
   let decls: parsed.Declaration[] = [];
   let size = 0;
   let curOffset = 0;
@@ -124,7 +123,6 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
     };
 
     diagnostics.push(diagnostic);
-    parsed = false;
   }
 
   // Iterate through semicolon segments
@@ -268,56 +266,54 @@ export async function validateTextDocument(textDocument: TextDocument): Promise<
   // any syntax errors 
 
   // Here we check for forbidden language features
-  if (parsed) {
-    let errors = new Set<TypingError>();
-    let restrictedDecls = new Array<ast.Declaration>();
+  let errors = new Set<TypingError>();
+  let restrictedDecls = new Array<ast.Declaration>();
 
-    for (const decl of decls) {
-      try {
-        // TODO: If the current document is not a C1
-        // document, then we need to update the language
-        // level here accordingly.
+  for (const decl of decls) {
+    try {
+      // TODO: If the current document is not a C1
+      // document, then we need to update the language
+      // level here accordingly.
 
-        // restrictDeclaration() checks for language features allowed
-        // (e.g. void*, function pointers, break, continue)
-        restrictedDecls.push(restrictDeclaration("C1", decl));
-      } 
-      catch (err) {
-        errors.add(err);
-      }
+      // restrictDeclaration() checks for language features allowed
+      // (e.g. void*, function pointers, break, continue)
+      restrictedDecls.push(restrictDeclaration("C1", decl));
+    } 
+    catch (err) {
+      errors.add(err);
     }
+  }
 
-    // Finally, we run the typechecker
-    if (errors.size === 0) {
-      const typecheckResult = checkProgram([], restrictedDecls);
-      switch (typecheckResult.tag) {
-        case "left":
-          errors = typecheckResult.error; break;
-        case "right":
-          openFiles.set(textDocument.uri, typecheckResult.result);
-      }
+  // Finally, we run the typechecker
+  if (errors.size === 0) {
+    const typecheckResult = checkProgram([], restrictedDecls);
+    switch (typecheckResult.tag) {
+      case "left":
+        errors = typecheckResult.error; break;
+      case "right":
+        openFiles.set(textDocument.uri, typecheckResult.result);
     }
+  }
 
-    // Show all of the errors gathered
-    for (const error of errors) {
-      if (error.loc !== null && error.loc !== undefined) {
-        const diagnostic: Diagnostic = {
-          severity: DiagnosticSeverity.Error,
-          range: {
-            start: Position.create(
-              error.loc.start.line - 1,
-              error.loc.start.column - 1
-            ),
-            end: Position.create(
-              error.loc.end.line - 1,
-              error.loc.end.column - 1
-            )
-          },
-          message: error.message,
-          source: "c0-language"
-        };
-        diagnostics.push(diagnostic);
-      }
+  // Show all of the errors gathered
+  for (const error of errors) {
+    if (error.loc !== null && error.loc !== undefined) {
+      const diagnostic: Diagnostic = {
+        severity: DiagnosticSeverity.Error,
+        range: {
+          start: Position.create(
+            error.loc.start.line - 1,
+            error.loc.start.column - 1
+          ),
+          end: Position.create(
+            error.loc.end.line - 1,
+            error.loc.end.column - 1
+          )
+        },
+        message: error.message,
+        source: "c0-language"
+      };
+      diagnostics.push(diagnostic);
     }
   }
 
