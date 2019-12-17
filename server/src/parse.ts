@@ -113,6 +113,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   const parser = mkParser(oldParser.lexer.getTypeIds(), typeof text === "string" ? text : text.uri);
   // Send through the parser semicolon-by-semicolon
 
+  const fileName = typeof text === "string" ? text : text.uri;
   const fileText = typeof text === "string" ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) : text.getText();
 
   // Before we go through the file, look at each line for a #use 
@@ -136,10 +137,12 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
       const parseResult = parseDocument(libpath, parser, genv);
       if (parseResult.tag === "left") {
-          throw new Error("Very unexpected error when reading library header, please report!");
+        throw new Error("Very unexpected error when reading library header, please report!");
       }
 
       const decls: ast.Declaration[] = parseResult.result;
+      // Annotate each decl with its source URI 
+      decls.forEach(d => { if (d.loc) d.loc.source = fileName; });
       
       genv.libsLoaded.add(libname);
       genv.decls.push(...decls);
@@ -322,6 +325,9 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       );
     }
   }
+
+  // Add source file info for 
+  decls.forEach(d => { if (d.loc) d.loc.source = fileName; });
 
   // By this point we have an AST - we didn't encounter
   // any syntax errors 

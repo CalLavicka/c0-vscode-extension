@@ -28,6 +28,7 @@ import { typeToString, expressionToString } from './print';
 import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
+import { getFunctionDeclaration } from './typecheck/globalenv';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -328,7 +329,26 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         // wasn't an indentifier 
         if (searchResult === null || searchResult.data === null) return null;
 
-        const { name } = searchResult.data;
+        const { name, type } = searchResult.data;
+
+        if (type.tag === "FunctionType") {
+            // Look up function
+            // TODO: suggest both the function declaration and the function definition 
+            const func = getFunctionDeclaration(genv, name); 
+            if (func && func.loc && func.loc.source && func.id.loc && func.returns.loc) {
+                return [{
+                    targetUri: func.loc.source,
+                    targetRange: {
+                        start: toVscodePosition(func.returns.loc.start),
+                        end: toVscodePosition(func.id.loc.end)
+                    },
+                    targetSelectionRange: {
+                        start: toVscodePosition(func.id.loc.start),
+                        end: toVscodePosition(func.id.loc.end)
+                    }
+                }];
+            }
+        }
         const definition: EnvEntry | undefined = searchResult.environment?.get(name);
         
         if (definition === undefined || definition.position === undefined) return null;

@@ -722,6 +722,7 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                 params: restrictParams(lang, decl.params),
                 preconditions: annos.pre,
                 postconditions: annos.post,
+                loc: decl.loc,
                 body:
                     decl.body === null
                         ? null

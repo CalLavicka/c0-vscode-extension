@@ -300,6 +300,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     params: decl.params,
                     preconditions: [],
                     postconditions: [],
+                    loc: decl.loc,
                     body: null
                 });
 
