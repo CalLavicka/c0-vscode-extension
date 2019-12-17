@@ -1,3 +1,8 @@
+/** 
+ * Contains methods which search for an AST 
+ * node given a position, and returns
+ * the environment at that position
+ */
 import { 
   Position, 
   SourceLocation,

@@ -19,7 +19,6 @@ import {
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
-import { AnnoStatement } from './parse/parsedsyntax';
 
 import { Position, fromVscodePosition, toVscodePosition } from "./ast";
 import { isInside, findStatement} from "./ast-search";

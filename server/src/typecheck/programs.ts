@@ -4,12 +4,10 @@ import {
     getTypeDef,
     getFunctionDeclaration,
     addDecl,
-    initMain,
     isLibraryFunction,
     isLibraryStruct,
     getStructDefinition,
     actualType,
-    initEmpty
 } from "./globalenv";
 import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType, EnvEntry } from "./types";
 import { checkExpression } from "./expressions";
@@ -17,17 +15,7 @@ import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
 import { TypingError, ImpossibleError } from "../error";
 import { Either, Right, Left } from "../util";
-
-import * as process from "process";
-import * as path from "path";
-import * as fs from "fs";
-import { TypeLexer } from "../lex";
-import nearley = require("nearley");
-import grammar from "../program-rules";
-import { restrictDeclaration } from "../parse/restrictsyntax";
-import { C0Parser, parseDocument } from "../parse";
-
-const cachedLibs: Map<string, ast.Declaration[]> = new Map();
+import { C0Parser } from "../parse";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
@@ -61,46 +49,13 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
  */
 function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<string> {
     switch (decl.tag) {
-        case "PragmaUseLib": {
-            // Libs are loaded during parsing, not typechecking
-            // or the lexer gets triggered 
-
-            // Don't load libs twice 
-            // if (genv.libsLoaded.has(decl.name)) return new Set();
-
-            // const cached = cachedLibs.get(decl.name);
-
-            // if (cached !== undefined) {
-            //     cached.forEach(decl => addDecl(true, genv, decl));
-            //     return new Set();
-            // }
-            
-            // // process.argv[1] is the path to this script
-            // // Use it to get the out/ directory in which c0lib is
-            // const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${decl.name}.h0`;
-
-            // console.log(libpath);              
-            // const parseResult = parseDocument(libpath, parser);
-            // if (parseResult.tag === "left") {
-            //     throw new Error("Very unexpected error when reading library header, please report!");
-            // }
-
-            // const decls: ast.Declaration[] = parseResult.result;
-            
-            // genv.libsLoaded.add(decl.name);
-            // genv.decls.push(...decls);
-            // // Mark these as library functions so the 
-            // // typechecker knows not to look for a body 
-            // decls.forEach(d => { if (d.tag === "FunctionDeclaration") genv.libfuncs.add(d.id.name); });
-
-            // cachedLibs.set(decl.name, decls);
+        // Libs and other files are loaded during parsing,
+        // not typechecking, because otherwise the lexer
+        // gets triggered 
+        case "PragmaUseLib": 
+        case "PragmaUseFile": 
             return new Set();
-        }
-        case "PragmaUseFile": {
-            // FIXME: change this to just a warning
-            //errors.add(new TypingError(decl, `in pragma: '#use "${decl.path}"'\nincluding other files not supported in VSCode`));
-            return new Set();
-        }
+        
         case "StructDeclaration": {
             if (decl.definitions === null) { return new Set(); }
             if (isLibraryStruct(genv, decl.id.name)) {
@@ -336,33 +291,6 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
         }
     }
 }
-
-// export function checkProgramFragment(libs: ast.Declaration[], decls: ast.Declaration[], parser: C0Parser) {
-//     const genv = initMain();
-//     const functionsUsed = new Set<string>();
-//     const errors = new Set<TypingError>();
-//     libs.forEach(decl => {
-//         checkDeclaration(true, genv, decl, errors, parser).forEach(f => functionsUsed.add(f));
-//         addDecl(true, genv, decl);
-//     });
-//     decls.forEach(decl => {
-//         checkDeclaration(false, genv, decl, errors, parser).forEach(f => functionsUsed.add(f));
-//         addDecl(false, genv, decl);
-//     });
-
-//     functionsUsed.forEach(
-//         (name): void => {
-//             const def = getFunctionDeclaration(genv, name);
-//             if (def === null) { throw new ImpossibleError(`No definition for ${name}`); }
-//             if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-//                 // TODO: Where was the function used?
-//                 throw new TypingError(def, `function ${name} is never defined`);
-//             }
-//         }
-//     );
-
-//     return genv;
-// }
 
 export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
 

@@ -9,20 +9,9 @@ import {
   Position
 } from "vscode-languageserver";
 
-import * as nearley from "nearley";
-import { TypeLexer } from "./lex";
 import { checkProgram } from "./typecheck/programs";
-import { restrictDeclaration } from "./parse/restrictsyntax";
-import { TypingError } from "./error";
 import * as ast from "./ast";
-import * as parsed from "./parse/parsedsyntax";
-import grammar from './program-rules';
-
-import "./util";
-import { Nothing, Either, Right, Left } from "./util";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
-
-import * as fs from "fs";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
 
@@ -37,12 +26,6 @@ const MAX_LINE_LENGTH = 80;
 
 export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
-  let text = textDocument.getText();
-  const lines = text.split("\n");
-
-  let diagnostics: Diagnostic[] = [];
-
-  const libsLoaded: string[] = [];
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
 
@@ -67,7 +50,6 @@ export async function validateTextDocument(dependencies: string[], textDocument:
 
       case "right":
         decls.push(...parseResult.result);
-        //genv.decls.push(...parseResult.result);
         typeIds = parser.lexer.getTypeIds();
     }
   }
@@ -80,13 +62,11 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       return parseResult.error;
     case "right":
       decls.push(...parseResult.result);
-      //openFiles.set(textDocument.uri, parseResult.result);
   }
 
-  // At this point we have gathered all the declarations, so we
+  // At this point we have gathered all the declarations, 
+  // as well as loaded all libraries, so we
   // can run the typechecker
-
-  //genv.decls.push(...decls);
 
   const typecheckResult = checkProgram(genv, decls, parser);
   switch (typecheckResult.tag) {
@@ -97,6 +77,8 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       return [];
   }
 
+  // TODO: this would have to be moved somewhere else...perhaps in parseDocument
+  // while pre-processing the source 
   // Warn about lines longer than 80 characters
   // for (let i = 0; i < lines.length; i++) {
   //   if (lines[i].length > MAX_LINE_LENGTH) {

@@ -157,6 +157,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       if (match !== null) {
         // #use "foo.c0"
         const usedFilename = match[1];
+        addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
       }
     }
   }
