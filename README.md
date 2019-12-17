@@ -16,8 +16,7 @@ the debug config to "Attach to Server" and start debugging that.
 
 * View a function/variable/struct field's type by hovering over it
 * CTRL-SPACE will suggest variables which are in scope and function names
-* Libraries work (unless they define a typename)
-* Currently these features only work for files which don't rely on any other files
+* Commmand click to go to a definition for a variable or function.
 
 ## Structure
 
