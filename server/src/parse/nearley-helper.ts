@@ -22,7 +22,6 @@ export type WS = { contents: (Token | WS)[] };
 
 function tokloc(tok: Token): SourceLocation {
     return {
-        source: tok.fileName,
         start: { line: tok.line, column: tok.col },
         end: tok.lineBreaks
             ? { line: tok.line + 1, column: 1 }

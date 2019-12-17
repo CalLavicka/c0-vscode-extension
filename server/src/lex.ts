@@ -212,8 +212,6 @@ export class TypeLexer {
                 break;
         }
 
-        tok.fileName = this.fileName;
-
         return tok;
     }
     save(): LexerState {
