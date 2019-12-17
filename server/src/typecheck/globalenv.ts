@@ -4,6 +4,13 @@ import { ImpossibleError } from "../error";
 export type GlobalEnv = {
     readonly libstructs: Set<string>;
     readonly libfuncs: Set<string>;
+
+    /**
+     * Holds which libraries have already 
+     * been loaded and added to decls 
+     */
+    libsLoaded: Set<string>;
+
     readonly decls: ast.Declaration[];
 };
 
@@ -16,6 +23,7 @@ export function mergeGlobalEnv(a: GlobalEnv, b: GlobalEnv): GlobalEnv {
     return {
         libstructs: new Set([...a.libstructs, ...b.libstructs]),
         libfuncs: new Set([...a.libfuncs, ...b.libfuncs]),
+        libsLoaded: new Set(),
         decls: a.decls.concat(b.decls)
     };
 }
@@ -54,6 +62,7 @@ export function initEmpty(): GlobalEnv {
     return {
         libstructs: new Set<string>(),
         libfuncs: new Set<string>(),
+        libsLoaded: new Set(),
         decls: []
     };
 }
@@ -65,6 +74,7 @@ export function initMain(): GlobalEnv {
     return {
         libstructs: new Set<string>(),
         libfuncs: new Set<string>(),
+        libsLoaded: new Set(),
         decls: [
             {
                 tag: "FunctionDeclaration",

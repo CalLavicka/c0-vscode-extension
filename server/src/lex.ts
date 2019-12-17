@@ -189,7 +189,7 @@ export class TypeLexer {
         this.parsePragma = parsePragma || (() => new Set());
     }
     addIdentifier(typeIdentifier: string) {
-        this.typeIds = this.typeIds.add(typeIdentifier);
+        this.typeIds.add(typeIdentifier);
     }
     /** Returns a list of typedef names known to this lexer */
     getTypeIds(): Set<string> {

@@ -895,7 +895,7 @@ export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
     // to make sure no invalid characters appear
     // between < > or " " but for now we just munch
     // all chars until the closing > or "
-    const matchLib = /#use\s+<(\w+)>\s*$/;
+    const matchLib =  /#use\s+<(\w+)>\s*$/;
     const matchFile = /#use\s+"([^"]+)"\s*$/;
 
     const text = pragmaTok.value;
@@ -904,6 +904,9 @@ export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
 
     if (match !== null) {
         // #use <libfoo>
+
+        // Here we need to solve the problem of 
+
         return {
             tag: "PragmaUseLib",
             name: match[1], // Could give a location for this too 

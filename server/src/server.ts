@@ -13,7 +13,7 @@ import {
     Hover,
     MarkupContent,
     LocationLink,
-    CompletionParams
+    CompletionParams,
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -98,39 +98,56 @@ documents.onDidClose(e => {
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
-documents.onDidChangeContent(change => {
+documents.onDidChangeContent(async change => {
     // Look for a config file
     // TODO: cache the config file
 
+    // FIXME: use node's url.fileURLToPath instead of substr(7)
+    // or this won't work on windows 
+
     const fname = path.basename(change.document.uri);
     const dir = path.dirname(change.document.uri).substr(7);
-    // This should probably be relative to the workspace
-    // or maybe just use a VSCode config file...
-    const configPath = `${dir}/project.txt`;
+    
+    // maybe just use a VSCode config file...
 
-    let dependencies = [];    
+    const folders = await connection.workspace.getWorkspaceFolders();
 
-    if (fs.existsSync(configPath)) {
+    if (folders === null || folders.length === 0) return null;
+
+    const configPath1 = `${dir}/project.txt`;
+    const configPath2 = `${folders[0].uri.substr(7)}/project.txt`;
+
+    let dependencies = [];
+    let configPath: string; 
+
+    if (fs.existsSync(configPath1)) {
         // Technically this is risky since someone
         // could come and delete the file between 
         // when we checked if it existed and
         // when we read the file
-        const files = fs.readFileSync(configPath, { encoding: 'utf8'})
-            .split("\n").map(s => s.trim());
+        configPath = configPath1;
+    }
+    else if (fs.existsSync(configPath2)) {
+        configPath = configPath2;
+    }
+    else {
+        return null;
+    }
+    const files = fs.readFileSync(configPath, { encoding: 'utf8'})
+        .split("\n").map(s => s.trim());
 
-        let found = false;
-        // Test if our current file is in there
-        for (const file of files) {
-            if (file === fname) {
-                found = true;
-                break;
-            }
-
-            dependencies.push(file);
+    let found = false;
+    // Test if our current file is in there
+    for (const file of files) {
+        if (file === fname) {
+            found = true;
+            break;
         }
 
-        if (!found) dependencies = [];
+        dependencies.push(file);
     }
+
+    if (!found) dependencies = [];
 
     validateTextDocument(dependencies.map(d => `${dir}/${d}`), change.document)
         .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
