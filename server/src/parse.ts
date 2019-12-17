@@ -98,7 +98,7 @@ type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
  * Either a file URI (for a file which is not the one being currently edited)
  * or a vscode TextDocument object.
  * 
- * @param parser The parser to use
+ * @param parser The parser to use and update 
  * @param lexer The lexer to use. It will be updated with any typedefs encountered
  * 
  * @returns
@@ -154,7 +154,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
       const decls: ast.Declaration[] = parseResult.result;
       // Annotate each decl with its source URI 
-      decls.forEach(d => { if (d.loc) d.loc.source = fileName; });
+      decls.forEach(d => { if (d.loc) d.loc.source = libpath; });
       
       genv.libsLoaded.add(libname);
       genv.decls.push(...decls);
@@ -339,7 +339,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   }
 
   // Add source file info for 
-  decls.forEach(d => { if (d.loc) d.loc.source = fileName; });
+  decls.forEach(d => { if (d.loc && !d.loc.source) d.loc.source = fileName; });
 
   // By this point we have an AST - we didn't encounter
   // any syntax errors 
