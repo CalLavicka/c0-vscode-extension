@@ -109,9 +109,13 @@ type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 export function parseDocument(text: string | TextDocument, oldParser: C0Parser, genv: GlobalEnv): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
+  let parsed = true;
+  let decls: parsed.Declaration[] = [];
+
+  let restrictedDecls = new Array<ast.Declaration>();
+
   // Use a new parser so our old one doesn't get confused 
   const parser = mkParser(oldParser.lexer.getTypeIds(), typeof text === "string" ? text : text.uri);
-  // Send through the parser semicolon-by-semicolon
 
   const fileName = typeof text === "string" ? text : text.uri;
   const fileText = typeof text === "string" ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) : text.getText();
@@ -120,8 +124,13 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   const lines = fileText.split("\n");
   for (let i = 0; i < lines.length; i++) { // Need index for error messages
     const line = lines[i];
-    const matchLib =  /#use\s+<(\w+)>\s*$/;
-    const matchFile = /#use\s+"([^"]+)"\s*$/;
+    // ^\s* - match any whitespace at the beginning of a line
+    // #use - literal match "#use"
+    // \s+ at least one space (newlines are not possible since we split on \n)
+    // <(\w+)> - match more than one word character inside <>
+    // \s*$ - match space characters until the end 
+    const matchLib = /^\s*#use\s+<(\w+)>\s*$/;
+    const matchFile = /^\s*#use\s+"([^"]+)"\s*$/;
 
     let match = line.match(matchLib);
 
@@ -133,11 +142,14 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
       if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
         addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
+        parsed = false;
       }
 
       const parseResult = parseDocument(libpath, parser, genv);
       if (parseResult.tag === "left") {
-        throw new Error("Very unexpected error when reading library header, please report!");
+        // Indicates the library header got corrupted
+        throw new Error(
+          `Very unexpected error when reading library ${libname}, please report!`);
       }
 
       const decls: ast.Declaration[] = parseResult.result;
@@ -158,17 +170,12 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         // #use "foo.c0"
         const usedFilename = match[1];
         addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
+        parsed = false;
       }
     }
   }
 
   const segments = semicolonSplit(fileText);
-  let parsed = true;
-  let decls: parsed.Declaration[] = [];
-  let size = 0;
-  let curOffset = 0;
-
-  let restrictedDecls = new Array<ast.Declaration>();
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
@@ -193,6 +200,10 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     diagnostics.push(diagnostic);
     parsed = false;
   }
+
+  // Position information 
+  let size = 0;
+  let curOffset = 0;
 
   // Iterate through semicolon segments
   for (const segment of segments) {
