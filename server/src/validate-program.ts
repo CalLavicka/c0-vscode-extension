@@ -24,6 +24,18 @@ export const openFiles: Map<string, GlobalEnv> = new Map();
 // Max length a line can be before we produce a diagnostic
 const MAX_LINE_LENGTH = 80;
 
+/**
+ * Parses a VSCode document, reporting any syntax or 
+ * type errors. It returns the global environment representing
+ * this file, so it includes any libraries or dependencies
+ * 
+ * @param dependencies 
+ * List of files which need to be parsed before this one,
+ * in URI format (i.e. including leading file://)
+ * 
+ * @param textDocument 
+ * VSCode document to parse. Errors will be reported only for this document
+ */
 export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
@@ -34,7 +46,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   for (const dep of dependencies) {
     const parser = mkParser(typeIds, dep);
 
-    const parseResult = parseDocument(`file://${dep}`, parser, genv);
+    const parseResult = parseDocument(dep, parser, genv);
     switch (parseResult.tag) {
       case "left":
         // Give up if there's an error in another file

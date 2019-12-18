@@ -96,60 +96,59 @@ documents.onDidClose(e => {
     documentSettings.delete(e.document.uri);
 });
 
+function getDependencies(name: string, configPaths: string[]): string[] {
+    for (const configPath of configPaths) {
+        // Node says that it supports
+        // passing file://xyz to fs functions,
+        // but the reality is different...
+        if (fs.existsSync(configPath.substr(7))) {
+            const files = fs
+                .readFileSync(configPath.substr(7), { encoding: "utf-8" })
+                .split("\n")
+                .map(s => s.trim().replace("/", path.sep)); // New 122 prereq: owns a Mac/Linux laptop
+                  
+            // Filenames should be relative to the config file's location
+            const base = path.dirname(configPath);    
+            const fname = path.relative(base, name);
+
+            const dependencies = [];
+
+            for (const file of files) {
+                if (file === fname) {
+                    return dependencies;
+                }
+                
+                // Can't use path.join because it 
+                // turns file:///Users/... into file:/Users
+                dependencies.push(base + path.sep + file);
+            }
+        }
+    }
+    return [];
+}
+
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(async change => {
     // Look for a config file
     // TODO: cache the config file
 
-    // FIXME: use node's url.fileURLToPath instead of substr(7)
-    // or this won't work on windows 
-
-    const fname = path.basename(change.document.uri);
-    const dir = path.dirname(change.document.uri).substr(7);
+    const dir = path.dirname(change.document.uri);
     
     // maybe just use a VSCode config file...
-
     const folders = await connection.workspace.getWorkspaceFolders();
 
-    if (folders === null || folders.length === 0) return null;
+    let dependencies: string[] = [];
 
-    const configPath1 = `${dir}/project.txt`;
-    const configPath2 = `${folders[0].uri.substr(7)}/project.txt`;
-
-    let dependencies = [];
-    let configPath: string; 
-
-    if (fs.existsSync(configPath1)) {
-        // Technically this is risky since someone
-        // could come and delete the file between 
-        // when we checked if it existed and
-        // when we read the file
-        configPath = configPath1;
-    }
-    else if (fs.existsSync(configPath2)) {
-        configPath = configPath2;
-    }
+    if (folders === null || folders.length === 0) dependencies = [];
     else {
-        return null;
-    }
-    const files = fs.readFileSync(configPath, { encoding: 'utf8'})
-        .split("\n").map(s => s.trim());
-
-    let found = false;
-    // Test if our current file is in there
-    for (const file of files) {
-        if (file === fname) {
-            found = true;
-            break;
-        }
-
-        dependencies.push(file);
+        dependencies = getDependencies(change.document.uri, [
+            `${dir}/project.txt`,  
+            `${folders[0].uri}/project.txt`
+        ]);
     }
 
-    if (!found) dependencies = [];
-
-    validateTextDocument(dependencies.map(d => `${dir}/${d}`), change.document)
+    validateTextDocument(dependencies, change.document)
         .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
 
     WordList.handleContextChange(change);
