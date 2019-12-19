@@ -11,18 +11,24 @@ import * as fs from "fs";
 import * as path from "path";
 import * as url from "url";
 import * as process from "process";
-import { GlobalEnv } from "./typecheck/globalenv";
+import { GlobalEnv, getFunctionDeclaration } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
 
 enum SplitState {
   Regular,
-  LineComment, // For our purposes we treat contracts as comments 
+  LineComment,
   BlockComment,
   String
 }
 
-function* betterSplit(s: string) {
+/** 
+ * Splits exclusively on semicolons,
+ * treating contracts as comments to avoid
+ * funky problems involving function pointer
+ * typedefs  
+ */
+function* semicolonSplit(s: string) {
   // The main issue this tries to resolve is that 
   // we have to stop parsing when we encounter a typedef
   // in order to update the lexer 
@@ -36,8 +42,9 @@ function* betterSplit(s: string) {
       case SplitState.Regular:
         if (s[end] === ';') {
           yield { last: false, segment: s.slice(start, end), semicolon: true };
-          // Hop over the semicolon, the parser doesn't like it
-          end += 1;
+          // Hop over the semicolon, the code below
+          // will feed it to the parser wherever necessary 
+          end++;
           start = end;
         }
         else if (s[end] === '"') {
@@ -107,6 +114,9 @@ export interface C0Parser extends nearley.Parser {
   lexer: TypeLexer;
 }
 
+/** 
+ * Converts typing errors to a list of VSCode diagnostics,
+ * keeping source information */
 export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagnostic[] {
   const diagnostics = [];
 
@@ -136,6 +146,8 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
  
 type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 
+const libcache: Map<string, ast.Declaration[]> = new Map();
+
 /**
  * Parses the given document
  * 
@@ -144,7 +156,6 @@ type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
  * or a vscode TextDocument object.
  * 
  * @param parser The parser to use and update 
- * @param lexer The lexer to use. It will be updated with any typedefs encountered
  * 
  * @returns
  * Either a list of errors encountered when parsing/typechecking,
@@ -190,35 +201,54 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
       // TODO: caching 
-      const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
-      if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
-        addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
-        parsed = false;
-      }
+      
+      let decls: ast.Declaration[];
 
-      const parseResult = parseDocument(libpath, parser, genv);
-      if (parseResult.tag === "left") {
-        // Indicates the library header got corrupted
-        throw new Error(
-          `Very unexpected error when reading library ${libname}, please report!`);
-      }
+      if (libcache.has(libname)) decls = <ast.Declaration[]>libcache.get(libname);
+      else {
+        const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
+        if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
+          addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
+          parsed = false;
+        }
 
-      const decls: ast.Declaration[] = parseResult.result;
-      // Annotate each decl with its source URI 
-      decls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+        const parseResult = parseDocument(libpath, parser, genv);
+        if (parseResult.tag === "left") {
+          // Indicates the library header got corrupted
+          throw new Error(
+            `Very unexpected error when reading library ${libname}, please ask the course staff for help!`);
+        }
+
+        decls = parseResult.result;
+        // Annotate each decl with its source URI 
+        decls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+      }
       
       genv.libsLoaded.add(libname);
-      genv.decls.push(...decls);
-      // Mark these as library functions so the 
-      // typechecker knows not to look for a body 
-      decls.forEach(d => { if (d.tag === "FunctionDeclaration") genv.libfuncs.add(d.id.name); });
+      // We assume nothing funky happens in the library headers
+      // so we will not run the typechecker on them
 
-      //cachedLibs.set(decl.name, decls);
+      genv.decls.push(...decls);
+      // Mark these as library functions/structs so the 
+      // typechecker knows not to look for a body 
+      decls.forEach(d => { 
+        switch (d.tag) {
+          case "FunctionDeclaration":
+            genv.libfuncs.add(d.id.name);
+            break;
+          case "StructDeclaration":
+            genv.libstructs.add(d.id.name);
+            break;
+        }
+      });
     }
     else {
       match = line.match(matchFile);
       if (match !== null) {
         // #use "foo.c0"
+        // Shouldn't be that hard to implement, using
+        // something similiar to the above. You'd just have to
+        // keep track of the loaded files on genv as well as loaded libs
         const usedFilename = match[1];
         addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
         parsed = false;
@@ -226,7 +256,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     }
   }
 
-  const segments = betterSplit(fileText);
+  const segments = semicolonSplit(fileText);
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
