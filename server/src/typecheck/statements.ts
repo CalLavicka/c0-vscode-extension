@@ -37,9 +37,17 @@ export function checkStatement(
     switch (stm.tag) {
         case "AssignmentStatement": {
             try {
-                const left = synthLValue(genv, env, null, stm.left);
-                checkExpression(genv, env, null, stm.right, left);
-                stm.size = concreteType(genv, left); // INSERTING TYPE INFORMATION HERE
+                if (stm.operator === "=") {
+                    // Any concrete type
+                    const left = synthLValue(genv, env, null, stm.left);
+                    checkExpression(genv, env, null, stm.right, left);
+                    stm.size = concreteType(genv, left); // INSERTING TYPE INFORMATION HERE
+                } else {
+                    // Only int types
+                    checkExpression(genv, env, null, stm.left, { tag: "IntType" });
+                    checkExpression(genv, env, null, stm.right, { tag: "IntType" });
+                    stm.size = { tag: "IntType" };
+                }
             } catch(err) {
                 errors.add(err);
             }

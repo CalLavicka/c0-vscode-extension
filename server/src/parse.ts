@@ -13,16 +13,6 @@ import * as url from "url";
 import * as process from "process";
 import { GlobalEnv } from "./typecheck/globalenv";
 
-// function* semicolonSplit(s: string) {
-//   let ndx = s.indexOf(";");
-//   while (ndx > 0) {
-//       yield { last: false, segment: s.slice(0, ndx), semicolon: true };
-//       s = s.slice(ndx + 1);
-//       ndx = s.indexOf(";");
-//   }
-//   yield { last: true, segment: s, semicolon: false };
-// }
-
 enum SplitState {
   Regular,
   LineComment, // For our purposes we treat contracts as comments 
@@ -94,35 +84,6 @@ function* betterSplit(s: string) {
 
   yield { last: true, segment: s.slice(start, end), semicolon: true };
 }
-
-// function* semicolonSplit(s: string) {
-//   // Semicolon, //, or /*
-//   const normRegex = /(;|\/\/|\/\*)/g;
-//   // Semicolon, newline, or */
-//   const cmtRegex = /(;|\n|\*\/)/g;
-//   let ndx = s.search(normRegex);
-//   let inComment = false;
-
-//   while (ndx >= 0) {
-//     const semi = s.charAt(ndx) === ";";
-//     if (inComment && s.charAt(ndx) === "\n") {
-//       ndx++;
-//     } else if (inComment && s.charAt(ndx) === "*") {
-//       ndx += 2;
-//     }
-//     yield { last: false, segment: s.slice(0, ndx), semicolon: semi };
-//     s = s.slice(ndx + (semi ? 1 : 0));
-//     if (!semi) {
-//       inComment = !inComment;
-//     }
-//     if (inComment) {
-//       ndx = s.search(cmtRegex);
-//     } else {
-//       ndx = s.search(normRegex);
-//     }
-//   }
-//   yield { last: true, segment: s, semicolon: true };
-// }
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {

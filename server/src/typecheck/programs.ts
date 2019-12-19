@@ -47,7 +47,7 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
  * @param decl Declaration to check
  * @param errors Set to add typing errors to as they are encountered
  */
-function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<string> {
+function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<ast.Identifier> {
     switch (decl.tag) {
         // Libs and other files are loaded during parsing,
         // not typechecking, because otherwise the lexer
@@ -157,7 +157,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
             try {
                 const env = getEnvironmentFromParams(genv, decl.definition.params);
                 const defined = getDefinedFromParams(decl.definition.params);
-                const functionsUsed = new Set<string>();
+                const functionsUsed = new Set<ast.Identifier>();
                 for (let anno of decl.definition.preconditions) {
                     checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
@@ -186,7 +186,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 errors.add(err);
             }
 
-            let functionsUsed = new Set<string>();
+            let functionsUsed = new Set<ast.Identifier>();
             try {
                 const env = getEnvironmentFromParams(genv, decl.params);
                 const defined = getDefinedFromParams(decl.params);
@@ -226,7 +226,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                             const newone = decl.body === null ? "declaration" : "definition";
                             // TODO: Previous location
                             errors.add(new TypingError(
-                                decl,
+                                decl.id,
                                 `function ${newone} for '${decl.id.name}' does not match previous function ${oldone}`
                             ));
                         }
@@ -264,7 +264,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     let constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
-                            if (defined.has(x)) { constants.add(x); }
+                            if (defined.has(x.name)) { constants.add(x.name); }
                         });
                     });
 
@@ -295,7 +295,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
 export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
 
 export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: C0Parser): TypecheckResult {
-    const functionsUsed = new Set<string>();
+    const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
 
     decls.forEach(decl => {
@@ -303,12 +303,14 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         addDecl(false, genv, decl);
     });
 
-    functionsUsed.forEach(name => {
-            const def = getFunctionDeclaration(genv, name);
-            if (def === null) { console.error(`No definition for ${name}`); }
+    //functionsUsed.add("main");
+    functionsUsed.forEach(
+        (f): void => {
+            const def = getFunctionDeclaration(genv, f.name);
+            if (def === null) { console.error(`No definition for ${f.name}`); }
             else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-                // TODO: Where was the function used?
-                errors.add(new TypingError(def, `function ${name} is never defined`));
+                errors.add(new TypingError(f, `function ${f.name} is never defined`));
+                errors.add(new TypingError(def.id, `function ${f.name} is never defined`));
             }
         }
     );

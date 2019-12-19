@@ -5,11 +5,11 @@ import { ImpossibleError, TypingError } from "../error";
  * Returns the free locals and free functions of an expression. (The type system ensures these are
  * disjoint within any top-level declaration.)
  */
-export function expressionFreeVars(exp: ast.Expression): Set<string> {
-    const freeVars = new Set<string>();
+export function expressionFreeVars(exp: ast.Expression): Set<ast.Identifier> {
+    const freeVars = new Set<ast.Identifier>();
     switch (exp.tag) {
         case "Identifier":
-            freeVars.add(exp.name);
+            freeVars.add(exp);
         case "IntLiteral":
         case "StringLiteral":
         case "CharLiteral":
@@ -64,11 +64,11 @@ export function checkExpressionUsesGetFreeFunctions(
     locals: Set<string>,
     defined: Set<string>,
     exp: ast.Expression
-): Set<string> {
-    const freeFunctions = new Set<string>();
+): Set<ast.Identifier> {
+    const freeFunctions = new Set<ast.Identifier>();
     expressionFreeVars(exp).forEach(x => {
-        if (locals.has(x)) {
-            if (!defined.has(x)) {
+        if (locals.has(x.name)) {
+            if (!defined.has(x.name)) {
                 throw new TypingError(exp, `local '${x}' used without necessarily being defined`);
             }
         } else {
@@ -101,7 +101,7 @@ export function checkStatementFlow(
     constants: Set<string>,
     defined: Set<string>,
     stm: ast.Statement
-): { locals: Set<string>; defined: Set<string>; functions: Set<string>; returns: boolean } {
+): { locals: Set<string>; defined: Set<string>; functions: Set<ast.Identifier>; returns: boolean } {
     switch (stm.tag) {
         case "AssignmentStatement": {
             let functions = checkExpressionUsesGetFreeFunctions(locals, defined, stm.right);
@@ -141,7 +141,7 @@ export function checkStatementFlow(
                 return {
                     locals: add(locals, stm.id.name),
                     defined: defined,
-                    functions: new Set<string>(),
+                    functions: new Set<ast.Identifier>(),
                     returns: false
                 };
             }
@@ -234,7 +234,7 @@ export function checkStatementFlow(
             };
         }
         case "BlockStatement": {
-            const freeFunctions = new Set<string>();
+            const freeFunctions = new Set<ast.Identifier>();
             const body = stm.body.reduce(
                 ({ locals, defined, returns }, stm) => {
                     const result = checkStatementFlow(locals, constants, defined, stm);

@@ -21,6 +21,7 @@ import {
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
+<<<<<<< HEAD
 
 import * as ast from "./ast";
 import { isInside, findStatement} from "./ast-search";
@@ -31,6 +32,10 @@ import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
+=======
+import { AnnoStatement } from './parse/parsedsyntax';
+import { parse } from './lang';
+>>>>>>> origin/master
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -132,6 +137,7 @@ function getDependencies(name: string, configPaths: string[]): Maybe<string[]> {
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
+<<<<<<< HEAD
 documents.onDidChangeContent(async change => {
     // Look for a config file
     // TODO: cache the config file
@@ -164,6 +170,12 @@ documents.onDidChangeContent(async change => {
     }
 
     const parseErrors = await validateTextDocument(dependencies, change.document);
+=======
+documents.onDidChangeContent(change => {
+    const uri = change.document.uri;
+    validateTextDocument(change.document, parse(uri.substring(uri.lastIndexOf('.') + 1)))
+        .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
+>>>>>>> origin/master
 
     connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
     WordList.handleContextChange(change);
