@@ -4,18 +4,18 @@ import {
     getTypeDef,
     getFunctionDeclaration,
     addDecl,
-    initMain,
     isLibraryFunction,
     isLibraryStruct,
     getStructDefinition,
-    actualType
+    actualType,
 } from "./globalenv";
-import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType } from "./types";
+import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType, EnvEntry } from "./types";
 import { checkExpression } from "./expressions";
 import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
 import { TypingError, ImpossibleError } from "../error";
 import { Either, Right, Left } from "../util";
+import { C0Parser } from "../parse";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
@@ -24,27 +24,41 @@ function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string
 }
 
 function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
-    const env = new Map<string, ast.Type>();
+    const env = new Map<string, EnvEntry>();
     for (let param of params) {
         checkTypeInDeclaration(genv, param.kind, true);
         if (env.has(param.id.name)) {
             // TODO: Previous location
+            // We can get the previous location from the environment now
             throw new TypingError(param, `local ${param.id.name} declared a second time`);
         } else {
-            env.set(param.id.name, param.kind);
+            env.set(param.id.name, { ...param.kind, position: param.id.loc });  
         }
     }
     return env;
 }
 
-function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<ast.Identifier> {
+/**
+ * Typechecks the given gdecl and returns 
+ * a set of all function names used
+ * 
+ * @param library Whether this function is a library - controls whether a function body is required
+ * @param genv Global context so far
+ * @param decl Declaration to check
+ * @param errors Set to add typing errors to as they are encountered
+ */
+function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<ast.Identifier> {
     switch (decl.tag) {
-        case "Pragma": {
+        // Libs and other files are loaded during parsing,
+        // not typechecking, because otherwise the lexer
+        // gets triggered 
+        case "PragmaUseLib": 
+        case "PragmaUseFile": 
             return new Set();
-        }
+        
         case "StructDeclaration": {
             if (decl.definitions === null) { return new Set(); }
-            if (!library && isLibraryStruct(genv, decl.id.name)) {
+            if (isLibraryStruct(genv, decl.id.name)) {
                 // TODO: Previous location
                 errors.add(new TypingError(
                     decl,
@@ -202,7 +216,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 // Check previous functions match
                 try {
                     const previousFunction = getFunctionDeclaration(genv, decl.id.name);
-                    if (previousFunction !== null) {
+                    if (previousFunction !== null && previousFunction !== decl) {
                         if (previousFunction.body !== null && decl.body !== null) {
                             // TODO: Previous location
                             errors.add(new TypingError(decl.id, `function ${decl.id.name} defined more than once`));
@@ -224,11 +238,6 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                 // Check body, if necessary
                 if (decl.body === null) { return functionsUsed; }
 
-                if (library) {
-                    errors.add(
-                        new TypingError(decl.body, `functions cannot be defined in a library header file`)
-                    );
-                }
                 if (isLibraryFunction(genv, decl.id.name)) {
                     // TODO: Previous location
                     errors.add(new TypingError(
@@ -246,6 +255,7 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
                     params: decl.params,
                     preconditions: [],
                     postconditions: [],
+                    loc: decl.loc,
                     body: null
                 });
 
@@ -282,45 +292,14 @@ function checkDeclaration(library: boolean, genv: GlobalEnv, decl: ast.Declarati
     }
 }
 
-export function checkProgramFragment(libs: ast.Declaration[], decls: ast.Declaration[]) {
-    const genv = initMain();
-    const functionsUsed = new Set<ast.Identifier>();
-    const errors = new Set<TypingError>();
-    libs.forEach(decl => {
-        checkDeclaration(true, genv, decl, errors).forEach(f => functionsUsed.add(f));
-        addDecl(true, genv, decl);
-    });
-    decls.forEach(decl => {
-        checkDeclaration(false, genv, decl, errors).forEach(f => functionsUsed.add(f));
-        addDecl(false, genv, decl);
-    });
-
-    functionsUsed.forEach(
-        (f): void => {
-            const def = getFunctionDeclaration(genv, f.name);
-            if (def === null) { throw new ImpossibleError(`No definition for ${f.name}`); }
-            if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-                // TODO: Where was the function used?
-                throw new TypingError(def, `function ${f.name} is never defined`);
-            }
-        }
-    );
-
-    return genv;
-}
-
 export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
 
-export function checkProgram(libs: ast.Declaration[], decls: ast.Declaration[]): TypecheckResult {
-    const genv = initMain();
+export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: C0Parser): TypecheckResult {
     const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
-    libs.forEach(decl => {
-        checkDeclaration(true, genv, decl, errors).forEach(f => functionsUsed.add(f));
-        addDecl(true, genv, decl);
-    });
+
     decls.forEach(decl => {
-        checkDeclaration(false, genv, decl, errors).forEach(f => functionsUsed.add(f));
+        checkDeclaration(genv, decl, errors, parser).forEach(f => functionsUsed.add(f));
         addDecl(false, genv, decl);
     });
 

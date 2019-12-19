@@ -150,7 +150,9 @@ export function createAnnoLexer(): Lexer {
             },
             lineComment: {
                 comment: { match: /[^\n]/, lineBreaks: false },
-                comment_line_end: { match: /\r?\n/, lineBreaks: true, pop: 1 }
+                // If we entered a comment from a line annotation, this was not
+                // breaking out appropriately 
+                comment_line_end: { match: /\r?\n/, lineBreaks: true, next: "main" }
             }
         },
         "main"
@@ -161,8 +163,13 @@ export class TypeLexer {
     private typeIds: Set<string>;
     private coreLexer: Lexer;
     private parsePragma: (pragma: string) => Set<string>;
-    constructor(lang: Lang, typeIds: Set<string>, parsePragma?: (pragma: string) => Set<string>) {
+
+    public fileName: string;
+
+    constructor(lang: Lang, typeIds: Set<string>, fileName: string = "", parsePragma?: (pragma: string) => Set<string>) {
         this.typeIds = typeIds;
+        this.fileName = fileName;
+
         switch (lang) {
             case "L1":
             case "L2":
@@ -184,23 +191,30 @@ export class TypeLexer {
         this.parsePragma = parsePragma || (() => new Set());
     }
     addIdentifier(typeIdentifier: string) {
-        this.typeIds = this.typeIds.add(typeIdentifier);
+        this.typeIds.add(typeIdentifier);
+    }
+    /** Returns a list of typedef names known to this lexer */
+    getTypeIds(): Set<string> {
+        // dEfeNSiVe cOpIEs
+        return new Set([...this.typeIds]);
     }
     next(): Token | undefined {
-        const tok = this.coreLexer.next();
+        let tok = this.coreLexer.next();
         if (!tok) {
             return undefined;
         }
-        else if (tok["type"] === "pragma") {
-            this.parsePragma(tok.text).forEach(x => this.typeIds.add(x));
-            return tok;
-        } else if (tok["type"] === "identifier" && this.typeIds.has(tok.value)) {
-            return { ...tok, type: "type_identifier" };
-        } else if (tok["type"] === "identifier") {
-            return tok;
-        } else {
-            return tok;
+        switch (tok["type"]) {
+            case "pragma":
+                this.parsePragma(tok.text).forEach(id => this.typeIds.add(id));
+                break;
+
+            case "identifier":
+                if (this.typeIds.has(tok.value)) 
+                    tok = { ...tok, type: "type_identifier" };
+                break;
         }
+
+        return tok;
     }
     save(): LexerState {
         return this.coreLexer.save();

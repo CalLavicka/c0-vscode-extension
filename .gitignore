@@ -3,3 +3,7 @@ node_modules
 .vscode-test/
 *.vsix
 .DS_Store
+# Generated parser 
+server/src/expression-rules.ts
+server/src/program-rules.ts
+server/src/statement-rules.ts

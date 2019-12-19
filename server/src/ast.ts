@@ -1,3 +1,4 @@
+import * as vscode from "vscode-languageserver";
 /**
  * C1 AST
  *
@@ -57,7 +58,11 @@
 export interface Syn {
     readonly tag: string;
     readonly range?: [number, number];
-    readonly loc?: SourceLocation;
+    loc?: SourceLocation;
+}
+
+export interface CreatesScope {
+    environment?: Map<string, Type>;
 }
 
 export interface Position {
@@ -68,13 +73,20 @@ export interface Position {
 export interface SourceLocation {
     readonly start: Position;
     readonly end: Position;
-    readonly source?: string | null;
+    source?: string | null;
 }
 
 export interface Identifier extends Syn {
     readonly tag: "Identifier";
     readonly name: string;
 }
+
+export type AnyType = 
+    | Type
+    | { tag: "AmbiguousNullPointer" }
+    | { tag: "NamedFunctionType", definition: FunctionDeclaration }
+    | { tag: "AnonymousFunctionTypePointer", definition: FunctionDeclaration }
+    | { tag: "FunctionType", definition: FunctionDeclaration };
 
 export type Type =
     | IntType
@@ -421,7 +433,7 @@ export interface ReturnStatement extends Syn {
     readonly argument: Expression | null;
 }
 
-export interface BlockStatement extends Syn {
+export interface BlockStatement extends Syn, CreatesScope {
     readonly tag: "BlockStatement";
     readonly body: Statement[];
 }
@@ -450,7 +462,8 @@ export type Declaration =
     | FunctionDeclaration
     | TypeDefinition
     | FunctionTypeDefinition
-    | Pragma;
+    | PragmaUseLib
+    | PragmaUseFile;
 
 /**
  * Struct definitions must have 1 or more definitions.
@@ -492,10 +505,14 @@ export interface FunctionTypeDefinition extends Syn {
     readonly definition: FunctionDeclaration;
 }
 
-export interface Pragma {
-    readonly tag: "Pragma";
-    readonly pragma: string;
-    readonly contents: string;
+export interface PragmaUseLib extends Syn {
+    readonly tag: "PragmaUseLib";
+    readonly name: string;
+}
+
+export interface PragmaUseFile extends Syn {
+    readonly tag: "PragmaUseFile";
+    readonly path: string;
 }
 
 /**
@@ -512,3 +529,17 @@ export type ConcreteType =
     | { tag: "ArrayType" }
     | { tag: "PointerType" }
     | { tag: "TaggedPointerType" };
+
+export function fromVscodePosition(pos: vscode.Position): Position {
+    return {
+        column: pos.character + 1,
+        line: pos.line + 1
+    };
+}
+
+export function toVscodePosition(pos: Position): vscode.Position {
+    return {
+        character: pos.column - 1,
+        line: pos.line - 1
+    };
+}

@@ -10,7 +10,7 @@
 Program     -> _GlobalDecl:* _ {% x => x[0] %}
 
 _GlobalDecl -> _ GlobalDecl {% x => x[1] %}
-GlobalDecl  -> %pragma
+GlobalDecl  -> %pragma {% util.PragmaDeclaration %}
              | "struct" _ StructName _ ";" {% util.StructDeclaration %}
              | "struct" _ StructName _ "{" _ (Tp _ FieldName _ ";" _):* "}" _ ";"
                                            {% util.StructDefinition %}

@@ -1,0 +1,19 @@
+/* Double-precision float library
+ * dub alias for double
+ *
+ * Used by 15411 Compiler Design
+ */
+
+typedef struct dub* dub;
+
+dub dadd(dub x, dub y);
+dub dsub(dub x, dub y);
+dub dmul(dub x, dub y);
+dub ddiv(dub x, dub y);
+bool dless(dub x, dub y);
+
+dub itod(int n);
+int dtoi(dub x);
+
+void print_dub(dub x);
+

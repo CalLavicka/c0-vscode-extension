@@ -1,0 +1,33 @@
+/* Some C0 Utilities
+ *
+ * 15-122 Principles of Imperative Computation
+ * Frank Pfenning
+ */
+
+/* C0 constants */
+int int_size()
+  /*@ensures \result == 4; @*/ ;
+int int_max()
+  /*@ensures \result == 2147483647; @*/ ;
+int int_min()
+  /*@ensures \result == -2147483648; @*/ ;
+
+/* Absolute value */
+int abs(int x)
+  /*@requires x > int_min(); @*/
+  /*@ensures \result >= 0; @*/
+  /*@ensures \result == (x < 0 ? -x : x); @*/ ;
+
+/* Maximum of two integers */
+int max(int x, int y)
+  /*@ensures \result == x || \result == y; @*/
+  /*@ensures \result >= x && \result >= y; @*/ ;
+
+/* Minimum of two integers */
+int min(int x, int y)
+  /*@ensures \result == x || \result == y; @*/ 
+  /*@ensures \result <= x && \result <= y; @*/ ;
+
+/* Returns the hexidecimal representation of the given integer as a
+ * string (without the leading 0x) */ 
+string int2hex(int x);

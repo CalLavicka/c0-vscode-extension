@@ -6,9 +6,17 @@ This extension is supposed to ease the act of writing C0 code for 122 students.
 
 * First, clone the repository. Make sure you have `npm` installed.
 * `npm install` on the root directory to install dependecies
-* `npm run compile` to compile the typescript
-* `code .` to open it up in VSCode!
-* Hit `F5` to start debugging the extension in a new window.
+* `npm run compile` to compile the typescript/the parser
+* `code -n .` to open it up in VSCode!
+* Hit `F5` to start debugging the extension in a new window. Be sure that the
+debug configuration is set to "Launch Client". After that's launched you can switch
+the debug config to "Attach to Server" and start debugging that. 
+
+## Features
+
+* View a function/variable/struct field's type by hovering over it
+* CTRL-SPACE will suggest variables which are in scope and function names
+* Commmand click to go to a definition for a variable or function.
 
 ## Structure
 

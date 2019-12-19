@@ -13,14 +13,14 @@
 
 import { Token } from "moo";
 import * as syn from "./parsedsyntax";
-import { Position } from "../ast";
+import { Position, SourceLocation } from "../ast";
 import { ImpossibleError, ParsingError } from "../error";
 
 // This is incorrect, but Typescript doesn't check anyway
 // If whitespace gets captured or analyzed in the future this needs revisiting
 export type WS = { contents: (Token | WS)[] };
 
-function tokloc(tok: Token) {
+function tokloc(tok: Token): SourceLocation {
     return {
         start: { line: tok.line, column: tok.col },
         end: tok.lineBreaks
@@ -219,7 +219,7 @@ export function UnaryExpression([operator, s, argument]: [
     Token,
     syn.Expression
 ]): syn.UnaryExpression | syn.CastExpression {
-    if (operator.length == 1) {
+    if (operator.length === 1) {
         const oper = operator[0];
         switch (oper.value) {
             case "&":
@@ -882,5 +882,52 @@ export function FunctionDeclaration([ty, s1, f, s2, l, args, r, annos, s3, def]:
         annos: annos,
         body: def,
         loc: { start: ty.loc.start, end: end }
+    };
+}
+
+export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
+    // I'm not brave enough to directly modify the parsing code for pragmas
+    // or the associated lexer 
+    // so we shall instead resort to old-fashioned regex
+
+    // Technically we should look at the spec
+    // to make sure no invalid characters appear
+    // between < > or " " but for now we just munch
+    // all chars until the closing > or "
+    const matchLib =  /#use\s+<(\w+)>\s*$/;
+    const matchFile = /#use\s+"([^"]+)"\s*$/;
+
+    const text = pragmaTok.value;
+
+    let match = text.match(matchLib);
+
+    if (match !== null) {
+        // #use <libfoo>
+
+        // Here we need to solve the problem of 
+
+        return {
+            tag: "PragmaUseLib",
+            name: match[1], // Could give a location for this too 
+            loc: tokloc(pragmaTok) 
+        };
+    }
+
+    match = text.match(matchFile);
+
+    if (match !== null) {
+        // #use "foo.c0"
+        return {
+            tag: "PragmaUseFile",
+            path: match[1],
+            loc: tokloc(pragmaTok)
+        };
+    }
+
+    // Some other pragma 
+    return {
+        tag: "PragmaUnknown",
+        text: text,
+        loc: tokloc(pragmaTok)
     };
 }
