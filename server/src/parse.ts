@@ -203,6 +203,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   const fileText = typeof text === "string" ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) : text.getText();
 
   // Before we go through the file, look at each line for a #use 
+  // This could actually be done in lex.ts, in Tok.next()
   const lines = fileText.split("\n");
   for (let i = 0; i < lines.length; i++) { // Need index for error messages
     const line = lines[i];
