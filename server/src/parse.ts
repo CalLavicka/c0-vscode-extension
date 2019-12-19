@@ -146,6 +146,11 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
  
 type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 
+/**
+ * The global library cache, storing all declarations for any given
+ * library. Libraries are searched for in the extension installation
+ * library, with headers in the `c0lib` folder 
+ */
 const libcache: Map<string, ast.Declaration[]> = new Map();
 
 /**
@@ -200,7 +205,6 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       // #use <libfoo>
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
-      // TODO: caching 
       
       let decls: ast.Declaration[];
 
@@ -420,7 +424,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     }
   }
 
-  // Add source file info for 
+  // Add source file info for the decls
   decls.forEach(d => { if (d.loc && !d.loc.source) d.loc.source = fileName; });
 
   // By this point we have an AST - we didn't encounter
