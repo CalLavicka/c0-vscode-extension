@@ -150,7 +150,9 @@ export function createAnnoLexer(): Lexer {
             },
             lineComment: {
                 comment: { match: /[^\n]/, lineBreaks: false },
-                comment_line_end: { match: /\r?\n/, lineBreaks: true, pop: 1 }
+                // If we entered a comment from a line annotation, this was not
+                // breaking out appropriately 
+                comment_line_end: { match: /\r?\n/, lineBreaks: true, next: "main" }
             }
         },
         "main"
@@ -203,7 +205,7 @@ export class TypeLexer {
         }
         switch (tok["type"]) {
             case "pragma":
-                this.parsePragma(tok.text).forEach(this.typeIds.add);
+                this.parsePragma(tok.text).forEach(id => this.typeIds.add(id));
                 break;
 
             case "identifier":

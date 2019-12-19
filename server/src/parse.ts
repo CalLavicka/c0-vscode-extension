@@ -13,34 +13,116 @@ import * as url from "url";
 import * as process from "process";
 import { GlobalEnv } from "./typecheck/globalenv";
 
-function* semicolonSplit(s: string) {
-  // Semicolon, //, or /*
-  const normRegex = /(;|\/\/|\/\*)/g;
-  // Semicolon, newline, or */
-  const cmtRegex = /(;|\n|\*\/)/g;
-  let ndx = s.search(normRegex);
-  let inComment = false;
+// function* semicolonSplit(s: string) {
+//   let ndx = s.indexOf(";");
+//   while (ndx > 0) {
+//       yield { last: false, segment: s.slice(0, ndx), semicolon: true };
+//       s = s.slice(ndx + 1);
+//       ndx = s.indexOf(";");
+//   }
+//   yield { last: true, segment: s, semicolon: false };
+// }
 
-  while (ndx >= 0) {
-    const semi = s.charAt(ndx) === ";";
-    if (inComment && s.charAt(ndx) === "\n") {
-      ndx++;
-    } else if (inComment && s.charAt(ndx) === "*") {
-      ndx += 2;
-    }
-    yield { last: false, segment: s.slice(0, ndx), semicolon: semi };
-    s = s.slice(ndx + (semi ? 1 : 0));
-    if (!semi) {
-      inComment = !inComment;
-    }
-    if (inComment) {
-      ndx = s.search(cmtRegex);
-    } else {
-      ndx = s.search(normRegex);
+enum SplitState {
+  Regular,
+  LineComment, // For our purposes we treat contracts as comments 
+  BlockComment,
+  String
+}
+
+function* betterSplit(s: string) {
+  // The main issue this tries to resolve is that 
+  // we have to stop parsing when we encounter a typedef
+  // in order to update the lexer 
+
+  let state: SplitState = SplitState.Regular;
+
+  let start = 0;
+  let end = 0;
+  while (end < s.length) {
+    switch (state) {
+      case SplitState.Regular:
+        if (s[end] === ';') {
+          yield { last: false, segment: s.slice(start, end), semicolon: true };
+          // Hop over the semicolon, the parser doesn't like it
+          end += 1;
+          start = end;
+        }
+        else if (s[end] === '"') {
+          state = SplitState.String;
+          end++;
+        }
+        else if (s.startsWith("//", end)) {
+          state = SplitState.LineComment;
+          end += 2;
+        }
+        else if (s.startsWith("/*", end)) {
+          state = SplitState.BlockComment;
+          end += 2;
+        }
+        else end++;
+        break;
+      case SplitState.LineComment:
+        if (s[end] === '\n') {
+          state = SplitState.Regular;
+          end++;
+        }
+        else {
+          end++;
+        }
+        break;
+      case SplitState.BlockComment:
+        if (s.startsWith("*/", end)) {
+          state = SplitState.Regular;
+          end += 2;
+        }
+        else end++;
+        break;
+
+      case SplitState.String:
+        // Skip control sequences so we don't
+        // get fooled by something like "the string is \"asd\" asd"
+        if (s[end] === "\\") end += 2;
+        else if (s[end] === "\"") {
+          state = SplitState.Regular;
+          end++;
+        }
+        else end++;
+        break;
     }
   }
-  yield { last: true, segment: s, semicolon: true };
+
+  yield { last: true, segment: s.slice(start, end), semicolon: true };
 }
+
+// function* semicolonSplit(s: string) {
+//   // Semicolon, //, or /*
+//   const normRegex = /(;|\/\/|\/\*)/g;
+//   // Semicolon, newline, or */
+//   const cmtRegex = /(;|\n|\*\/)/g;
+//   let ndx = s.search(normRegex);
+//   let inComment = false;
+
+//   while (ndx >= 0) {
+//     const semi = s.charAt(ndx) === ";";
+//     if (inComment && s.charAt(ndx) === "\n") {
+//       ndx++;
+//     } else if (inComment && s.charAt(ndx) === "*") {
+//       ndx += 2;
+//     }
+//     yield { last: false, segment: s.slice(0, ndx), semicolon: semi };
+//     s = s.slice(ndx + (semi ? 1 : 0));
+//     if (!semi) {
+//       inComment = !inComment;
+//     }
+//     if (inComment) {
+//       ndx = s.search(cmtRegex);
+//     } else {
+//       ndx = s.search(normRegex);
+//     }
+//   }
+//   yield { last: true, segment: s, semicolon: true };
+// }
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {
@@ -175,7 +257,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     }
   }
 
-  const segments = semicolonSplit(fileText);
+  const segments = betterSplit(fileText);
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
@@ -270,7 +352,8 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
                 DiagnosticSeverity.Error
               );
             }
-          } else {
+          } 
+          else {
             const possibleTypedef: ast.Declaration =
               parsedGlobalDecls[parsedGlobalDecls.length - 1];
             if (parsedGlobalDecls.length === size && segment.semicolon) {

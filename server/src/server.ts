@@ -14,13 +14,15 @@ import {
     MarkupContent,
     LocationLink,
     CompletionParams,
+    Range,
+    Position,
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 
-import { Position, fromVscodePosition, toVscodePosition } from "./ast";
+import * as ast from "./ast";
 import { isInside, findStatement} from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
@@ -28,6 +30,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration } from './typecheck/globalenv';
+import { Maybe, Just, Nothing } from './util';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -96,7 +99,7 @@ documents.onDidClose(e => {
     documentSettings.delete(e.document.uri);
 });
 
-function getDependencies(name: string, configPaths: string[]): string[] {
+function getDependencies(name: string, configPaths: string[]): Maybe<string[]> {
     for (const configPath of configPaths) {
         // Node says that it supports
         // passing file://xyz to fs functions,
@@ -115,7 +118,7 @@ function getDependencies(name: string, configPaths: string[]): string[] {
 
             for (const file of files) {
                 if (file === fname) {
-                    return dependencies;
+                    return Just(dependencies);
                 }
                 
                 // Can't use path.join because it 
@@ -124,7 +127,7 @@ function getDependencies(name: string, configPaths: string[]): string[] {
             }
         }
     }
-    return [];
+    return Nothing;
 }
 
 // The content of a text document has changed. This event is emitted
@@ -139,18 +142,30 @@ documents.onDidChangeContent(async change => {
     const folders = await connection.workspace.getWorkspaceFolders();
 
     let dependencies: string[] = [];
+    let diagnostics: Diagnostic[] = [];
 
-    if (folders === null || folders.length === 0) dependencies = [];
+    const maybeDependencies = getDependencies(change.document.uri, [
+        `${dir}/project.txt`,  
+        folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+    ]);
+
+    if (!maybeDependencies.hasValue) {
+        diagnostics.push(Diagnostic.create(
+            Range.create(Position.create(0, 0), Position.create(0, 0)), 
+            `No valid project.txt found for the current document. Completions and other features may not work as expected`,
+            DiagnosticSeverity.Warning,
+            undefined,
+            change.document.uri));
+
+        dependencies = [];
+    }
     else {
-        dependencies = getDependencies(change.document.uri, [
-            `${dir}/project.txt`,  
-            `${folders[0].uri}/project.txt`
-        ]);
+        dependencies = maybeDependencies.value;
     }
 
-    validateTextDocument(dependencies, change.document)
-        .then(diagnostics => connection.sendDiagnostics({ uri: change.document.uri, diagnostics }));
+    const parseErrors = await validateTextDocument(dependencies, change.document);
 
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
     WordList.handleContextChange(change);
 });
 
@@ -190,7 +205,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
             CompletionItemKind.Keyword,
         }));
 
-    const pos = fromVscodePosition(completionInfo.position);
+    const pos = ast.fromVscodePosition(completionInfo.position);
 
     const decls = openFiles.get(completionInfo.textDocument.uri);
     if (decls === undefined) return keywords;
@@ -200,6 +215,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
     const typedefs: CompletionItem[] = [];
     const locals: CompletionItem[] = [];
 
+    // TODO: only show decls up to this point 
     for (const decl of decls.decls) {
         switch (decl.tag) {
             case "TypeDefinition":
@@ -277,7 +293,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
     // Note that VSCode 0-indexes positions,
     // so to be compatible with nearley we must
     // add 1 
-    const hoverPos: Position = fromVscodePosition(data.position);
+    const hoverPos: ast.Position = ast.fromVscodePosition(data.position);
 
     // Search for which function we are in now
     // PERF: Cache the last function we found ourselves in
@@ -311,7 +327,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
     // Indicates no successful parse so far 
     if (genv === undefined) { return null; }
 
-    const pos: Position = fromVscodePosition(data.position);
+    const pos: ast.Position = ast.fromVscodePosition(data.position);
 
     // This needs to be extracted to a function lol
     for (const decl of genv.decls) {
@@ -337,12 +353,12 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
                 return [{
                     targetUri: func.loc.source,
                     targetRange: {
-                        start: toVscodePosition(func.returns.loc.start),
-                        end: toVscodePosition(func.id.loc.end)
+                        start: ast.toVscodePosition(func.returns.loc.start),
+                        end: ast.toVscodePosition(func.id.loc.end)
                     },
                     targetSelectionRange: {
-                        start: toVscodePosition(func.id.loc.start),
-                        end: toVscodePosition(func.id.loc.end)
+                        start: ast.toVscodePosition(func.id.loc.start),
+                        end: ast.toVscodePosition(func.id.loc.end)
                     }
                 }];
             }
@@ -353,13 +369,13 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
         const item: LocationLink[] = [{
             targetSelectionRange: {
-                start: toVscodePosition(definition.position.start),
-                end: toVscodePosition(definition.position.end)
+                start: ast.toVscodePosition(definition.position.start),
+                end: ast.toVscodePosition(definition.position.end)
             },
             targetUri: data.textDocument.uri,
             targetRange: {
-                start: toVscodePosition(definition.loc?.start || definition.position.end),
-                end: toVscodePosition(definition.position.end)
+                start: ast.toVscodePosition(definition.loc?.start || definition.position.end),
+                end: ast.toVscodePosition(definition.position.end)
             }
         }];
 
