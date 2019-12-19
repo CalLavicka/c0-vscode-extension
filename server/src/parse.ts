@@ -12,6 +12,8 @@ import * as path from "path";
 import * as url from "url";
 import * as process from "process";
 import { GlobalEnv } from "./typecheck/globalenv";
+import { Lang } from "./lang";
+import * as lang from "./lang";
 
 enum SplitState {
   Regular,
@@ -156,11 +158,16 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   let decls: parsed.Declaration[] = [];
 
   let restrictedDecls = new Array<ast.Declaration>();
+  
+  const fileName = typeof text === "string" ? text : text.uri;
+  const language: Lang = lang.parse(path.extname(fileName)) || "C1";
 
   // Use a new parser so our old one doesn't get confused 
-  const parser = mkParser(oldParser.lexer.getTypeIds(), typeof text === "string" ? text : text.uri);
+  const parser = mkParser(
+    oldParser.lexer.getTypeIds(), 
+    typeof text === "string" ? text : text.uri,
+    language);
 
-  const fileName = typeof text === "string" ? text : text.uri;
   const fileText = typeof text === "string" ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) : text.getText();
 
   // Before we go through the file, look at each line for a #use 
@@ -395,15 +402,11 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
     for (const decl of decls) {
       try {
-        // TODO: If the current document is not a C1
-        // document, then we need to update the language
-        // level here accordingly.
-        // Should be able to do so using the URI 
         console.assert(decl.tag !== undefined);
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)
-        restrictedDecls = restrictedDecls.concat(restrictDeclaration("C1", decl));
+        restrictedDecls = restrictedDecls.concat(restrictDeclaration(language, decl));
       } 
       catch (err) {
         errors.add(err);
@@ -425,7 +428,12 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   return Left(diagnostics);
 }
 
-export function mkParser(typeIds: Set<string>, filename?: string): C0Parser {
+export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
+  if (!language && filename) {
+    const inferredLang = lang.parse(path.extname(filename));
+    language = inferredLang || "C1";
+  }
+
   const parser = <C0Parser>(new nearley.Parser(nearley.Grammar.fromCompiled(grammar)));
   // Overwrite the reportError function cause otherwise it loops :(
   parser.reportError = function(token: any) {
@@ -435,7 +443,7 @@ export function mkParser(typeIds: Set<string>, filename?: string): C0Parser {
   // C0/C1 use the same lexer, so no point changing it here
   // We could maybe add a property to the lexer
   // with the currently open path 
-  parser.lexer = new TypeLexer("C1", typeIds, filename);
+  parser.lexer = new TypeLexer(<Lang>language, typeIds, filename);
 
   return parser;
 }
