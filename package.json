@@ -14,6 +14,13 @@
 	],
 	"main": "./client/out/extension",
 	"contributes": {
+		"themes": [
+			{
+			  "label": "C0-dark",
+			  "uiTheme": "vs-dark",
+			  "path": "./themes/C0-dark.color-theme.json"
+			}
+		  ],
 		"configuration": {
 			"type": "object",
 			"title": "example",
