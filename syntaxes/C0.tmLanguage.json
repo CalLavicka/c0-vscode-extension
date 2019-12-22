@@ -20,19 +20,28 @@
         "1": {"name":"comment.block.contract"},
         "2": {"name":"keyword.control.contract"}},
       "end":"[ \t]*((@.*\/))",
-      "endCaptures":{"1": {"name": "punctuation.definition.comment.end"},
+      "endCaptures":{
+        "1": {"name": "punctuation.definition.comment.end"},
         "2": {"name": "comment.block.contract"}},
       "name":"meta.contract.block",
-      "patterns":[{"match":"@","name":"comment.block"},
-        {"include":"#block_innards"}]},
+      "patterns":[
+        {"match":"\\\\result","name":"comment.block.contract"},
+        {"match":"\\\\length","name":"comment.block.contract"},
+        {"match":"@","name":"comment.block"}, 
+        {"include":"#block_innards"}
+      ]},
     {"begin":"([ \t]*\/\/[ ]*@[ ]*(ensures|requires|loop_invariant|assert))",
       "beginCaptures":{"0": {"name":"comment.line"},
         "1": {"name":"comment.line.contract"},
         "2": {"name":"keyword.control.contract"}},
       "end":"($[;]?[\n]?)",
       "name":"meta.contract.line",
-      "patterns":[{"match":"(;\\\n)","name:":"punctuation.separator.continuation"},
-      {"include":"#block_innards"}]},
+      "patterns":[
+        {"match":"\\\\result","name":"comment.block.contract"},
+        {"match":"\\\\length","name":"comment.block.contract"},
+        {"match":"(;\\\n)","name:":"punctuation.separator.continuation"},
+        {"include":"#block_innards"}
+      ]},
     {"begin":"(ensures|requires|loop_invariant|assert)",
         "beginCaptures":{"1": {"name":"keyword.control.contract"}},
         "end":"([;]?[\n]?)",

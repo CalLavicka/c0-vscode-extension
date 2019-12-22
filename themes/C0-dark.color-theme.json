@@ -79,31 +79,9 @@
 			}
 		},
 		{
-			"scope": "entity.name.tag.css",
-			"settings": {
-				"foreground": "#d7ba7d"
-			}
-		},
-		{
 			"scope": "entity.other.attribute-name",
 			"settings": {
 				"foreground": "#9cdcfe"
-			}
-		},
-		{
-			"scope": [
-				"entity.other.attribute-name.class.css",
-				"entity.other.attribute-name.class.mixin.css",
-				"entity.other.attribute-name.id.css",
-				"entity.other.attribute-name.parent-selector.css",
-				"entity.other.attribute-name.pseudo-class.css",
-				"entity.other.attribute-name.pseudo-element.css",
-				"source.css.less entity.other.attribute-name.id",
-				"entity.other.attribute-name.attribute.scss",
-				"entity.other.attribute-name.scss"
-			],
-			"settings": {
-				"foreground": "#d7ba7d"
 			}
 		},
 		{
@@ -196,31 +174,15 @@
 			}
 		},
 		{
-			"scope": "meta.structure.dictionary.key.python",
-			"settings": {
-				"foreground": "#9cdcfe"
-			}
-		},
-		{
 			"scope": "meta.diff.header",
 			"settings": {
 				"foreground": "#569cd6"
 			}
 		},
 		{
-			"scope": "storage",
-			"settings": {
-				"foreground": "#569cd6"
-			}
-		},
-		{
-			"scope": "storage.type",
-			"settings": {
-				"foreground": "#569cd6"
-			}
-		},
-		{
 			"scope": [
+                "storage",
+                "storage.type",
 				"storage.modifier",
 				"keyword.operator.noexcept"
 			],
@@ -275,25 +237,19 @@
 			"settings": {
 				"foreground": "#d4d4d4"
 			}
-		},
-		{
-			"scope": [
-				"support.type.vendored.property-name",
-				"support.type.property-name",
-				"variable.css",
-				"variable.scss",
-				"variable.other.less",
-				"source.coffee.embedded"
-			],
-			"settings": {
-				"foreground": "#9cdcfe"
-			}
-		},
+        },
+        {
+            "name": "Color for typedef",
+            "scope": "keyword.other.typedef",
+            "settings": {
+                "foreground": "#fc99ff"
+            }
+        },
         {
             "name": "Color for requires, ensures, loop_invariant, assert",
 			"scope": "keyword.control.contract",
 			"settings": {
-                "foreground": "#ff5f74",
+                "foreground": "#ff4961",
                 "fontStyle": "italic bold"
 			}
         },
@@ -318,12 +274,6 @@
 				"keyword.operator.new",
 				"keyword.operator.expression",
 				"keyword.operator.cast",
-				"keyword.operator.sizeof",
-				"keyword.operator.alignof",
-				"keyword.operator.typeid",
-				"keyword.operator.alignas",
-				"keyword.operator.instanceof",
-				"keyword.operator.logical.python",
 				"keyword.operator.wordlike"
 			],
 			"settings": {
@@ -428,21 +378,6 @@
 			}
 		},
 		{
-			"name": "CSS property value",
-			"scope": [
-				"support.constant.property-value",
-				"support.constant.font-name",
-				"support.constant.media-type",
-				"support.constant.media",
-				"constant.other.color.rgb-value",
-				"constant.other.rgb-value",
-				"support.constant.color"
-			],
-			"settings": {
-				"foreground": "#CE9178"
-			}
-		},
-		{
 			"name": "Regular expression groups",
 			"scope": [
 				"punctuation.definition.group.regexp",
@@ -520,12 +455,7 @@
 			}
 		},
 		{
-			"scope": "keyword - keyword.operator",
-			"settings": {
-				"foreground": "#ec7ebb"
-			}
-		},
-		{
+            "name": "Highlighting keywords",
             "scope": [
                 "keyword.control", 
                 "keyword"
@@ -533,7 +463,18 @@
 			"settings": {
 				"foreground": "#ec7ebb"
 			}
-		},
+        },
+        {
+            "name":"Highlighting operators + struct access -> and .",
+            "scope": [
+                "keyword.operator",
+                "punctuation.separator.pointer-access",
+                "punctuation.separator.dot-access"
+            ],
+            "settings": {
+                "foreground": "#a2abfd"
+            }
+        },
 		{
 			"scope": "storage",
 			"settings": {
