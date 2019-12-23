@@ -581,7 +581,7 @@ export function restrictStatement(lang: Lang, syn: syn.Statement): ast.Statement
                 const candidate = restrictStatement(lang, {
                     tag: "ExpressionStatement",
                     expression: syn.update,
-                    loc: syn.loc
+                    loc: syn.update.loc
                 });
                 switch (candidate.tag) {
                     case "AssignmentStatement":
