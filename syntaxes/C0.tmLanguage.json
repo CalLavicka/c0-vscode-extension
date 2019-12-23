@@ -53,7 +53,10 @@
       "begin":"(struct)\\s([.]*\\s*){",
       "beginCaptures":{"1": {"name":"keyword.control"}},
       "end":"(};)",
-      "patterns":[{"include":"#block_innards"}]},
+      "patterns":[
+        {"include":"#block_innards"}
+      ]
+    },
     {
       "include": "#preprocessor-rule-enabled"
     },
