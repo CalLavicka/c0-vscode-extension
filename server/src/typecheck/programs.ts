@@ -19,13 +19,13 @@ import { C0Parser } from "../parse";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
-    for (let param of params) { defined.add(param.id.name); }
+    for (const param of params) { defined.add(param.id.name); }
     return defined;
 }
 
 function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
     const env = new Map<string, EnvEntry>();
-    for (let param of params) {
+    for (const param of params) {
         checkTypeInDeclaration(genv, param.kind, true);
         if (env.has(param.id.name)) {
             // TODO: Previous location
@@ -47,6 +47,7 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
  * @param decl Declaration to check
  * @param errors Set to add typing errors to as they are encountered
  */
+// tslint:disable-next-line: max-line-length
 function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<ast.Identifier> {
     switch (decl.tag) {
         // Libs and other files are loaded during parsing,
@@ -75,8 +76,8 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 ));
             }
 
-            let fields = new Set<string>();
-            for (let definition of decl.definitions) {
+            const fields = new Set<string>();
+            for (const definition of decl.definitions) {
                 if (fields.has(definition.id.name)) {
                     // TODO: Previous location
                     errors.add(new TypingError(
@@ -188,11 +189,11 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 errors.add(err);
             }
 
-            let functionsUsed = new Set<ast.Identifier>();
+            const functionsUsed = new Set<ast.Identifier>();
             try {
                 const env = getEnvironmentFromParams(genv, decl.params);
                 const defined = getDefinedFromParams(decl.params);
-                for (let anno of decl.preconditions) {
+                for (const anno of decl.preconditions) {
                     try {
                         checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
@@ -263,7 +264,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
 
                 try {
                     checkStatement(genv, env, decl.body, decl.returns, false, errors);
-                    let constants: Set<string> = new Set();
+                    const constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
                             if (defined.has(x.name)) { constants.add(x.name); }
