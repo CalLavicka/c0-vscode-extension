@@ -303,6 +303,8 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         if (decl.tag !== "FunctionDeclaration") continue;
         // FIXME: look inside contracts too 
         if (decl.body === null) continue;
+        // Only look in declarations in the current document
+        if (decl.loc?.source !== data.textDocument.uri) continue;
 
         if (!isInside(hoverPos, decl.body.loc)) continue;
 
@@ -334,6 +336,8 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         if (decl.tag !== "FunctionDeclaration") continue;
         // FIXME: look inside contracts too 
         if (decl.body === null) continue;
+        // Only look in declarations in the current document
+        if (decl.loc?.source !== data.textDocument.uri) continue;
 
         if (!isInside(pos, decl.body.loc)) continue;
 
