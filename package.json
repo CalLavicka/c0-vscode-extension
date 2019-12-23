@@ -16,11 +16,16 @@
 	"contributes": {
 		"themes": [
 			{
-			  "label": "C0-dark",
-			  "uiTheme": "vs-dark",
-			  "path": "./themes/C0-dark.color-theme.json"
+				"label": "C0-dark",
+				"uiTheme": "vs-dark",
+				"path": "./themes/C0-dark.color-theme.json"
+			},
+			{
+				"label": "C0-light",
+				"uiTheme": "vs",
+				"path": "./themes/C0-light.color-theme.json"
 			}
-		  ],
+		],
 		"configuration": {
 			"type": "object",
 			"title": "example",

@@ -10,12 +10,14 @@
     "see https://github.com/jeff-hykin/cpp-textmate-grammar/blob/master"
   ],
   "patterns": [
-    {"begin":"#use",
+    {
+      "begin":"#use",
       "beginCaptures":{"0": {"name":"keyword.control"}},
       "end":"($\n?)",
       "name":"keyword.other.library"
     }, 
-    {"begin":"([ \t]*\/[*]@[ ]*(ensures|requires|loop_invariant|assert))",
+    {
+      "begin":"([ \t]*\/[*]@[ ]*(ensures|requires|loop_invariant|assert))",
       "beginCaptures":{"0": {"name":"comment.block"},
         "1": {"name":"comment.block.contract"},
         "2": {"name":"keyword.control.contract"}},
@@ -28,9 +30,12 @@
         {"match":"\\\\result","name":"comment.block.contract"},
         {"match":"\\\\length","name":"comment.block.contract"},
         {"match":"@","name":"comment.block"}, 
+        {"include":"#contract_innards"},
         {"include":"#block_innards"}
-      ]},
-    {"begin":"([ \t]*\/\/[ ]*@[ ]*(ensures|requires|loop_invariant|assert))",
+      ]
+    },
+    {
+      "begin":"([ \t]*\/\/[ ]*@[ ]*(ensures|requires|loop_invariant|assert))",
       "beginCaptures":{"0": {"name":"comment.line"},
         "1": {"name":"comment.line.contract"},
         "2": {"name":"keyword.control.contract"}},
@@ -40,18 +45,15 @@
         {"match":"\\\\result","name":"comment.block.contract"},
         {"match":"\\\\length","name":"comment.block.contract"},
         {"match":"(;\\\n)","name:":"punctuation.separator.continuation"},
+        {"include":"#contract_innards"},
         {"include":"#block_innards"}
-      ]},
-    {"begin":"(ensures|requires|loop_invariant|assert)",
-        "beginCaptures":{"1": {"name":"keyword.control.contract"}},
-        "end":"([;]?[\n]?)",
-        "name":"meta.contract.line",
-        "patterns":[{"match":"(;\\\n)","name:":"punctuation.separator.continuation"},
-        {"include":"#block_innards"}]},
-    {"begin":"(struct)\\s([.]*\\s*){",
-        "beginCaptures":{"1": {"name":"keyword.control"}},
-        "end":"(};)",
-        "patterns":[{"include":"#block_innards"}]},
+      ]
+    },
+    {
+      "begin":"(struct)\\s([.]*\\s*){",
+      "beginCaptures":{"1": {"name":"keyword.control"}},
+      "end":"(};)",
+      "patterns":[{"include":"#block_innards"}]},
     {
       "include": "#preprocessor-rule-enabled"
     },
@@ -65,7 +67,7 @@
       "include": "#comments"
     },
     {
-      "match": "\\b(break|continue|do|else|for|if|return|while|alloc|alloc_array)\\b",
+      "match": "\\b(break|continue|do|else|for|if|return|while|alloc|alloc_array|assert)\\b",
       "name": "keyword.control"
     },
     {
@@ -342,7 +344,7 @@
     },
     {
       "name": "meta.function",
-      "begin": "(?<!\\w)(?!\\s*(?:while|for|do|if|else|return|break|continue|void|char|string|int|bool|alloc|alloc_array)\\s*\\()(?=[a-zA-Z_]\\w*\\s*\\()",
+      "begin": "(?<!\\w)(?!\\s*(?:while|for|do|if|else|return|break|continue|void|char|string|int|bool|alloc|alloc_array|assert)\\s*\\()(?=[a-zA-Z_]\\w*\\s*\\()",
       "end": "(?<=\\))",
       "patterns": [
         {
@@ -390,6 +392,16 @@
     }
   ],
   "repository": {
+    "contract_innards": {
+      "begin":"(ensures|requires|loop_invariant|assert)", 
+      "beginCaptures":{"1": {"name":"keyword.control.contract"}},
+      "end":"([;]?[\n]?)",
+      "name":"meta.contract.line",
+      "patterns":[
+        {"match":"(;\\\n)","name:":"punctuation.separator.continuation"},
+        {"include":"#block_innards"}
+      ]
+    },
     "inline_comment": {
       "match": "(\\/\\*)((?>(?:[^\\*]|(?>\\*+)[^\\/])*)((?>\\*+)\\/))",
       "captures": {
@@ -1240,7 +1252,7 @@
       ]
     },
     "c_function_call": {
-      "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array)\\s*\\()\n(?=\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++\\s*\\(  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\\s*\\(\n)",
+      "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array|assert)\\s*\\()\n(?=\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++\\s*\\(  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\\s*\\(\n)",
       "end": "(?<=\\))(?!\\w)",
       "name": "meta.function-call",
       "patterns": [
@@ -2467,7 +2479,7 @@
           "name": "punctuation.section.parens.end.bracket.round"
         },
         {
-          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|bool|char|string|int|struct|typedef|void|alloc|alloc_array)\\s*\\()\n(?=\n  (?:[A-Za-z_][A-Za-z0-9_]*+|::)++\\s*\\(  # actual name\n  |\n  (?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\\s*\\(\n)",
+          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|bool|char|string|int|struct|typedef|void|alloc|alloc_array|assert)\\s*\\()\n(?=\n  (?:[A-Za-z_][A-Za-z0-9_]*+|::)++\\s*\\(  # actual name\n  |\n  (?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\\s*\\(\n)",
           "end": "(?<=\\))(?!\\w)|(?<!\\\\)(?=\\s*\\n)",
           "name": "meta.function",
           "patterns": [
@@ -2586,7 +2598,7 @@
           "include": "#operators"
         },
         {
-          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array)\\s*\\()\n(\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\n)\n\\s*(\\()",
+          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array|assert)\\s*\\()\n(\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\n)\n\\s*(\\()",
           "beginCaptures": {
             "1": {
               "name": "entity.name.function"
@@ -2713,7 +2725,7 @@
           "include": "#operators"
         },
         {
-          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array)\\s*\\()\n(\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\n)\n\\s*(\\()",
+          "begin": "(?x)\n(?!(?:while|for|do|if|else|return|alloc|alloc_array|assert)\\s*\\()\n(\n(?:[A-Za-z_][A-Za-z0-9_]*+|::)++  # actual name\n|\n(?:(?<=operator)(?:[-*&<>=+!]+|\\(\\)|\\[\\]))\n)\n\\s*(\\()",
           "beginCaptures": {
             "1": {
               "name": "entity.name.function"
