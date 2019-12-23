@@ -23,7 +23,7 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement} from "./ast-search";
+import { isInside, findStatement } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -34,11 +34,11 @@ import { Maybe, Just, Nothing } from './util';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
-let connection = createConnection(ProposedFeatures.all);
+const connection = createConnection(ProposedFeatures.all);
 
 // Create a simple text document manager. The text document manager
 // supports full document sync only
-let documents: TextDocuments = new TextDocuments();
+const documents: TextDocuments = new TextDocuments();
 
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
@@ -46,7 +46,7 @@ let hasDiagnosticRelatedInformationCapability: boolean = false;
 const WordList: WordListClass = new WordListClass(basicLexing.identifier.keywords.keyword);
 
 connection.onInitialize((params: InitializeParams) => {
-    let capabilities = params.capabilities;
+    const capabilities = params.capabilities;
 
     // Does the client support the `workspace/configuration` request?
     // If not, we will fall back using global settings
@@ -88,10 +88,10 @@ interface ExampleSettings {
 // Please note that this is not the case when using this server with the client provided in this example
 // but could happen with other clients.
 const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
-let globalSettings: ExampleSettings = defaultSettings;
+const globalSettings: ExampleSettings = defaultSettings;
 
 // Cache the settings of all open documents
-let documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
+const documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
 
 // Only keep settings for open documents
 documents.onDidClose(e => {
@@ -142,7 +142,7 @@ documents.onDidChangeContent(async change => {
     const folders = await connection.workspace.getWorkspaceFolders();
 
     let dependencies: string[] = [];
-    let diagnostics: Diagnostic[] = [];
+    const diagnostics: Diagnostic[] = [];
 
     const maybeDependencies = getDependencies(change.document.uri, [
         `${dir}/project.txt`,  
@@ -169,7 +169,7 @@ documents.onDidChangeContent(async change => {
     WordList.handleContextChange(change);
 });
 
-connection.onDidChangeWatchedFiles(_change => {
+connection.onDidChangeWatchedFiles(change => {
     // Monitored files have change in VS Code
     connection.console.log('We received an file change event');
 });
@@ -199,10 +199,10 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
 
     // The pass parameter contains the position of the text document in
     // which code complete got requested. 
-    let keywords: CompletionItem[] = 
+    const keywords: CompletionItem[] = 
         basicLexing.identifier.keywords.keyword.map(word => ({ 
-            label: word, kind: 
-            CompletionItemKind.Keyword,
+            label: word, 
+            kind: CompletionItemKind.Keyword,
         }));
 
     const pos = ast.fromVscodePosition(completionInfo.position);
@@ -254,7 +254,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                     // Look in the function body for local variables 
                     if (!isInside(pos, decl.body.loc)) break;
             
-                    const searchResult = findStatement(decl.body, null, { pos: pos, genv: decls });                    
+                    const searchResult = findStatement(decl.body, null, { pos, genv: decls });                    
                     if (searchResult === null || searchResult.environment === null) break; 
 
                     for (const [name, type] of searchResult.environment) {
@@ -382,8 +382,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         return item;
     }
 
-    return null;
-    
+    return null; 
 });
 
 // Make the text document manager listen on the connection

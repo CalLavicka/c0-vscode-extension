@@ -13,7 +13,6 @@ import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
 import * as path from "path";
-import * as lang from "./lang";
 import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
 
 /** 

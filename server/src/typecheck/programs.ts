@@ -19,13 +19,13 @@ import { C0Parser } from "../parse";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
     const defined = new Set<string>();
-    for (let param of params) { defined.add(param.id.name); }
+    for (const param of params) { defined.add(param.id.name); }
     return defined;
 }
 
 function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
     const env = new Map<string, EnvEntry>();
-    for (let param of params) {
+    for (const param of params) {
         checkTypeInDeclaration(genv, param.kind, true);
         if (env.has(param.id.name)) {
             // TODO: Previous location
@@ -47,6 +47,7 @@ function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarati
  * @param decl Declaration to check
  * @param errors Set to add typing errors to as they are encountered
  */
+// tslint:disable-next-line: max-line-length
 function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<ast.Identifier> {
     switch (decl.tag) {
         // Libs and other files are loaded during parsing,
@@ -75,8 +76,8 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 ));
             }
 
-            let fields = new Set<string>();
-            for (let definition of decl.definitions) {
+            const fields = new Set<string>();
+            for (const definition of decl.definitions) {
                 if (fields.has(definition.id.name)) {
                     // TODO: Previous location
                     errors.add(new TypingError(
@@ -151,20 +152,21 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
             // Check declaration
             try {
                 checkFunctionReturnType(genv, decl.definition.returns);
-            } catch(err) {
+            } 
+            catch (err) {
                 errors.add(err);
             }
             try {
                 const env = getEnvironmentFromParams(genv, decl.definition.params);
                 const defined = getDefinedFromParams(decl.definition.params);
                 const functionsUsed = new Set<ast.Identifier>();
-                for (let anno of decl.definition.preconditions) {
+                for (const anno of decl.definition.preconditions) {
                     checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                         functionsUsed.add(x)
                     );
                 }
-                for (let anno of decl.definition.postconditions) {
+                for (const anno of decl.definition.postconditions) {
                     checkExpression(genv, env, { tag: "@ensures", returns: decl.definition.returns }, anno, {
                         tag: "BoolType"
                     });
@@ -173,7 +175,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     );
                 }
                 return functionsUsed;
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
                 return new Set();
             }
@@ -182,25 +184,26 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
             // No need to check for previous typedefs (this would cause a parse error)
             try {
                 checkFunctionReturnType(genv, decl.returns);
-            } catch(err) {
+            } 
+            catch (err) {
                 errors.add(err);
             }
 
-            let functionsUsed = new Set<ast.Identifier>();
+            const functionsUsed = new Set<ast.Identifier>();
             try {
                 const env = getEnvironmentFromParams(genv, decl.params);
                 const defined = getDefinedFromParams(decl.params);
-                for (let anno of decl.preconditions) {
+                for (const anno of decl.preconditions) {
                     try {
                         checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
-                for (let anno of decl.postconditions) {
+                for (const anno of decl.postconditions) {
                     try {
                         checkExpression(genv, env, { tag: "@ensures", returns: decl.returns }, anno, {
                             tag: "BoolType"
@@ -208,7 +211,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
@@ -231,7 +234,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                             ));
                         }
                     }
-                } catch(err) {
+                } catch (err) {
                     errors.add(err);
                 }
                 
@@ -261,7 +264,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
 
                 try {
                     checkStatement(genv, env, decl.body, decl.returns, false, errors);
-                    let constants: Set<string> = new Set();
+                    const constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
                             if (defined.has(x.name)) { constants.add(x.name); }
@@ -276,10 +279,10 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         ));
                     }
                     functionAnalysis.functions.forEach(f => functionsUsed.add(f));
-                } catch(err) {
+                } catch (err) {
                     errors.add(err);
                 }
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
 
@@ -303,7 +306,6 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         addDecl(false, genv, decl);
     });
 
-    //functionsUsed.add("main");
     functionsUsed.forEach(
         (f): void => {
             const def = getFunctionDeclaration(genv, f.name);
