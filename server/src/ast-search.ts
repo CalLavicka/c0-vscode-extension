@@ -1,15 +1,15 @@
 /** 
- * Contains methods which search for an AST 
+ * Contains methods which search for an AST
  * node given a position, and returns
  * the environment at that position
  */
 import {
-    Position,
-    SourceLocation,
-    Type,
     AnyType,
     Expression,
-    Statement
+    Position,
+    SourceLocation,
+    Statement,
+    Type
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
@@ -76,7 +76,7 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
                     data: {
                         tag: "FoundIdent",
                         name: e.callee.name,
-                        type: type
+                        type
                     }
                 };
             }
@@ -86,7 +86,7 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
             }
             break;
 
-        case "Identifier":
+        case "Identifier": {
             if (currentEnv === null) break;
 
             const type = currentEnv.get(e.name);
@@ -100,7 +100,7 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
                     type
                 }
             };
-
+        }
         case "StructMemberExpression":
             // Here we would like hovering over "foo" in "foo->bar" 
             // to return the type of foo,
@@ -128,7 +128,6 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
 
         // TODO: write the other cases
     }
-
 
     return { environment: currentEnv, data: null };
 }
@@ -181,6 +180,7 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
             // that also sounds like a later problem 
             if (isInside(pos, s.body.loc)) return findStatement(s.body, currentEnv, info);
             break;
+
         // TODO: write the other cases
     }
 
