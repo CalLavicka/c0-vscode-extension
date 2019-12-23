@@ -34,7 +34,8 @@
       "check-type-operator",
       "check-preblock",
       "check-postbrace"
-	]
+		],
+		"no-switch-case-fall-through": true
 	},
 	"defaultSeverity": "warning"
 }
