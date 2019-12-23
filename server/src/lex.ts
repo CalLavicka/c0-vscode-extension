@@ -160,11 +160,11 @@ export function createAnnoLexer(): Lexer {
 }
 
 export class TypeLexer {
+    public fileName: string;
+
     private typeIds: Set<string>;
     private coreLexer: Lexer;
     private parsePragma: (pragma: string) => Set<string>;
-
-    public fileName: string;
 
     constructor(lang: Lang, typeIds: Set<string>, fileName: string = "", parsePragma?: (pragma: string) => Set<string>) {
         this.typeIds = typeIds;
@@ -190,20 +190,20 @@ export class TypeLexer {
         }
         this.parsePragma = parsePragma || (() => new Set());
     }
-    addIdentifier(typeIdentifier: string) {
+    public addIdentifier(typeIdentifier: string) {
         this.typeIds.add(typeIdentifier);
     }
     /** Returns a list of typedef names known to this lexer */
-    getTypeIds(): Set<string> {
+    public getTypeIds(): Set<string> {
         // dEfeNSiVe cOpIEs
         return new Set([...this.typeIds]);
     }
-    next(): Token | undefined {
+    public next(): Token | undefined {
         let tok = this.coreLexer.next();
         if (!tok) {
             return undefined;
         }
-        switch (tok["type"]) {
+        switch (tok.type) {
             case "pragma":
                 this.parsePragma(tok.text).forEach(id => this.typeIds.add(id));
                 break;
@@ -216,16 +216,16 @@ export class TypeLexer {
 
         return tok;
     }
-    save(): LexerState {
+    public save(): LexerState {
         return this.coreLexer.save();
     }
-    reset(chunk?: string, state?: LexerState): void {
+    public reset(chunk?: string, state?: LexerState): void {
         this.coreLexer.reset(chunk, state);
     }
-    formatError(token: Token, message?: string): string {
+    public formatError(token: Token, message?: string): string {
         return this.coreLexer.formatError(token, message);
     }
-    has(tokenType: string): boolean {
+    public has(tokenType: string): boolean {
         return this.coreLexer.has(tokenType);
     }
 }

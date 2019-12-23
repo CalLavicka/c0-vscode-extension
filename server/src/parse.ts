@@ -96,8 +96,8 @@ function* semicolonSplit(s: string) {
 
 // Overwrite nearley's error reporting because it is broken
 function myReportError(parser: nearley.Parser, token: any) {
-  var lines: string[] = [];
-  var tokenDisplay =
+  const lines: string[] = [];
+  const tokenDisplay =
     (token.type ? token.type + " token: " : "") +
     JSON.stringify(token.value !== undefined ? token.value : token);
   lines.push(parser.lexer.formatError(token, "Syntax error"));
@@ -116,7 +116,8 @@ export interface C0Parser extends nearley.Parser {
 
 /** 
  * Converts typing errors to a list of VSCode diagnostics,
- * keeping source information */
+ * keeping source information
+ */
 export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagnostic[] {
   const diagnostics = [];
 
@@ -184,7 +185,9 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     typeof text === "string" ? text : text.uri,
     language);
 
-  const fileText = typeof text === "string" ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) : text.getText();
+  const fileText = typeof text === "string" 
+    ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) 
+    : text.getText();
 
   // Before we go through the file, look at each line for a #use 
   // This could actually be done in lex.ts, in Tok.next()
@@ -206,9 +209,9 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
       
-      let decls: ast.Declaration[];
+      let libdecls: ast.Declaration[];
 
-      if (libcache.has(libname)) decls = <ast.Declaration[]>libcache.get(libname);
+      if (libcache.has(libname)) libdecls = <ast.Declaration[]>libcache.get(libname);
       else {
         const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
         if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
@@ -223,19 +226,19 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
             `Very unexpected error when reading library ${libname}, please ask the course staff for help!`);
         }
 
-        decls = parseResult.result;
+        libdecls = parseResult.result;
         // Annotate each decl with its source URI 
-        decls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+        libdecls.forEach(d => { if (d.loc) d.loc.source = libpath; });
       }
       
       genv.libsLoaded.add(libname);
       // We assume nothing funky happens in the library headers
       // so we will not run the typechecker on them
 
-      genv.decls.push(...decls);
+      genv.decls.push(...libdecls);
       // Mark these as library functions/structs so the 
       // typechecker knows not to look for a body 
-      decls.forEach(d => { 
+      libdecls.forEach(d => { 
         switch (d.tag) {
           case "FunctionDeclaration":
             genv.libfuncs.add(d.id.name);
@@ -432,7 +435,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
   // Here we check for forbidden language features
   if (parsed) {
-    let errors = new Set<TypingError>();
+    const errors = new Set<TypingError>();
 
     for (const decl of decls) {
       try {

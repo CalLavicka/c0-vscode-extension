@@ -48,7 +48,7 @@ export function checkStatement(
                     checkExpression(genv, env, null, stm.right, { tag: "IntType" });
                     stm.size = { tag: "IntType" };
                 }
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;
@@ -56,7 +56,7 @@ export function checkStatement(
         case "UpdateStatement": {
             try {
                 checkExpression(genv, env, null, stm.argument, { tag: "IntType" });
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;
@@ -76,7 +76,7 @@ export function checkStatement(
                         `expression used as statements cannot have function type '${expType.definition.id.name}'`
                     ));
                 }
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;
@@ -90,12 +90,12 @@ export function checkStatement(
                 } else if (stm.init !== null) {
                     try {
                         checkExpression(genv, env, null, stm.init, stm.kind);
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
                 env.set(stm.id.name, { ...stm.kind, position: stm.id.loc });
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;
@@ -122,14 +122,14 @@ export function checkStatement(
             if (stm.init) { checkStatement(genv, env0, stm.init, null, false, errors); }
             try {
                 checkExpression(genv, env0, null, stm.test, { tag: "BoolType" });
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             if (stm.update) { checkStatement(genv, env0, stm.update, null, false, errors); }
             stm.invariants.forEach(anno => {
                 try {
                     checkExpression(genv, env0, { tag: "@loop_invariant" }, anno, { tag: "BoolType" });
-                } catch(err) {
+                } catch (err) {
                     errors.add(err);
                 }
             });
@@ -152,7 +152,7 @@ export function checkStatement(
                 } else {
                     try {
                         checkExpression(genv, env, null, stm.argument, returning);
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
@@ -171,7 +171,7 @@ export function checkStatement(
                 checkExpression(genv, env, stm.contract ? { tag: "@assert" } : null, stm.test, {
                     tag: "BoolType"
                 });
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;
@@ -179,7 +179,7 @@ export function checkStatement(
         case "ErrorStatement": {
             try {
                 checkExpression(genv, env, null, stm.argument, { tag: "StringType" });
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
             return;

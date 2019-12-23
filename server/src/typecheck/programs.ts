@@ -151,20 +151,21 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
             // Check declaration
             try {
                 checkFunctionReturnType(genv, decl.definition.returns);
-            } catch(err) {
+            } 
+            catch (err) {
                 errors.add(err);
             }
             try {
                 const env = getEnvironmentFromParams(genv, decl.definition.params);
                 const defined = getDefinedFromParams(decl.definition.params);
                 const functionsUsed = new Set<ast.Identifier>();
-                for (let anno of decl.definition.preconditions) {
+                for (const anno of decl.definition.preconditions) {
                     checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                         functionsUsed.add(x)
                     );
                 }
-                for (let anno of decl.definition.postconditions) {
+                for (const anno of decl.definition.postconditions) {
                     checkExpression(genv, env, { tag: "@ensures", returns: decl.definition.returns }, anno, {
                         tag: "BoolType"
                     });
@@ -173,7 +174,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     );
                 }
                 return functionsUsed;
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
                 return new Set();
             }
@@ -182,7 +183,8 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
             // No need to check for previous typedefs (this would cause a parse error)
             try {
                 checkFunctionReturnType(genv, decl.returns);
-            } catch(err) {
+            } 
+            catch (err) {
                 errors.add(err);
             }
 
@@ -196,11 +198,11 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
-                for (let anno of decl.postconditions) {
+                for (const anno of decl.postconditions) {
                     try {
                         checkExpression(genv, env, { tag: "@ensures", returns: decl.returns }, anno, {
                             tag: "BoolType"
@@ -208,7 +210,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
-                    } catch(err) {
+                    } catch (err) {
                         errors.add(err);
                     }
                 }
@@ -231,7 +233,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                             ));
                         }
                     }
-                } catch(err) {
+                } catch (err) {
                     errors.add(err);
                 }
                 
@@ -276,10 +278,10 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         ));
                     }
                     functionAnalysis.functions.forEach(f => functionsUsed.add(f));
-                } catch(err) {
+                } catch (err) {
                     errors.add(err);
                 }
-            } catch(err) {
+            } catch (err) {
                 errors.add(err);
             }
 
@@ -303,7 +305,6 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         addDecl(false, genv, decl);
     });
 
-    //functionsUsed.add("main");
     functionsUsed.forEach(
         (f): void => {
             const def = getFunctionDeclaration(genv, f.name);
