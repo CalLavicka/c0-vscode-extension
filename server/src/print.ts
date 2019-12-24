@@ -60,6 +60,15 @@ export function expressionToString(e: ast.Expression): string {
         // TODO: fill in the other cases for this method 
         case "StructMemberExpression":
             return `${expressionToString(e.object)}${e.deref ? "->" : "."}${e.field.name}`;
+
+        case "IntLiteral":
+        case "BoolLiteral":
+        case "StringLiteral":
+        case "CharLiteral":
+            return e.value.toString();
+        case "NullLiteral":
+            return "NULL";
+
         default:
             throw new Error(`Expression-to-string not yet implemented for: ${JSON.stringify(e)}`);
     }

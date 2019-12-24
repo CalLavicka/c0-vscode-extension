@@ -231,10 +231,10 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                 // We can't use these because contracts can be on both
                 // the prototype and on the definition, and both count
 
-                // const requires = decl.preconditions.map(precond => 
-                //     ` - ${mkCodeString("//@requires " + expressionToString(precond))}\n`);
-                // const ensures = decl.postconditions.map(postcond =>
-                //     ` - ${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
+                const requires = decl.preconditions.map(precond => 
+                    `${mkCodeString("//@requires " + expressionToString(precond))}\n`);
+                const ensures = decl.postconditions.map(postcond =>
+                    `${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
 
                 // const existingItem = functionDecls.get(decl.id.name);
                 // if (existingItem) {
@@ -246,7 +246,13 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                     kind: CompletionItemKind.Function,
                     documentation: {
                         kind: "markdown",
-                        value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+                        value: `${
+                            mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+                        }\n${
+                        requires
+                        }\n${
+                        ensures
+                        }`
                     },
                     detail: decl.loc?.source || undefined
                 });
@@ -331,7 +337,6 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
     const pos: ast.Position = ast.fromVscodePosition(data.position);
 
-    // This needs to be extracted to a function lol
     for (const decl of genv.decls) {
         if (decl.tag !== "FunctionDeclaration") continue;
         // FIXME: look inside contracts too 
