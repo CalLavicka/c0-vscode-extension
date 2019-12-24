@@ -171,7 +171,7 @@ const libcache: Map<string, ast.Declaration[]> = new Map();
 export function parseDocument(text: string | TextDocument, oldParser: C0Parser, genv: GlobalEnv): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
-  let parsed = true;
+  let parseSuccessful = true;
   let decls: parsed.Declaration[] = [];
 
   let restrictedDecls = new Array<ast.Declaration>();
@@ -216,7 +216,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
         if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
-          parsed = false;
+          parseSuccessful = false;
         }
 
         const parseResult = parseDocument(libpath, parser, genv);
@@ -258,7 +258,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         // keep track of the loaded files on genv as well as loaded libs
         const usedFilename = match[1];
         addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
-        parsed = false;
+        parseSuccessful = false;
       }
     }
   }
@@ -286,7 +286,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     };
 
     diagnostics.push(diagnostic);
-    parsed = false;
+    parseSuccessful = false;
   }
 
   // Position information 
@@ -434,7 +434,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   // any syntax errors 
 
   // Here we check for forbidden language features
-  if (parsed) {
+  if (parseSuccessful) {
     const errors = new Set<TypingError>();
 
     for (const decl of decls) {

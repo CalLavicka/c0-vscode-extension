@@ -35,7 +35,9 @@
       "check-preblock",
       "check-postbrace"
 		],
-		"no-switch-case-fall-through": true
+		"no-switch-case-fall-through": true,
+		"array-type": false,
+		"object-literal-shorthand": false
 	},
 	"defaultSeverity": "warning"
 }

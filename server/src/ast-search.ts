@@ -157,7 +157,6 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
 
     // If control reaches here it means the position was 
     // over a whitespace character or something
-    console.log(e.tag);
     return { environment: currentEnv, data: null };
 }
 
@@ -235,6 +234,5 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
     }
 
     // Not found 
-    console.log(s.tag);
     return { environment: currentEnv, data: null };
 }
