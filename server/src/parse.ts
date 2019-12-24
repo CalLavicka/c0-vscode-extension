@@ -11,16 +11,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as url from "url";
 import * as process from "process";
-import { GlobalEnv, getFunctionDeclaration } from "./typecheck/globalenv";
+import { GlobalEnv } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
-
-enum SplitState {
-  Regular,
-  LineComment,
-  BlockComment,
-  String
-}
 
 /** 
  * Splits exclusively on semicolons,
@@ -29,6 +22,13 @@ enum SplitState {
  * typedefs  
  */
 function* semicolonSplit(s: string) {
+  const enum SplitState {
+    Regular,
+    LineComment,
+    BlockComment,
+    String
+  }
+  
   // The main issue this tries to resolve is that 
   // we have to stop parsing when we encounter a typedef
   // in order to update the lexer 
