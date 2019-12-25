@@ -7,9 +7,17 @@ export type GlobalEnv = {
 
     /**
      * Holds which libraries have already 
-     * been loaded and added to decls 
+     * been loaded and added to decls.
+     * Corresponds to #use <foo>
      */
-    libsLoaded: Set<string>;
+    readonly libsLoaded: Set<string>;
+    /**
+     * Holds which files have already 
+     * been loaded. Corresponds to 
+     * dependencies in project.txt
+     * and also #use "foo.c0" in source files
+     */
+    readonly filesLoaded: Set<string>;
 
     readonly decls: ast.Declaration[];
 };
@@ -19,14 +27,6 @@ export type GlobalEnv = {
  * environments a and b. There can be repeats of 
  * library functions, but not decls 
  */
-export function mergeGlobalEnv(a: GlobalEnv, b: GlobalEnv): GlobalEnv {
-    return {
-        libstructs: new Set([...a.libstructs, ...b.libstructs]),
-        libfuncs: new Set([...a.libfuncs, ...b.libfuncs]),
-        libsLoaded: new Set(),
-        decls: a.decls.concat(b.decls)
-    };
-}
 
 /**
  * An ActualType is the (non-identifier) type that can be typedefed.
@@ -45,7 +45,7 @@ export type ActualType =
  * Look at a typedef
  */
 export function getTypeDef(genv: GlobalEnv, t: string): ActualType | ast.ValueType | null {
-    for (let decl of genv.decls) {
+    for (const decl of genv.decls) {
         if (decl.tag === "TypeDefinition" && decl.definition.id.name === t) {
             return decl.definition.kind;
         } else if (decl.tag === "FunctionTypeDefinition" && decl.definition.id.name === t) {
@@ -63,6 +63,7 @@ export function initEmpty(): GlobalEnv {
         libstructs: new Set<string>(),
         libfuncs: new Set<string>(),
         libsLoaded: new Set(),
+        filesLoaded: new Set(),
         decls: []
     };
 }
@@ -75,6 +76,7 @@ export function initMain(): GlobalEnv {
         libstructs: new Set<string>(),
         libfuncs: new Set<string>(),
         libsLoaded: new Set(),
+        filesLoaded: new Set(),
         decls: [
             {
                 tag: "FunctionDeclaration",
@@ -121,7 +123,7 @@ export function isLibraryStruct(genv: GlobalEnv, t: string): boolean {
  */
 export function getFunctionDeclaration(genv: GlobalEnv, t: string): ast.FunctionDeclaration | null {
     let result: ast.FunctionDeclaration | null = null;
-    for (let decl of genv.decls) {
+    for (const decl of genv.decls) {
         if (decl.tag === "FunctionDeclaration" && decl.id.name === t) {
             if (result === null) { result = decl; }
             if (decl.body !== null) { return decl; }
@@ -136,7 +138,7 @@ export function getFunctionDeclaration(genv: GlobalEnv, t: string): ast.Function
  */
 export function getStructDefinition(genv: GlobalEnv, t: string): ast.StructDeclaration | null {
     let result: ast.StructDeclaration | null = null;
-    for (let decl of genv.decls) {
+    for (const decl of genv.decls) {
         if (decl.tag === "StructDeclaration" && decl.id.name === t) {
             if (result === null) { result = decl; }
             if (decl.definitions !== null) { return decl; }
@@ -150,7 +152,7 @@ export function getStructDefinition(genv: GlobalEnv, t: string): ast.StructDecla
  * be in the global environment.
  */
 function expandTypeDef(genv: GlobalEnv, t: ast.Identifier): ActualType {
-    let tp = getTypeDef(genv, t.name);
+    const tp = getTypeDef(genv, t.name);
 
     /* instanbul ignore if */
     if (tp === null) {

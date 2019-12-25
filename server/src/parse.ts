@@ -205,16 +205,18 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       // #use <libfoo>
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
-      
+      // Mark this library as loaded 
+      genv.libsLoaded.add(libname);
+
       let libdecls = libcache.get(libname);
 
       if (libdecls === undefined) {
         // process.argv[0] is the path to nodejs 
         // process.argv[1] is the path to server.js (the main script for the server)
         const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
+
         if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
-          parseSuccessful = false;
           continue;
         }
 
@@ -234,8 +236,6 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         libcache.set(libname, libdecls);
       }
       
-      // Mark this library as loaded 
-      genv.libsLoaded.add(libname);
       // We assume nothing funky happens in the library headers
       // so we will not run the typechecker on them
 
@@ -253,17 +253,33 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         }
       });
     }
-    else {
-      match = line.match(matchFile);
-      if (match !== null) {
-        // #use "foo.c0"
-        // Shouldn't be that hard to implement, using
-        // something similiar to the above. You'd just have to
-        // keep track of the loaded files on genv as well as loaded libs
-        const usedFilename = match[1];
-        addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
-        parseSuccessful = false;
+    else if ((match = line.match(matchFile)) !== null) {
+      const usedName = match[1];
+      const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
+
+      if (genv.filesLoaded.has(usedPath)) continue;
+      // Add the file to the loaded set before we parse it to prevent
+      // circularity 
+      genv.filesLoaded.add(usedPath);
+
+      if (!fs.existsSync(usedPath)) {
+        addError(i, 0, `couldn't find ${usedName}`, DiagnosticSeverity.Error);
+        continue;
       }
+
+      const usedURI = `file://${usedPath}`;
+
+      const parseResult = parseDocument(usedURI, parser, genv);
+      if (parseResult.tag === "left") {
+        addError(i, 0, 
+          `failed to typecheck ${usedName}. Code completion and other features will not be available`, 
+          DiagnosticSeverity.Error);
+        continue;
+      }
+      
+      const usedDecls = parseResult.result;
+      usedDecls.forEach(d => { if (d.loc) d.loc.source = usedURI; });
+      restrictedDecls.push(...usedDecls);
     }
   }
 

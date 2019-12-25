@@ -46,9 +46,14 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   const genv = initEmpty();
 
   for (const dep of dependencies) {
-    const parser = mkParser(typeIds, dep);
+    // Always add a file to the loaded set
+    // before loading it, otherwise 
+    // someone could introduce cycles 
+    genv.filesLoaded.add(dep);
 
+    const parser = mkParser(typeIds, dep);
     const parseResult = parseDocument(dep, parser, genv);
+
     switch (parseResult.tag) {
       case "left":
         // Give up if there's an error in another file
@@ -68,7 +73,8 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     }
   }
 
-  const parser = mkParser(typeIds, path.basename(textDocument.uri));
+  genv.filesLoaded.add(textDocument.uri);
+  const parser = mkParser(typeIds, textDocument.uri);
 
   const parseResult = parseDocument(textDocument, parser, genv);
   switch (parseResult.tag) {
