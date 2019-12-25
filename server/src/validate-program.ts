@@ -14,6 +14,8 @@ import * as ast from "./ast";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
+import { Either } from "./util";
+import { TypingError } from "./error";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -80,9 +82,24 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   // as well as loaded all libraries, so we
   // can run the typechecker
 
-  const typecheckResult = checkProgram(genv, decls, parser);
+  const typecheckResult: Either<Set<TypingError>, GlobalEnv> = checkProgram(genv, decls, parser);
   switch (typecheckResult.tag) {
     case "left":
+      // If there are errors in a dependency,
+      // then give up
+      for (const error of typecheckResult.error) {
+        if (error.loc?.source !== textDocument.uri) {
+          return [{
+            severity: DiagnosticSeverity.Error,
+            message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
+            source: "c0-language",
+            range: {
+              start: Position.create(0, 0),
+              end: Position.create(0, 0),
+            }
+          }];    
+        }
+      }
       return typingErrorsToDiagnostics(typecheckResult.error);
     case "right":
       openFiles.set(textDocument.uri, typecheckResult.result);

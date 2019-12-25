@@ -180,10 +180,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   const language: Lang = lang.parse(path.extname(fileName)) || "C1";
 
   // Use a new parser so our old one doesn't get confused 
-  const parser = mkParser(
-    oldParser.lexer.getTypeIds(), 
-    typeof text === "string" ? text : text.uri,
-    language);
+  const parser = mkParser(oldParser.lexer.getTypeIds(), fileName, language);
 
   const fileText = typeof text === "string" 
     ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) 
@@ -209,28 +206,35 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
       
-      let libdecls: ast.Declaration[];
+      let libdecls = libcache.get(libname);
 
-      if (libcache.has(libname)) libdecls = <ast.Declaration[]>libcache.get(libname);
-      else {
+      if (libdecls === undefined) {
+        // process.argv[0] is the path to nodejs 
+        // process.argv[1] is the path to server.js (the main script for the server)
         const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
         if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
           parseSuccessful = false;
+          continue;
         }
 
         const parseResult = parseDocument(libpath, parser, genv);
         if (parseResult.tag === "left") {
-          // Indicates the library header got corrupted
+          // Indicates the library header got corrupted,
+          // or some other major bug with our server has occured 
           throw new Error(
             `Very unexpected error when reading library ${libname}, please ask the course staff for help!`);
         }
 
         libdecls = parseResult.result;
-        // Annotate each decl with its source URI 
+        // Annotate each decl with its source URI, 
+        // for use in go to decl
         libdecls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+        // Add libraries to the cache 
+        libcache.set(libname, libdecls);
       }
       
+      // Mark this library as loaded 
       genv.libsLoaded.add(libname);
       // We assume nothing funky happens in the library headers
       // so we will not run the typechecker on them

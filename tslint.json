@@ -37,7 +37,8 @@
 		],
 		"no-switch-case-fall-through": true,
 		"array-type": false,
-		"object-literal-shorthand": false
+		"object-literal-shorthand": false,
+		"max-classes-per-file": false
 	},
 	"defaultSeverity": "warning"
 }
