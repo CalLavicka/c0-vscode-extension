@@ -47,16 +47,46 @@ export type SearchInfo = {
 
 export interface AstSearchResult {
     environment: Env | null;
-    data: AstFoundIdent | null;
+    data: FoundIdent | FoundType | null;
 }
 
-export interface AstFoundIdent {
+export interface FoundIdent {
     tag: "FoundIdent";
     name: string;
     type: AnyType;
 }
 
-function findExpression(e: Expression, currentEnv: Map<string, Type> | null, info: SearchInfo): AstSearchResult {
+export interface FoundType {
+    tag: "FoundType";
+    type: Type;
+}
+
+function findType(e: Type, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
+    const { pos } = info;
+ 
+    switch (e.tag) {
+        case "ArrayType":
+        case "PointerType":
+            if (isInside(pos, e.argument.loc)) return findType(e.argument, currentEnv, info);
+            break;
+
+        case "Identifier":
+            return {
+                environment: currentEnv,
+                data: {
+                    tag: "FoundType",
+                    type: e
+                }
+            };
+    }
+
+    return {
+        environment: currentEnv,
+        data: null
+    };
+}
+
+function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
     const { pos } = info;
 
     switch (e.tag) {
@@ -137,11 +167,14 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
 
         case "AllocArrayExpression":
             if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
-            break;
 
-        // FIXME: When we implement "go-to-typedef" support this will
-        // neded to be revisited
-        case "AllocExpression": break;
+        // tslint:disable-next-line: no-switch-case-fall-through
+        case "AllocExpression":
+            // FIXME: more precise type location
+            // For example, alloc(typedefName*) will always
+            // just return the pointer type, and not go straight 
+            // to the identifier as desired
+            return findType(e.kind, currentEnv, info);
 
         // We could also provide the type of a literal on hover
         // ...although that doesnt seem super useful
@@ -193,6 +226,8 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
             return findExpression(s.expression, currentEnv, info);
 
         case "VariableDeclaration":
+            if (isInside(pos, s.kind.loc)) return findType(s.kind, currentEnv, info);
+
             if (s.init && isInside(pos, s.init.loc))
                 return findExpression(s.init, currentEnv, info);
             break;

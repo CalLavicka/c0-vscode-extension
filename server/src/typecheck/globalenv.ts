@@ -147,6 +147,16 @@ export function getStructDefinition(genv: GlobalEnv, t: string): ast.StructDecla
     return result;
 }
 
+export function getTypedefDefinition(genv: GlobalEnv, t: string): ast.TypeDefinition | null {
+    for (const decl of genv.decls) {
+        if (decl.tag === "TypeDefinition" && decl.definition.id.name === t) {
+            return decl;
+        }
+    }
+
+    return null;
+}
+
 /**
  * If parsing is and environment-threading are done correctly, type identifiers should always
  * be in the global environment.
