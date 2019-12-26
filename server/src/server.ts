@@ -328,7 +328,8 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
     case "FoundIdent": {
       const { name, type } = searchResult.data;
       return {
-        contents: mkMarkdownCode(`${name}: ${typeToString(type)}`)
+        contents: mkMarkdownCode(`${
+          type.tag !== 'FunctionType' ? `${name}:` : ''} ${typeToString(type)}`)
       };
     }
     case "FoundType": {

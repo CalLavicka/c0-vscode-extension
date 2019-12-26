@@ -50,6 +50,7 @@ export function expressionToString(e: ast.Expression): string {
         case "ArrayMemberExpression":
             return `${expressionToString(e.object)}[${expressionToString(e.index)}]`;
     
+        case "LogicalExpression":
         case "BinaryExpression":
             // Place parenthesis for safety
             return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;  
@@ -71,9 +72,6 @@ export function expressionToString(e: ast.Expression): string {
         
         case "UnaryExpression":
             return `(${e.operator}${expressionToString(e.argument)})`;
-
-        case "LogicalExpression":
-            return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;
 
         case "ConditionalExpression":
             return `(${expressionToString(e.test)} ? ${expressionToString(e.consequent)} : ${expressionToString(e.alternate)})`;
