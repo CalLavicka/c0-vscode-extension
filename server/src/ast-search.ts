@@ -140,9 +140,9 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                 if (struct === null || struct.definitions === null) break;
 
                 const field = struct.definitions.find(def => def.id.name === e.field.name);
-                // Should be impossible - field should always be found unless there
-                // is a bug in the typechecker 
-                if (field === undefined) throw new ImpossibleError("Field not found (typechecker bug, please report!)");
+                // This is now possible - it means that the 
+                // user is typing in a field name right now 
+                if (field === undefined) break;
                 return {
                     environment: currentEnv,
                     data: {
