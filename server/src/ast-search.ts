@@ -71,6 +71,7 @@ function findType(e: Type, currentEnv: Env | null, info: SearchInfo): AstSearchR
             if (isInside(pos, e.argument.loc)) return findType(e.argument, currentEnv, info);
             break;
 
+        case "StructType":
         case "Identifier":
             return {
                 environment: currentEnv,
