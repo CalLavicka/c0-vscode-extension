@@ -49,26 +49,26 @@ export function expressionToString(e: ast.Expression): string {
 
         case "ArrayMemberExpression":
             return `${expressionToString(e.object)}[${expressionToString(e.index)}]`;
-
+    
         case "BinaryExpression":
             // Place parenthesis for safety
-            return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;
+            return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;  
 
         case "Identifier":
-            return e.name;
+            return e.name;    
 
         case "StructMemberExpression":
             return `${expressionToString(e.object)}${e.deref ? "->" : "."}${e.field.name}`;
 
         case "CallExpression":
-            return `${e.callee.name}(${Map})`; // map each expression in array to string then concat
-
+            return `${e.callee.name}(${(e.arguments.map(x => expressionToString(x))).join(', ')})`;
+        
         case "IndirectCallExpression":
-            return `(*${expressionToString(e.callee)})(${Map})`; // copy from above
+            return `(*${expressionToString(e.callee)})(${(e.arguments.map(x => expressionToString(x))).join(', ')})`; 
 
         case "CastExpression":
             return `((${typeToString(e.kind)})${expressionToString(e.argument)})`;
-
+        
         case "UnaryExpression":
             return `(${e.operator}${expressionToString(e.argument)})`;
 
