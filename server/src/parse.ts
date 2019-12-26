@@ -240,7 +240,17 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         // Add libraries to the cache 
         libcache.set(libname, libdecls);
       }
-      
+      else {
+        // Still need to add type ids from libdecls
+        for (const decl of libdecls) {
+          switch (decl.tag) {
+            case "TypeDefinition":
+            case "FunctionTypeDefinition":
+              parser.lexer.addIdentifier(decl.definition.id.name);
+              break;
+          }
+        }
+      }
       // We assume nothing funky happens in the library headers
       // so we will not run the typechecker on them
 
