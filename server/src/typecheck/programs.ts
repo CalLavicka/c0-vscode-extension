@@ -258,7 +258,9 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     params: decl.params,
                     preconditions: [],
                     postconditions: [],
-                    loc: decl.loc,
+                    // Don't give a location
+                    // or it will confuse ast search code
+                    loc: undefined, 
                     body: null
                 });
 
@@ -301,10 +303,20 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
     const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
 
-    decls.forEach(decl => {
-        checkDeclaration(genv, decl, errors, parser).forEach(f => functionsUsed.add(f));
+    for (const decl of decls) {
+        const declErrors = new Set<TypingError>();
+        checkDeclaration(genv, decl, declErrors, parser).forEach(f => functionsUsed.add(f));
+
+        // Indicate where each error came from 
+        for (const error of declErrors) {
+            if (decl.loc && error.loc)
+                error.loc.source = decl.loc.source;
+
+            errors.add(error);
+        }
+
         addDecl(false, genv, decl);
-    });
+    }
 
     functionsUsed.forEach(
         (f): void => {

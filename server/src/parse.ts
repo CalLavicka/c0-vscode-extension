@@ -11,16 +11,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as url from "url";
 import * as process from "process";
-import { GlobalEnv, getFunctionDeclaration } from "./typecheck/globalenv";
+import { GlobalEnv } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
-
-enum SplitState {
-  Regular,
-  LineComment,
-  BlockComment,
-  String
-}
 
 /** 
  * Splits exclusively on semicolons,
@@ -29,6 +22,13 @@ enum SplitState {
  * typedefs  
  */
 function* semicolonSplit(s: string) {
+  const enum SplitState {
+    Regular,
+    LineComment,
+    BlockComment,
+    String
+  }
+  
   // The main issue this tries to resolve is that 
   // we have to stop parsing when we encounter a typedef
   // in order to update the lexer 
@@ -171,19 +171,16 @@ const libcache: Map<string, ast.Declaration[]> = new Map();
 export function parseDocument(text: string | TextDocument, oldParser: C0Parser, genv: GlobalEnv): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
-  let parsed = true;
+  let parseSuccessful = true;
   let decls: parsed.Declaration[] = [];
 
   let restrictedDecls = new Array<ast.Declaration>();
   
   const fileName = typeof text === "string" ? text : text.uri;
-  const language: Lang = lang.parse(path.extname(fileName)) || "C1";
+  const language: Lang = lang.parse(path.extname(fileName).substr(1)) || "C1";
 
   // Use a new parser so our old one doesn't get confused 
-  const parser = mkParser(
-    oldParser.lexer.getTypeIds(), 
-    typeof text === "string" ? text : text.uri,
-    language);
+  const parser = mkParser(oldParser.lexer.getTypeIds(), fileName, language);
 
   const fileText = typeof text === "string" 
     ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) 
@@ -208,30 +205,37 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       // #use <libfoo>
       const libname = match[1];
       if (genv.libsLoaded.has(libname)) continue;
-      
-      let libdecls: ast.Declaration[];
+      // Mark this library as loaded 
+      genv.libsLoaded.add(libname);
 
-      if (libcache.has(libname)) libdecls = <ast.Declaration[]>libcache.get(libname);
-      else {
+      let libdecls = libcache.get(libname);
+
+      if (libdecls === undefined) {
+        // process.argv[0] is the path to nodejs 
+        // process.argv[1] is the path to server.js (the main script for the server)
         const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
+
         if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
-          parsed = false;
+          continue;
         }
 
         const parseResult = parseDocument(libpath, parser, genv);
         if (parseResult.tag === "left") {
-          // Indicates the library header got corrupted
+          // Indicates the library header got corrupted,
+          // or some other major bug with our server has occured 
           throw new Error(
             `Very unexpected error when reading library ${libname}, please ask the course staff for help!`);
         }
 
         libdecls = parseResult.result;
-        // Annotate each decl with its source URI 
+        // Annotate each decl with its source URI, 
+        // for use in go to decl
         libdecls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+        // Add libraries to the cache 
+        libcache.set(libname, libdecls);
       }
       
-      genv.libsLoaded.add(libname);
       // We assume nothing funky happens in the library headers
       // so we will not run the typechecker on them
 
@@ -249,17 +253,34 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         }
       });
     }
-    else {
-      match = line.match(matchFile);
-      if (match !== null) {
-        // #use "foo.c0"
-        // Shouldn't be that hard to implement, using
-        // something similiar to the above. You'd just have to
-        // keep track of the loaded files on genv as well as loaded libs
-        const usedFilename = match[1];
-        addError(i, 0, `#use "${usedFilename}" not supported in VSCode yet`, DiagnosticSeverity.Error);
-        parsed = false;
+    // tslint:disable-next-line: no-conditional-assignment
+    else if ((match = line.match(matchFile)) !== null) {
+      const usedName = match[1];
+      const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
+
+      if (genv.filesLoaded.has(usedPath)) continue;
+      // Add the file to the loaded set before we parse it to prevent
+      // circularity 
+      genv.filesLoaded.add(usedPath);
+
+      if (!fs.existsSync(usedPath)) {
+        addError(i, 0, `couldn't find ${usedName}`, DiagnosticSeverity.Error);
+        continue;
       }
+
+      const usedURI = `file://${usedPath}`;
+
+      const parseResult = parseDocument(usedURI, parser, genv);
+      if (parseResult.tag === "left") {
+        addError(i, 0, 
+          `failed to typecheck ${usedName}. Code completion and other features will not be available`, 
+          DiagnosticSeverity.Error);
+        continue;
+      }
+      
+      const usedDecls = parseResult.result;
+      usedDecls.forEach(d => { if (d.loc) d.loc.source = usedURI; });
+      restrictedDecls.push(...usedDecls);
     }
   }
 
@@ -286,7 +307,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     };
 
     diagnostics.push(diagnostic);
-    parsed = false;
+    parseSuccessful = false;
   }
 
   // Position information 
@@ -434,7 +455,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   // any syntax errors 
 
   // Here we check for forbidden language features
-  if (parsed) {
+  if (parseSuccessful) {
     const errors = new Set<TypingError>();
 
     for (const decl of decls) {
@@ -467,7 +488,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
 export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
   if (!language && filename) {
-    const inferredLang = lang.parse(path.extname(filename));
+    const inferredLang = lang.parse(path.extname(filename).substr(1));
     language = inferredLang || "C1";
   }
 

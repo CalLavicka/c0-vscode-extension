@@ -9,7 +9,7 @@ export class IncompleteParseError extends Error {
 
 export class ParsingError extends Error {
     public readonly name: "ParsingError" = "ParsingError";
-    loc: null | SourceLocation;
+    public loc: null | SourceLocation;
     constructor(syn: SourceLocation | { loc?: SourceLocation }, msg: string) {
         super(msg);
         const loc = "start" in syn ? syn : syn.loc ? syn.loc : null;
@@ -19,9 +19,9 @@ export class ParsingError extends Error {
 
 export class TypingError extends Error {
     public readonly name: "TypingError";
-    loc: null | SourceLocation;
+    public loc: null | SourceLocation;
     constructor(syn: { loc?: SourceLocation }, msg: string, ...hints: string[]) {
-        const loc = syn.loc ? syn.loc : null;
+        const loc = syn.loc || null;
         const hintstr = hints.length === 0 ? "" : "\n\nHint: " + hints.join("\n      ");
         super(`${msg}${hintstr}`);
         this.name = "TypingError";

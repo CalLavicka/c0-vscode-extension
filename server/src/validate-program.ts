@@ -14,6 +14,8 @@ import * as ast from "./ast";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
+import { Either } from "./util";
+import { TypingError } from "./error";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -44,9 +46,14 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   const genv = initEmpty();
 
   for (const dep of dependencies) {
-    const parser = mkParser(typeIds, dep);
+    // Always add a file to the loaded set
+    // before loading it, otherwise 
+    // someone could introduce cycles 
+    genv.filesLoaded.add(dep);
 
+    const parser = mkParser(typeIds, dep);
     const parseResult = parseDocument(dep, parser, genv);
+
     switch (parseResult.tag) {
       case "left":
         // Give up if there's an error in another file
@@ -66,13 +73,30 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     }
   }
 
-  const parser = mkParser(typeIds, path.basename(textDocument.uri));
+  genv.filesLoaded.add(textDocument.uri);
+  const parser = mkParser(typeIds, textDocument.uri);
 
   const parseResult = parseDocument(textDocument, parser, genv);
   switch (parseResult.tag) {
     case "left":
       return parseResult.error;
     case "right":
+      // If we are in a h0 or h1 file, then
+      // mark everything as a library function or struct
+      switch (path.extname(textDocument.uri).toLowerCase()) {
+        case ".h0":
+        case ".h1":
+          for (const decl of parseResult.result) {
+            switch (decl.tag) {
+              case "FunctionDeclaration":
+                genv.libfuncs.add(decl.id.name);
+                break;
+              case "StructDeclaration":
+                genv.libstructs.add(decl.id.name);
+                break;
+            }
+          }
+      }
       decls.push(...parseResult.result);
   }
 
@@ -80,9 +104,24 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   // as well as loaded all libraries, so we
   // can run the typechecker
 
-  const typecheckResult = checkProgram(genv, decls, parser);
+  const typecheckResult: Either<Set<TypingError>, GlobalEnv> = checkProgram(genv, decls, parser);
   switch (typecheckResult.tag) {
     case "left":
+      // If there are errors in a dependency,
+      // then give up
+      for (const error of typecheckResult.error) {
+        if (error.loc?.source && error.loc.source !== textDocument.uri) {
+          return [{
+            severity: DiagnosticSeverity.Error,
+            message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
+            source: "c0-language",
+            range: {
+              start: Position.create(0, 0),
+              end: Position.create(0, 0),
+            }
+          }];    
+        }
+      }
       return typingErrorsToDiagnostics(typecheckResult.error);
     case "right":
       openFiles.set(textDocument.uri, typecheckResult.result);

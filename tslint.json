@@ -1,5 +1,8 @@
 {
 	"extends": "tslint:recommended",
+	"linterOptions": {
+		"exclude": ["server/src/parse/nearley-helper.ts"]
+	},
 	"rules": {
 		"no-string-throw": true,
 		"no-unused-expression": true,
@@ -34,7 +37,11 @@
       "check-type-operator",
       "check-preblock",
       "check-postbrace"
-	]
+		],
+		"no-switch-case-fall-through": true,
+		"array-type": false,
+		"object-literal-shorthand": false,
+		"max-classes-per-file": false
 	},
 	"defaultSeverity": "warning"
 }
