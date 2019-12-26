@@ -241,34 +241,21 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
         break;
 
       case "FunctionDeclaration": {
-        // We can't use these because contracts can be on both
-        // the prototype and on the definition, and both count
+        // Prefer to use contracts from a function definition
+        if (decl.body || !functionDecls.has(decl.id.name)) {
+          const requires = decl.preconditions.map(precond => 
+              `//@requires ${expressionToString(precond)}`);
+          const ensures = decl.postconditions.map(postcond =>
+              `//@ensures ${expressionToString(postcond)}`);
 
-        const requires = decl.preconditions.map(precond => 
-            `${mkCodeString("//@requires " + expressionToString(precond))}\n`);
-        const ensures = decl.postconditions.map(postcond =>
-            `${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
-
-        // const existingItem = functionDecls.get(decl.id.name);
-        // if (existingItem) {
-        //     // Append new contracts
-        //     //existingItem.
-        // }    
-        functionDecls.set(decl.id.name, {
-          label: decl.id.name,
-          kind: CompletionItemKind.Function,
-          documentation: {
-              kind: "markdown",
-              value: `${
-                  mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
-              }\n${
-              requires
-              }\n${
-              ensures
-              }`
-          },
-          detail: decl.loc?.source || undefined
-        });
+          functionDecls.set(decl.id.name, {
+            label: decl.id.name,
+            kind: CompletionItemKind.Function,
+            documentation: mkMarkdownCode(
+              `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`),
+            detail: decl.loc?.source || undefined
+          });
+        }
         if (decl.body) {
           // Look in the function body for local variables 
           if (!isInside(pos, decl.body.loc)) break;
