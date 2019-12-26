@@ -1,13 +1,13 @@
 /**
  * Code to check the program for any syntax, parse errors.
- * Full disclaimer: most of this was not written by us. 
+ * It will also add any successfully obtained ASTs to 
+ * openFiles
  */
 import {
   Diagnostic,
   DiagnosticSeverity,
   TextDocument,
   Position,
-  ErrorMessageTracker
 } from "vscode-languageserver";
 
 import { checkProgram } from "./typecheck/programs";
@@ -15,8 +15,6 @@ import * as ast from "./ast";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
-import { Either } from "./util";
-import { TypingError } from "./error";
 
 /** 
  * Map from TextDocument URI's to their last 
