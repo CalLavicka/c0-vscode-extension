@@ -155,7 +155,12 @@ type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 const libcache: Map<string, ast.Declaration[]> = new Map();
 
 /**
- * Parses the given document
+ * Parses the given document, including all libraries and
+ * all files used with #use "foo.c0". It will update genv with 
+ * any new libraries and loaded files. It will either return
+ * an AST or a list of errors. 
+ * 
+ * @author Most of this was written by Rob Simmons 
  * 
  * @param text 
  * Either a file URI (for a file which is not the one being currently edited)
@@ -257,18 +262,17 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     else if ((match = line.match(matchFile)) !== null) {
       const usedName = match[1];
       const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
+      const usedURI = `file://${usedPath}`;
 
-      if (genv.filesLoaded.has(usedPath)) continue;
+      if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent
       // circularity 
-      genv.filesLoaded.add(usedPath);
+      genv.filesLoaded.add(usedURI);
 
       if (!fs.existsSync(usedPath)) {
         addError(i, 0, `couldn't find ${usedName}`, DiagnosticSeverity.Error);
         continue;
       }
-
-      const usedURI = `file://${usedPath}`;
 
       const parseResult = parseDocument(usedURI, parser, genv);
       if (parseResult.tag === "left") {
