@@ -47,6 +47,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   const genv = initEmpty();
 
   for (const dep of dependencies) {
+    if (genv.filesLoaded.has(dep)) continue;
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
@@ -74,31 +75,36 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     }
   }
 
-  genv.filesLoaded.add(textDocument.uri);
   const parser = mkParser(typeIds, textDocument.uri);
+  if (!genv.filesLoaded.has(textDocument.uri)) {
+    genv.filesLoaded.add(textDocument.uri);
 
-  const parseResult = parseDocument(textDocument, parser, genv);
-  switch (parseResult.tag) {
-    case "left":
-      return parseResult.error;
-    case "right":
-      // If we are in a h0 or h1 file, then
-      // mark everything as a library function or struct
-      switch (path.extname(textDocument.uri).toLowerCase()) {
-        case ".h0":
-        case ".h1":
-          for (const decl of parseResult.result) {
-            switch (decl.tag) {
-              case "FunctionDeclaration":
-                genv.libfuncs.add(decl.id.name);
-                break;
-              case "StructDeclaration":
-                genv.libstructs.add(decl.id.name);
-                break;
+    const parseResult = parseDocument(textDocument, parser, genv);
+    switch (parseResult.tag) {
+      case "left":
+        return parseResult.error;
+      case "right":
+        // If we are in a h0 or h1 file, then
+        // mark everything as a library function or struct
+        // This should be in parseDocument, but since
+        // people should only encounter h0 files in the context
+        // of a library, this should be fine (e.g. command+click on a lib function)
+        switch (path.extname(textDocument.uri).toLowerCase()) {
+          case ".h0":
+          case ".h1":
+            for (const decl of parseResult.result) {
+              switch (decl.tag) {
+                case "FunctionDeclaration":
+                  genv.libfuncs.add(decl.id.name);
+                  break;
+                case "StructDeclaration":
+                  genv.libstructs.add(decl.id.name);
+                  break;
+              }
             }
-          }
-      }
-      decls.push(...parseResult.result);
+        }
+        decls.push(...parseResult.result);
+    }
   }
 
   // At this point we have gathered all the declarations, 
