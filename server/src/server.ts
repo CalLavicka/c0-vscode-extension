@@ -29,7 +29,7 @@ import { typeToString, expressionToString } from './print';
 import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
-import { getFunctionDeclaration, actualType, getTypedefDefinition } from './typecheck/globalenv';
+import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
@@ -374,12 +374,21 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
     case "FoundType": {
       const { type } = searchResult.data;
 
-      if (type.tag === "Identifier") {
-        // Find a typedef with this tag 
-        const typedef = getTypedefDefinition(genv, type.name);
-        if (typedef !== null && typedef.loc) {
-          return toLocationLink(typedef.loc);
-        }
+      switch (type.tag) {
+        case "Identifier":
+          // Find a typedef with this tag 
+          const typedef = getTypedefDefinition(genv, type.name);
+          if (typedef !== null && typedef.loc) {
+            return toLocationLink(typedef.loc);
+          }
+          break;
+
+        case "StructType":
+          const struct = getStructDefinition(genv, type.id.name);
+          if (struct !== null && struct.loc) {
+            return toLocationLink(struct.loc);
+          }
+          break;
       }
       break;
     }
