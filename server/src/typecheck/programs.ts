@@ -297,7 +297,10 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
     }
 }
 
-export type TypecheckResult = Either<Set<TypingError>, GlobalEnv>;
+export interface TypecheckResult {
+    errors: Set<TypingError>;
+    genv: GlobalEnv;
+}
 
 export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: C0Parser): TypecheckResult {
     const functionsUsed = new Set<ast.Identifier>();
@@ -329,10 +332,5 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         }
     );
 
-    if (errors.size === 0) {
-        return Right(genv);
-    }
-    else {
-        return Left(errors);
-    }
+    return { errors, genv };
 }

@@ -6,7 +6,8 @@ import {
   Diagnostic,
   DiagnosticSeverity,
   TextDocument,
-  Position
+  Position,
+  ErrorMessageTracker
 } from "vscode-languageserver";
 
 import { checkProgram } from "./typecheck/programs";
@@ -104,29 +105,26 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   // as well as loaded all libraries, so we
   // can run the typechecker
 
-  const typecheckResult: Either<Set<TypingError>, GlobalEnv> = checkProgram(genv, decls, parser);
-  switch (typecheckResult.tag) {
-    case "left":
-      // If there are errors in a dependency,
-      // then give up
-      for (const error of typecheckResult.error) {
-        if (error.loc?.source && error.loc.source !== textDocument.uri) {
-          return [{
-            severity: DiagnosticSeverity.Error,
-            message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
-            source: "c0-language",
-            range: {
-              start: Position.create(0, 0),
-              end: Position.create(0, 0),
-            }
-          }];    
+  const typecheckResult = checkProgram(genv, decls, parser);
+
+  // If there are errors in a dependency,
+  // then give up
+  for (const error of typecheckResult.errors) {
+    if (error.loc?.source && error.loc.source !== textDocument.uri) {
+      return [{
+        severity: DiagnosticSeverity.Error,
+        message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
+        source: "c0-language",
+        range: {
+          start: Position.create(0, 0),
+          end: Position.create(0, 0),
         }
-      }
-      return typingErrorsToDiagnostics(typecheckResult.error);
-    case "right":
-      openFiles.set(textDocument.uri, typecheckResult.result);
-      return [];
+      }];    
+    }
   }
+
+  openFiles.set(textDocument.uri, typecheckResult.genv);
+  return typingErrorsToDiagnostics(typecheckResult.errors);
 
   // TODO: this would have to be moved somewhere else...perhaps in parseDocument
   // while pre-processing the source 
