@@ -60,11 +60,6 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
     const { pos } = info;
 
     switch (e.tag) {
-        case "BinaryExpression":
-            if (isInside(pos, e.left.loc)) return findExpression(e.left, currentEnv, info);
-            if (isInside(pos, e.right.loc)) return findExpression(e.right, currentEnv, info);
-            break;
-
         case "CallExpression":
             if (isInside(pos, e.callee.loc)) {
                 const functionInfo = getFunctionDeclaration(info.genv, e.callee.name);
@@ -126,9 +121,43 @@ function findExpression(e: Expression, currentEnv: Map<string, Type> | null, inf
                 };
             }
 
+        case "UnaryExpression":
+            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
+            break;
+
+        case "BinaryExpression":
+            if (isInside(pos, e.left.loc)) return findExpression(e.left, currentEnv, info);
+            if (isInside(pos, e.right.loc)) return findExpression(e.right, currentEnv, info);
+            break;
+
+        case "ArrayMemberExpression":
+            if (isInside(pos, e.object.loc)) return findExpression(e.object, currentEnv, info);
+            if (isInside(pos, e.index.loc)) return findExpression(e.index, currentEnv, info);
+            break;
+
+        case "AllocArrayExpression":
+            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
+            break;
+
+        // FIXME: When we implement "go-to-typedef" support this will
+        // neded to be revisited
+        case "AllocExpression": break;
+
+        // We could also provide the type of a literal on hover
+        // ...although that doesnt seem super useful
+        case "IntLiteral":
+        case "BoolLiteral":
+        case "StringLiteral":
+        case "CharLiteral":
+        case "NullLiteral":
+            break;
+
         // TODO: write the other cases
     }
 
+    // If control reaches here it means the position was 
+    // over a whitespace character or something
+    console.log(e.tag);
     return { environment: currentEnv, data: null };
 }
 
@@ -178,11 +207,34 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
             // Technically if we are in the update or guard portion
             // we should add i to environment and look there, but 
             // that also sounds like a later problem 
+            if (s.init && isInside(pos, s.init.loc)) return findStatement(s.init, currentEnv, info);
+            if (s.update && isInside(pos, s.update.loc)) return findStatement(s.update, currentEnv, info);
+
+        // Fall through for common loop cases 
+        // tslint:disable-next-line: no-switch-case-fall-through
+        case "WhileStatement":
+            if (isInside(pos, s.test.loc)) return findExpression(s.test, currentEnv, info);
             if (isInside(pos, s.body.loc)) return findStatement(s.body, currentEnv, info);
+            for (const loopInvariant of s.invariants) 
+                if (isInside(pos, loopInvariant.loc)) 
+                    return findExpression(loopInvariant, currentEnv, info);
             break;
 
-        // TODO: write the other cases
+        case "UpdateStatement":
+        case "ErrorStatement":
+            if (isInside(pos, s.argument.loc)) return findExpression(s.argument, currentEnv, info);
+            break;
+
+        case "AssertStatement":
+            if (isInside(pos, s.test.loc)) return findExpression(s.test, currentEnv, info);
+            break;
+
+        case "BreakStatement":
+        case "ContinueStatement":
+            break;
     }
 
+    // Not found 
+    console.log(s.tag);
     return { environment: currentEnv, data: null };
 }
