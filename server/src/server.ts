@@ -244,10 +244,10 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
         // We can't use these because contracts can be on both
         // the prototype and on the definition, and both count
 
-        // const requires = decl.preconditions.map(precond => 
-        //     ` - ${mkCodeString("//@requires " + expressionToString(precond))}\n`);
-        // const ensures = decl.postconditions.map(postcond =>
-        //     ` - ${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
+        const requires = decl.preconditions.map(precond => 
+            `${mkCodeString("//@requires " + expressionToString(precond))}\n`);
+        const ensures = decl.postconditions.map(postcond =>
+            `${mkCodeString("//@ensures " + expressionToString(postcond))}\n`);
 
         // const existingItem = functionDecls.get(decl.id.name);
         // if (existingItem) {
@@ -258,8 +258,14 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.id.name,
           kind: CompletionItemKind.Function,
           documentation: {
-            kind: "markdown",
-            value: mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+              kind: "markdown",
+              value: `${
+                  mkCodeString(typeToString({ tag: "FunctionType", definition: decl }))
+              }\n${
+              requires
+              }\n${
+              ensures
+              }`
           },
           detail: decl.loc?.source || undefined
         });
