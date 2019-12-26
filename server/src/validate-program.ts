@@ -81,6 +81,22 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     case "left":
       return parseResult.error;
     case "right":
+      // If we are in a h0 or h1 file, then
+      // mark everything as a library function or struct
+      switch (path.extname(textDocument.uri).toLowerCase()) {
+        case ".h0":
+        case ".h1":
+          for (const decl of parseResult.result) {
+            switch (decl.tag) {
+              case "FunctionDeclaration":
+                genv.libfuncs.add(decl.id.name);
+                break;
+              case "StructDeclaration":
+                genv.libstructs.add(decl.id.name);
+                break;
+            }
+          }
+      }
       decls.push(...parseResult.result);
   }
 
@@ -94,7 +110,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       // If there are errors in a dependency,
       // then give up
       for (const error of typecheckResult.error) {
-        if (error.loc?.source !== textDocument.uri) {
+        if (error.loc?.source && error.loc.source !== textDocument.uri) {
           return [{
             severity: DiagnosticSeverity.Error,
             message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,

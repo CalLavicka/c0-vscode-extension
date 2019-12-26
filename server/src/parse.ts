@@ -177,7 +177,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   let restrictedDecls = new Array<ast.Declaration>();
   
   const fileName = typeof text === "string" ? text : text.uri;
-  const language: Lang = lang.parse(path.extname(fileName)) || "C1";
+  const language: Lang = lang.parse(path.extname(fileName).substr(1)) || "C1";
 
   // Use a new parser so our old one doesn't get confused 
   const parser = mkParser(oldParser.lexer.getTypeIds(), fileName, language);
@@ -253,6 +253,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         }
       });
     }
+    // tslint:disable-next-line: no-conditional-assignment
     else if ((match = line.match(matchFile)) !== null) {
       const usedName = match[1];
       const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
@@ -487,7 +488,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
 export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
   if (!language && filename) {
-    const inferredLang = lang.parse(path.extname(filename));
+    const inferredLang = lang.parse(path.extname(filename).substr(1));
     language = inferredLang || "C1";
   }
 

@@ -258,7 +258,9 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     params: decl.params,
                     preconditions: [],
                     postconditions: [],
-                    loc: decl.loc,
+                    // Don't give a location
+                    // or it will confuse ast search code
+                    loc: undefined, 
                     body: null
                 });
 

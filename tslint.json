@@ -1,5 +1,8 @@
 {
 	"extends": "tslint:recommended",
+	"linterOptions": {
+		"exclude": ["server/src/parse/nearley-helper.ts"]
+	},
 	"rules": {
 		"no-string-throw": true,
 		"no-unused-expression": true,

@@ -1,7 +1,7 @@
 /** 
  * Contains methods which search for an AST
  * node given a position, and returns
- * the environment at that position
+ * information about that position
  */
 import {
     AnyType,
@@ -9,7 +9,8 @@ import {
     Position,
     SourceLocation,
     Statement,
-    Type
+    Type,
+    Declaration
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
@@ -155,6 +156,7 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
             break;
 
+        case "LogicalExpression":
         case "BinaryExpression":
             if (isInside(pos, e.left.loc)) return findExpression(e.left, currentEnv, info);
             if (isInside(pos, e.right.loc)) return findExpression(e.right, currentEnv, info);
@@ -270,4 +272,48 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
 
     // Not found 
     return { environment: currentEnv, data: null };
+}
+
+function findDecl(decl: Declaration, info: SearchInfo) {
+    const { pos } = info;
+    switch (decl.tag) {
+        case "FunctionDeclaration":
+            if (isInside(pos, decl.returns.loc)) return findType(decl.returns, null, info);
+            // Check args 
+            for (const arg of decl.params) {
+                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, null, info);
+            }
+            for (const contract of [...decl.preconditions, ...decl.postconditions]) {
+                // TODO: Create an environment from function arguments 
+                // as they are valid inside function contracts
+                if (isInside(pos, contract.loc)) return findExpression(contract, null, info);
+            }
+
+            if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);
+            break;
+
+        case "TypeDefinition":
+            if (isInside(pos, decl.definition.kind.loc)) return findType(decl.definition.kind, null, info);
+            break;
+
+        case "StructDeclaration":
+            if (decl.definitions === null) break;
+            for (const field of decl.definitions) {
+                if (isInside(pos, field.kind.loc)) return findType(field.kind, null, info);
+            }
+            break;
+    }
+
+    return { environment: null, data: null };
+}
+
+export function findGenv(info: SearchInfo, uri: string): AstSearchResult {
+    const { pos, genv } = info;
+
+    for (const decl of genv.decls) {
+        if (decl.loc?.source !== uri) continue;
+        if (isInside(pos, decl.loc)) return findDecl(decl, info);
+    }
+
+    return { environment: null, data: null };
 }

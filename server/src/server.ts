@@ -23,7 +23,7 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement } from "./ast-search";
+import { isInside, findStatement, findGenv } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -299,47 +299,34 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
   // PERF: Cache the last function we found ourselves in
   // since it is likely we will return to it immediately after
   // That being said, this code is fairly efficient in my opinion
-  for (const decl of genv.decls) {
-    if (decl.tag !== "FunctionDeclaration") continue;
-    // FIXME: look inside contracts too 
-    if (decl.body === null) continue;
-    // Only look in declarations in the current document
-    if (decl.loc?.source !== data.textDocument.uri) continue;
+  const searchResult = findGenv({ pos: hoverPos, genv: genv }, data.textDocument.uri);
 
-    if (!isInside(hoverPos, decl.body.loc)) continue;
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier 
+  if (searchResult === null || searchResult.data === null) return null;
 
-    const searchResult = findStatement(decl.body, null, { pos: hoverPos, genv: genv });
+  switch (searchResult.data.tag) {
+    case "FoundIdent": {
+      const { name, type } = searchResult.data;
+      return {
+        contents: mkMarkdownCode(`${name}: ${typeToString(type)}`)
+      };
+    }
+    case "FoundType": {
+      const { type } = searchResult.data;
+      const realType = actualType(genv, type);
 
-    // This indicates that the user hovered over something that
-    // wasn't an indentifier 
-    if (searchResult === null || searchResult.data === null) return null;
-
-    switch (searchResult.data.tag) {
-      case "FoundIdent": {
-        const { name, type } = searchResult.data;
-        return {
-          contents: mkMarkdownCode(`${name}: ${typeToString(type)}`)
-        };
-      }
-      case "FoundType": {
-        const { type } = searchResult.data;
-        const realType = actualType(genv, type);
-
-        return {
-          contents: mkMarkdownCode(typeToString(realType))
-        };
-      }
+      return {
+        contents: mkMarkdownCode(typeToString(realType))
+      };
     }
   }
-
-  return null;
 });
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation): LocationLink[] | null {
-    if (!loc.source) return null;
     return [{
-      targetUri: loc.source,
+      targetUri: loc.source || data.textDocument.uri,
       targetSelectionRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
@@ -357,52 +344,41 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
   const pos: ast.Position = ast.fromVscodePosition(data.position);
 
-  // This needs to be extracted to a function lol
-  for (const decl of genv.decls) {
-    if (decl.tag !== "FunctionDeclaration") continue;
-    // FIXME: look inside contracts too 
-    if (decl.body === null) continue;
-    // Only look in declarations in the current document
-    if (decl.loc?.source !== data.textDocument.uri) continue;
+  const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
 
-    if (!isInside(pos, decl.body.loc)) continue;
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier 
+  if (searchResult === null || searchResult.data === null) return null;
 
-    const searchResult = findStatement(decl.body, null, { pos, genv });
+  switch (searchResult.data.tag) {
+    case "FoundType": {
+      const { type } = searchResult.data;
 
-    // This indicates that the user hovered over something that
-    // wasn't an indentifier 
-    if (searchResult === null || searchResult.data === null) return null;
-
-    switch (searchResult.data.tag) {
-      case "FoundType": {
-        const { type } = searchResult.data;
-
-        if (type.tag === "Identifier") {
-          // Find a typedef with this tag 
-          const typedef = getTypedefDefinition(genv, type.name);
-          if (typedef !== null && typedef.loc) {
-            return toLocationLink(typedef.loc);
-          }
+      if (type.tag === "Identifier") {
+        // Find a typedef with this tag 
+        const typedef = getTypedefDefinition(genv, type.name);
+        if (typedef !== null && typedef.loc) {
+          return toLocationLink(typedef.loc);
         }
-        break;
       }
-      case "FoundIdent": {
-        const { name, type } = searchResult.data;
+      break;
+    }
+    case "FoundIdent": {
+      const { name, type } = searchResult.data;
 
-        if (type.tag === "FunctionType") {
-          // Look up function
-          // TODO: suggest both the function declaration and the function definition 
-          const func = getFunctionDeclaration(genv, name);
-          if (func && func.loc) {
-            return toLocationLink(func.loc);
-          }
+      if (type.tag === "FunctionType") {
+        // Look up function
+        // TODO: suggest both the function declaration and the function definition 
+        const func = getFunctionDeclaration(genv, name);
+        if (func && func.loc) {
+          return toLocationLink(func.loc);
         }
-        const definition: EnvEntry | undefined = searchResult.environment?.get(name);
-
-        if (definition === undefined || definition.position === undefined) return null;
-
-        return toLocationLink(definition.position);
       }
+      const definition: EnvEntry | undefined = searchResult.environment?.get(name);
+
+      if (definition === undefined || definition.position === undefined) return null;
+
+      return toLocationLink(definition.position);
     }
   }
 
