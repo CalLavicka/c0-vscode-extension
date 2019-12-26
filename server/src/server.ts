@@ -214,6 +214,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   const functionDecls: Map<string, CompletionItem> = new Map();
   const typedefs: CompletionItem[] = [];
   const locals: CompletionItem[] = [];
+  const fieldNames: CompletionItem[] = [];
 
   // TODO: only show decls up to this point 
   for (const decl of decls.decls) {
@@ -223,8 +224,20 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
-          detail: (decl.loc?.source) || undefined
+          detail: decl.loc?.source || undefined 
         });
+        break;
+
+      case "StructDeclaration":
+        if (decl.definitions === null) break;
+        for (const field of decl.definitions) {
+          fieldNames.push({
+            label: field.id.name,
+            kind: CompletionItemKind.Field,
+            documentation: mkMarkdownCode(`${typeToString(field.kind)} ${decl.id.name}::${field.id.name}`),
+            detail: decl.loc?.source || undefined 
+          });
+        }
         break;
 
       case "FunctionDeclaration": {
@@ -276,7 +289,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   // to the end of the completion list. But we then
   // have to implement sortText for everything it seems 
 
-  const completions = [...locals, ...(functionDecls.values()), ...typedefs];
+  const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
 
   return completions;
 });
