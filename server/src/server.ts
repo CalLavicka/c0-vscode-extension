@@ -146,6 +146,7 @@ documents.onDidChangeContent(async change => {
 
   const maybeDependencies = getDependencies(change.document.uri, [
     `${dir}/project.txt`,
+    new URL(`${dir}/../project.txt`).toString(), // Look one folder above 
     folders && folders.length ? `${folders[0].uri}/project.txt` : ""
   ]);
 
