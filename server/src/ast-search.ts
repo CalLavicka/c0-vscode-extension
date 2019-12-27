@@ -113,6 +113,13 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             }
             break;
 
+        case "IndirectCallExpression":
+            if (isInside(pos, e.callee.loc)) return findExpression(e.callee, currentEnv, info);
+            for (const arg of e.arguments) {
+                if (isInside(pos, arg.loc)) return findExpression(arg, currentEnv, info);
+            }
+            break;
+
         case "Identifier": {
             if (currentEnv === null) break;
 
