@@ -6,8 +6,8 @@ This extension is supposed to ease the act of writing C0 code for 122 students.
 
 * First, clone the repository. Make sure you have `npm` installed.
 * `npm install` on the root directory to install dependecies
-* `npm run compile` to compile the typescript/the parser
-* `code -n .` to open it up in VSCode!
+* `npm run compile` to generate the parser and to compile the typescript
+* `code -n .` to open it up in VSCode! (If you don't have the command on your path just open the workspace)
 * Hit `F5` to start debugging the extension in a new window. Be sure that the
 debug configuration is set to "Launch Client". After that's launched you can switch
 the debug config to "Attach to Server" and start debugging that. 
@@ -16,10 +16,11 @@ the debug config to "Attach to Server" and start debugging that.
 
 * View parse and typechecking errors as you type 
 * View a function/variable/struct field's type by hovering over it
-* CTRL-SPACE will suggest variables which are in scope and function names, struct names
+* CTRL-SPACE will suggest variables which are in scope and function names, struct field names
 * Commmand click to go to a definition for almost anything
 * Full support for C0 standard library
 * Full support for all C0/C1 features, including `#use "foo.c0"` and C1 features
+* Highlighting for C0-specific features
 * New C0-specific themes 
 
 ## Structure
