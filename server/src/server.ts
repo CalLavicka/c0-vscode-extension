@@ -84,7 +84,7 @@ function getDependencies(name: string, configPaths: string[]): Maybe<string[]> {
       const files = fs
         .readFileSync(configPath.substr(7), { encoding: "utf-8" })
         .split("\n")
-        .map(s => s.trim().replace("/", path.sep)); // New 122 prereq: owns a Mac/Linux laptop
+        .map(s => s.trim());
 
       // Filenames should be relative to the config file's location
       const base = path.dirname(configPath);
@@ -97,9 +97,9 @@ function getDependencies(name: string, configPaths: string[]): Maybe<string[]> {
           return Just(dependencies);
         }
 
-        // Can't use path.join because it 
-        // turns file:///Users/... into file:/Users
-        dependencies.push(base + path.sep + file);
+        // Note that URIs always use /
+        // (even on Windows)
+        dependencies.push(`${base}/${file}`);
       }
     }
   }

@@ -218,14 +218,16 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       if (libdecls === undefined) {
         // process.argv[0] is the path to nodejs 
         // process.argv[1] is the path to server.js (the main script for the server)
-        const libpath = `file://${path.dirname(process.argv[1])}/c0lib/${libname}.h0`;
+        const libURI = (<any>url).pathToFileURL(`${path.dirname(process.argv[1])}/c0lib/${libname}.h0`).toString();
 
-        if (!fs.existsSync((<any>url).fileURLToPath(libpath))) {
+        // We need to do the round trip conversion
+        // to accout for Windows specific business 
+        if (!fs.existsSync((<any>url).fileURLToPath(libURI))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
           continue;
         }
 
-        const parseResult = parseDocument(libpath, parser, genv);
+        const parseResult = parseDocument(libURI, parser, genv);
         if (parseResult.tag === "left") {
           // Indicates the library header got corrupted,
           // or some other major bug with our server has occured 
@@ -236,7 +238,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         libdecls = parseResult.result;
         // Annotate each decl with its source URI, 
         // for use in go to decl
-        libdecls.forEach(d => { if (d.loc) d.loc.source = libpath; });
+        libdecls.forEach(d => { if (d.loc) d.loc.source = libURI; });
         // Add libraries to the cache 
         libcache.set(libname, libdecls);
       }
@@ -272,7 +274,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     else if ((match = line.match(matchFile)) !== null) {
       const usedName = match[1];
       const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
-      const usedURI = `file://${usedPath}`;
+      const usedURI = (<any>url).pathToFileURL(usedPath).toString();
 
       if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent
