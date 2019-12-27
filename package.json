@@ -9,7 +9,7 @@
 		"vscode": "^1.39.0"
 	},
 	"categories": [
-		"Other"
+		"Programming Languages"
 	],
 	"activationEvents": [
 		"onLanguage:C0"
@@ -28,29 +28,6 @@
 				"path": "./themes/C0-light.color-theme.json"
 			}
 		],
-		"configuration": {
-			"type": "object",
-			"title": "example",
-			"properties": {
-				"c0LanguageServer.maxNumberOfProblems": {
-					"scope": "resource",
-					"type": "number",
-					"default": 3,
-					"description": "Controls the maximum number of problems produced by the server."
-				},
-				"c0LanguageServer.trace.server": {
-					"scope": "window",
-					"type": "string",
-					"enum": [
-						"off",
-						"messages",
-						"verbose"
-					],
-					"default": "off",
-					"description": "Traces the communication between VS Code and the language server."
-				}
-			}
-		},
 		"languages": [
 			{
 				"id": "C0",
@@ -72,12 +49,6 @@
 				"language": "C0",
 				"scopeName": "source.c0",
 				"path": "./syntaxes/C0.tmLanguage.json"
-			}
-		],
-		"commands": [
-			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
 			}
 		]
 	},
