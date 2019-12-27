@@ -69,10 +69,12 @@
 			}
         },
         {
-            "name": "Color for the //@ and /*@ for contracts",
+            "name": "Color for the //@ and /*@ for contracts, \\result and \\length",
             "scope": [
                 "comment.line.contract", 
-                "comment.block.contract"
+				"comment.block.contract",
+				"comment.result",
+				"comment.length"
             ],
 			"settings": {
                 "foreground": "#ff5f74"
@@ -201,6 +203,13 @@
 			"scope": "constant.numeric",
 			"settings": {
 				"foreground": "#71deff"
+			}
+		},
+		{
+			"name": "Constants: NULL, true, false",
+			"scope": "constant.language",
+			"settings": {
+				"foreground": "#00c3ff"
 			}
 		},
 		{
