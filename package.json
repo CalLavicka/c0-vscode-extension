@@ -1,8 +1,10 @@
 {
-	"name": "c0-for-122-students",
-	"displayName": "C0 For 122 Students",
-	"description": "",
-	"version": "0.0.1",
+	"name": "c0-lsp",
+	"displayName": "C0 VSCode Language Support",
+    "publisher": "15122staff",
+	"description": "C0 IDE features for VSCode",
+    "repository": "https://github.com/CalLavicka/c0-vscode-extension",
+	"version": "1.0.0",
 	"engines": {
 		"vscode": "^1.39.0"
 	},
