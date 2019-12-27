@@ -1,10 +1,10 @@
 {
 	"name": "c0-lsp",
 	"displayName": "C0 VSCode Language Support",
-    "publisher": "15122staff",
+	"publisher": "15122staff",
 	"description": "C0 IDE features for VSCode",
-    "repository": "https://github.com/CalLavicka/c0-vscode-extension",
-	"version": "1.0.0",
+	"repository": "https://github.com/CalLavicka/c0-vscode-extension",
+	"version": "1.0.1",
 	"engines": {
 		"vscode": "^1.39.0"
 	},
