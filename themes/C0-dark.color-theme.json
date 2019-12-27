@@ -1,0 +1,240 @@
+{
+	"$schema": "vscode://schemas/color-theme",
+	"type": "dark",
+	"colors": {
+		"activityBarBadge.background": "#007acc",
+		"editor.background": "#1e1e1e",
+		"editor.foreground": "#d4d4d4",
+		"editor.inactiveSelectionBackground": "#3a3d41",
+		"editor.selectionHighlightBackground": "#add6ff26",
+		"editorIndentGuide.activeBackground": "#707070",
+		"editorIndentGuide.background": "#404040",
+		"input.placeholderForeground": "#a6a6a6",
+		"list.dropBackground": "#383b3d",
+		"menu.background": "#252526",
+		"menu.foreground": "#cccccc",
+		"settings.numberInputBackground": "#292929",
+		"settings.textInputBackground": "#292929",
+		"sideBarTitle.foreground": "#bbbbbb",
+		"statusBarItem.remoteBackground": "#16825d",
+		"statusBarItem.remoteForeground": "#ffffff",
+	},
+	"tokenColors": [
+		{
+			"scope": [
+				"meta.embedded",
+				"source.groovy.embedded"
+			],
+			"settings": {
+				"foreground": "#D4D4D4"
+			}
+		},
+		{
+			"scope": "emphasis",
+			"settings": {
+				"fontStyle": "italic"
+			}
+		},
+		{
+			"scope": "strong",
+			"settings": {
+				"fontStyle": "bold"
+			}
+		},
+		{
+			"name": "Strings",
+			"scope": [
+				"string",
+				"string.tag",
+				"string.value",
+				"entity.name.operator.custom-literal.string"
+			],
+			"settings": {
+				"foreground": "#ffac74"
+			}
+		},
+        {
+            "name": "Color for typedef",
+            "scope": "keyword.other.typedef",
+            "settings": {
+                "foreground": "#fc99ff"
+            }
+        },
+        {
+            "name": "Color for requires, ensures, loop_invariant, assert",
+			"scope": "keyword.control.contract",
+			"settings": {
+                "foreground": "#ff4961",
+                "fontStyle": "italic bold"
+			}
+        },
+        {
+            "name": "Color for the //@ and /*@ for contracts, \\result and \\length",
+            "scope": [
+                "comment.line.contract", 
+				"comment.block.contract",
+				"comment.result",
+				"comment.length"
+            ],
+			"settings": {
+                "foreground": "#ff5f74"
+			}
+		},
+		{
+			"name": "Units (i.e. 0x in 0xFF)",
+			"scope": "keyword.other.unit",
+			"settings": {
+				"foreground": "#b5cea8"
+			}
+        },
+        {
+            "name": "Color for library declarations",
+            "scope": "keyword.other.library",
+            "settings": {
+                "foreground": "#cc80ff"
+            }
+        },
+		{
+			"name": "Function declarations",
+			"scope": [
+				"entity.name.function",
+				"support.function",
+				"support.constant.handlebars",
+				"source.powershell variable.other.member",
+				"entity.name.operator.custom-literal"
+			],
+			"settings": {
+				"foreground": "#60e0cb"
+			}
+		},
+		{
+			"name": "Types declaration and references",
+			"scope": [
+				"meta.return-type",
+				"support.class",
+				"support.type",
+				"entity.name.type",
+				"entity.name.namespace",
+				"entity.other.attribute",
+				"entity.name.scope-resolution",
+				"entity.name.class"
+			],
+			"settings": {
+				"foreground": "#866ccf"
+			}
+		},
+		{
+			"name": "Variable and parameter name",
+			"scope": [
+				"variable",
+				"meta.definition.variable.name",
+				"support.variable",
+				"entity.name.variable"
+			],
+			"settings": {
+				"foreground": "#7ccbff"
+			}
+		},
+		{
+			"name": "Characters",
+			"scope": "constant.character",
+			"settings": {
+				"foreground": "#569cd6"
+			}
+		},
+		{
+			"name": "Escape sequence characters",
+			"scope": "constant.character.escape",
+			"settings": {
+				"foreground": "#d7ba7d"
+			}
+		},
+		{
+			"name": "Comments",
+			"scope": [
+				"comment",
+				"punctuation.definition.comment"
+			],
+			"settings": {
+				"foreground": "#5f5f5f"
+			}
+        },
+		{
+            "name": "Highlighting keywords",
+            "scope": [
+                "keyword.control", 
+                "keyword"
+            ],
+			"settings": {
+				"foreground": "#ec7ebb"
+			}
+        },
+        {
+            "name": "Highlighting array bracket square",
+            "scope": "storage.modifier.array.bracket.square",
+			"settings": {
+				"foreground": "#e6469e"
+			}
+        },
+        {
+            "name":"Highlighting operators + struct access -> and .",
+            "scope": [
+                "keyword.operator",
+                "punctuation.separator.pointer-access",
+                "punctuation.separator.dot-access"
+            ],
+            "settings": {
+                "foreground": "#a2abfd"
+            }
+        },
+		{
+			"name": "Storage types and modifiers",
+			"scope": [
+				"storage",
+                "storage.type",
+				"storage.modifier"
+			],
+			"settings": {
+				"foreground": "#ec7ebb"
+			}
+		},
+		{
+			"name": "Numbers",
+			"scope": "constant.numeric",
+			"settings": {
+				"foreground": "#71deff"
+			}
+		},
+		{
+			"name": "Constants: NULL, true, false",
+			"scope": "constant.language",
+			"settings": {
+				"foreground": "#00c3ff"
+			}
+		},
+		{
+			"scope": "token.info-token",
+			"settings": {
+				"foreground": "#6796e6"
+			}
+		},
+		{
+			"scope": "token.warn-token",
+			"settings": {
+				"foreground": "#cd9731"
+			}
+		},
+		{
+			"scope": "token.error-token",
+			"settings": {
+				"foreground": "#f44747"
+			}
+		},
+		{
+			"scope": "token.debug-token",
+			"settings": {
+				"foreground": "#b267e6"
+			}
+		}
+	]
+}

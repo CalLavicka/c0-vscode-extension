@@ -1,0 +1,238 @@
+{
+	"$schema": "vscode://schemas/color-theme",
+	"type": "light",
+	"colors": {
+		"activityBarBadge.background": "#007acc",
+		"editor.background": "#ffffff",
+		"editor.foreground": "#1e1e1e",
+		"editor.inactiveSelectionBackground": "#3a3d41",
+		"editor.selectionHighlightBackground": "#add6ff26",
+		"editorIndentGuide.activeBackground": "#5a5a5a",
+		"editorIndentGuide.background": "#ebebeb",
+		"input.placeholderForeground": "#a6a6a6",
+		"list.dropBackground": "#383b3d",
+		"menu.background": "#727272",
+		"menu.foreground": "#777777",
+		"settings.numberInputBackground": "#292929",
+		"settings.textInputBackground": "#292929",
+		"sideBarTitle.foreground": "#646464",
+		"statusBarItem.remoteBackground": "#16825d",
+		"statusBarItem.remoteForeground": "#ffffff",
+		"activityBar.background": "#d4d4d4",
+		"activityBar.foreground": "#4d4d4d"
+	},
+	"tokenColors": [
+		{
+			"scope": [
+				"meta.embedded",
+				"source.groovy.embedded"
+			],
+			"settings": {
+				"foreground": "#D4D4D4"
+			}
+		},
+		{
+			"scope": "emphasis",
+			"settings": {
+				"fontStyle": "italic"
+			}
+		},
+		{
+			"scope": "strong",
+			"settings": {
+				"fontStyle": "bold"
+			}
+		},
+		{
+			"name": "Strings",
+			"scope": [
+				"string",
+				"string.tag",
+				"string.value",
+				"entity.name.operator.custom-literal.string"
+			],
+			"settings": {
+				"foreground": "#aa4409"
+			}
+		},
+        {
+            "name": "Color for typedef",
+            "scope": "keyword.other.typedef",
+            "settings": {
+                "foreground": "#9b21c0"
+            }
+        },
+        {
+            "name": "Color for requires, ensures, loop_invariant, assert",
+			"scope": "keyword.control.contract",
+			"settings": {
+                "foreground": "#be3838",
+                "fontStyle": "italic bold"
+			}
+        },
+        {
+            "name": "Color for the //@ and /*@ for contracts, \\result and \\length",
+            "scope": [
+                "comment.line.contract", 
+				"comment.block.contract",
+				"comment.result",
+				"comment.length"
+            ],
+			"settings": {
+                "foreground": "#be3838"
+			}
+		},
+		{
+			"name": "Units (i.e. 0x in 0xFF)",
+			"scope": "keyword.other.unit",
+			"settings": {
+				"foreground": "#56862e"
+			}
+        },
+        {
+            "name": "Color for library declarations",
+            "scope": "keyword.other.library",
+            "settings": {
+                "foreground": "#9f57cf"
+            }
+        },
+		{
+			"name": "Function declarations",
+			"scope": [
+				"entity.name.function",
+				"support.function",
+				"support.constant.handlebars",
+				"source.powershell variable.other.member",
+				"entity.name.operator.custom-literal"
+			],
+			"settings": {
+				"foreground": "#700c97"
+			}
+		},
+		{
+			"name": "Types declaration and references",
+			"scope": [
+				"meta.return-type",
+				"support.class",
+				"support.type",
+				"entity.name.type",
+				"entity.name.namespace",
+				"entity.other.attribute",
+				"entity.name.scope-resolution",
+				"entity.name.class"
+			],
+			"settings": {
+				"foreground": "#6f4ec9"
+			}
+		},
+		{
+			"name": "Variable and parameter name",
+			"scope": [
+				"variable",
+				"meta.definition.variable.name",
+				"support.variable",
+				"entity.name.variable"
+			],
+			"settings": {
+				"foreground": "#c47206"
+			}
+		},
+		{
+			"name": "Characters",
+			"scope": "constant.character",
+			"settings": {
+				"foreground": "#c27c12"
+			}
+		},
+		{
+			"name": "Escape sequence characters",
+			"scope": "constant.character.escape",
+			"settings": {
+				"foreground": "#e9b139"
+			}
+		},
+		{
+			"name": "Comments",
+			"scope": [
+				"comment",
+				"punctuation.definition.comment"
+			],
+			"settings": {
+				"foreground": "#90c3e6"
+			}
+        },
+		{
+            "name": "Highlighting keywords",
+            "scope": [
+                "keyword.control", 
+                "keyword"
+            ],
+			"settings": {
+				"foreground": "#a1149a"
+			}
+        },
+        {
+            "name": "Highlighting array bracket square",
+            "scope": "storage.modifier.array.bracket.square",
+			"settings": {
+				"foreground": "#000000"
+			}
+        },
+        {
+            "name":"Highlighting operators + struct access -> and .",
+            "scope": [
+                "keyword.operator",
+                "punctuation.separator.pointer-access",
+                "punctuation.separator.dot-access"
+            ],
+            "settings": {
+                "foreground": "#000000"
+            }
+		},
+		{
+			"name": "Storage types and modifiers",
+			"scope": [
+				"storage",
+                "storage.type",
+				"storage.modifier"
+			],
+			"settings": {
+				"foreground": "#207420"
+			}
+		},
+		{
+			"name": "Numbers, NULL, true, false",
+			"scope": [
+				"constant.numeric",
+				"constant.language"
+			],
+			"settings": {
+				"foreground": "#2d9bc0"
+			}
+		},
+		{
+			"scope": "token.info-token",
+			"settings": {
+				"foreground": "#6796e6"
+			}
+		},
+		{
+			"scope": "token.warn-token",
+			"settings": {
+				"foreground": "#cd9731"
+			}
+		},
+		{
+			"scope": "token.error-token",
+			"settings": {
+				"foreground": "#f44747"
+			}
+		},
+		{
+			"scope": "token.debug-token",
+			"settings": {
+				"foreground": "#b267e6"
+			}
+		}
+	]
+}
