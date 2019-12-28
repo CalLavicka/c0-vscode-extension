@@ -4,9 +4,9 @@ This provides IDE features for C0, such as code completion, parse errors/typeche
 
 ## Usage
 
-The extension will activate when opening a C0/C1 file. To select the C0 theme, press CMD+SHIFT+P, type "color theme", and select C0-light or C0-dark
+The extension will activate when opening a C0/C1 file. To select the C0 theme, press CMD+SHIFT+P or CTRL+SHIFT+P, type "color theme", and select C0-light or C0-dark
 
-To activate code completion, press CTRL-SPACE. To go to the definition of something, command+click on it. 
+To activate code completion, press CTRL-SPACE. To go to the definition of something, CMD+click or CTRL+click on it. 
 
 ### Multi-file projects
 
@@ -30,7 +30,7 @@ The extension will look for `project.txt` first in the same directory as the cur
 * View parse and typechecking errors as you type 
 * View a function/variable/struct field's type by hovering over it
 * CTRL-SPACE will suggest variables which are in scope and function names, struct field names
-* Commmand click to go to a definition for almost anything
+* Command/Ctrl click to go to a definition for almost anything
 * Full support for C0 standard library
 * Full support for all C0/C1 features, including `#use "foo.c0"` and C1 features
 * Highlighting for C0-specific features
