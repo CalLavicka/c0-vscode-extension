@@ -32,7 +32,7 @@ const MAX_LINE_LENGTH = 80;
  * 
  * @param dependencies 
  * List of files which need to be parsed before this one,
- * in URI format (i.e. including leading file://)
+ * in URI format (i.e. including leading )
  * 
  * @param textDocument 
  * VSCode document to parse. Errors will be reported only for this document

@@ -123,8 +123,12 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
         case "Identifier": {
             if (currentEnv === null) break;
 
-            const type = currentEnv.get(e.name);
-            if (type === undefined) break; // Impossible
+            let type: AnyType | undefined = currentEnv.get(e.name);
+            if (type === undefined) {
+                const func = getFunctionDeclaration(info.genv, e.name);
+                if (func === null) break;
+                type = { tag: "FunctionType", definition: func };
+            }
 
             return {
                 environment: currentEnv,
@@ -184,7 +188,13 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             // For example, alloc(typedefName*) will always
             // just return the pointer type, and not go straight 
             // to the identifier as desired
-            return findType(e.kind, currentEnv, info);
+            if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+            break;
+
+        case "CastExpression":
+            if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
+            break;
 
         // We could also provide the type of a literal on hover
         // ...although that doesnt seem super useful

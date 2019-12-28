@@ -75,19 +75,17 @@ documents.onDidClose(e => {
   openFiles.delete(e.document.uri);
 });
 
-function getDependencies(name: string, configPaths: string[]): Maybe<string[]> {
+function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
   for (const configPath of configPaths) {
-    // Node says that it supports
-    // passing file://xyz to fs functions,
-    // but the reality is different...
-    if (fs.existsSync(configPath.substr(7))) {
+
+    if (fs.existsSync(configPath)) {
       const files = fs
-        .readFileSync(configPath.substr(7), { encoding: "utf-8" })
+        .readFileSync(configPath, { encoding: "utf-8" })
         .split("\n")
         .map(s => s.trim());
 
       // Filenames should be relative to the config file's location
-      const base = path.dirname(configPath);
+      const base = path.dirname(configPath.toString());
       const fname = path.relative(base, name);
 
       const dependencies = [];
@@ -122,9 +120,9 @@ documents.onDidChangeContent(async change => {
 
   const maybeDependencies = getDependencies(change.document.uri, [
     `${dir}/project.txt`,
-    new URL(`${dir}/../project.txt`).toString(), // Look one folder above 
+    `${dir}/../project.txt`, // Look one folder above 
     folders && folders.length ? `${folders[0].uri}/project.txt` : ""
-  ]);
+  ].map(p => new URL(p)));
 
   if (!maybeDependencies.hasValue) {
     diagnostics.push(Diagnostic.create(
@@ -201,6 +199,15 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
+          detail: decl.loc?.source || undefined 
+        });
+        break;
+
+      case "FunctionTypeDefinition":
+        typedefs.push({
+          label: decl.definition.id.name,
+          kind: CompletionItemKind.Interface,
+          documentation: mkMarkdownCode(`typedef ${typeToString({ tag: "FunctionType", definition: decl.definition })}`),
           detail: decl.loc?.source || undefined 
         });
         break;
