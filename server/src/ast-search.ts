@@ -164,10 +164,6 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                 };
             }
 
-        case "UnaryExpression":
-            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
-            break;
-
         case "LogicalExpression":
         case "BinaryExpression":
             if (isInside(pos, e.left.loc)) return findExpression(e.left, currentEnv, info);
@@ -179,10 +175,6 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             if (isInside(pos, e.index.loc)) return findExpression(e.index, currentEnv, info);
             break;
 
-        case "AllocArrayExpression":
-            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
-
-        // tslint:disable-next-line: no-switch-case-fall-through
         case "AllocExpression":
             // FIXME: more precise type location
             // For example, alloc(typedefName*) will always
@@ -191,10 +183,16 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
             break;
 
+        case "HasTagExpression":
         case "CastExpression":
             if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+        // tslint:disable-next-line: no-switch-case-fall-through 
+        case "UnaryExpression":
+        case "AllocArrayExpression":
+        case "LengthExpression":
             if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
             break;
+
 
         // We could also provide the type of a literal on hover
         // ...although that doesnt seem super useful
