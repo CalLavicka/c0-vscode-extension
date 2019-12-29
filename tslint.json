@@ -41,7 +41,8 @@
 		"no-switch-case-fall-through": true,
 		"array-type": false,
 		"object-literal-shorthand": false,
-		"max-classes-per-file": false
+		"max-classes-per-file": false,
+		"no-shadowed-variable": [true, { "temporalDeadZone": false, "typeAlias": false }]
 	},
 	"defaultSeverity": "warning"
 }
