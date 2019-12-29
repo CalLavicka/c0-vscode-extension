@@ -15,9 +15,8 @@ import {
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
 import { Env } from "./typecheck/types";
-import { ImpossibleError } from "./error";
 
-export enum Ordering {
+export const enum Ordering {
     Less = -1,
     Equal = 0,
     Greater = 1

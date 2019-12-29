@@ -51,8 +51,27 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     // someone could introduce cycles 
     genv.filesLoaded.add(dep);
 
+    // (TSLint false positive)
+    // tslint:disable-next-line: no-shadowed-variable
     const parser = mkParser(typeIds, dep);
-    const parseResult = parseDocument(dep, parser, genv);
+    let parseResult;
+    try {
+      parseResult = parseDocument(dep, parser, genv);
+    }
+    catch (e) {
+      if (e && e.code === "ENOENT") {
+        return [{
+          severity: DiagnosticSeverity.Error,
+          message: `File '${dep}', referenced in projects.txt not found.` +
+                   `Code completion and other features will not be available`,
+          range: {
+            start: Position.create(0, 0),
+            end: Position.create(0, 0)
+          }
+        }];
+      }
+      else throw e;
+    }
 
     switch (parseResult.tag) {
       case "left":
