@@ -37,7 +37,8 @@ export function activate(context: ExtensionContext) {
         synchronize: {
             // Notify the server about file changes to .c0 or .c1 files, for dependencies
             fileEvents: [workspace.createFileSystemWatcher('**/*.c0'),
-                         workspace.createFileSystemWatcher('**/*.c1')]
+                         workspace.createFileSystemWatcher('**/*.c1'),
+                         workspace.createFileSystemWatcher('**/project.txt')]
         }
     };
 

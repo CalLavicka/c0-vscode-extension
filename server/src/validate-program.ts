@@ -38,6 +38,10 @@ type FileCache = {
  */
 const cachedFiles = new Map<string, FileCache>();
 
+/**
+ * Invalidates a file in the cache
+ * @param file the URI of the file to invalidate
+ */
 export function invalidate(file: string) {
   const cache = cachedFiles.get(file);
   if (cache) {
@@ -46,6 +50,9 @@ export function invalidate(file: string) {
   }
 }
 
+/**
+ * Invalidates all files in the cache.
+ */
 export function invalidateAll() {
   cachedFiles.clear();
 }

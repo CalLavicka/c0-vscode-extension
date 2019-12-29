@@ -20,7 +20,7 @@ import {
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
-import { openFiles, validateTextDocument, invalidate } from "./validate-program";
+import { openFiles, validateTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
 import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
@@ -92,6 +92,9 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
       const dependencies = [];
 
       for (const file of files) {
+        if (file === '') {
+          continue;
+        }
         if (file === fname) {
           return Just(dependencies);
         }
@@ -105,47 +108,59 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
   return Nothing;
 }
 
+/**
+ * The cached project.txt, or null if invalid
+ */
+let cachedProject: string[] | null = null;
+
 connection.onDidChangeWatchedFiles(async params => {
-    params.changes.forEach(change => {
-        connection.console.log(`Invalidating ${change.uri}`);
-        invalidate(change.uri);
-    });
+  params.changes.forEach(change => {
+    invalidate(change.uri);
+
+    if (change.uri.endsWith('/project.txt')) {
+      cachedProject = null;
+      // Ordering of files may have changed, screwing dependencies.
+      invalidateAll();
+    }
+  });
 });
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(async change => {
-  // Look for a config file
-  // TODO: cache the config file
-
-  const dir = path.dirname(change.document.uri);
-
-  // maybe just use a VSCode config file...
-  const folders = await connection.workspace.getWorkspaceFolders();
-
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  const maybeDependencies = getDependencies(change.document.uri, [
-    `${dir}/project.txt`,
-    `${dir}/../project.txt`, // Look one folder above 
-    folders && folders.length ? `${folders[0].uri}/project.txt` : ""
-  ].map(p => new URL(p)));
+  if (cachedProject) {
+    dependencies = cachedProject;
+  } else {
+    // Look for a config file
+    const dir = path.dirname(change.document.uri);
 
-  if (!maybeDependencies.hasValue) {
-    diagnostics.push(Diagnostic.create(
-      Range.create(Position.create(0, 0), Position.create(0, 0)),
-      `No valid project.txt found for the current document. Completions and other features may not work as expected`,
-      DiagnosticSeverity.Warning,
-      undefined,
-      change.document.uri));
+    // maybe just use a VSCode config file...
+    const folders = await connection.workspace.getWorkspaceFolders();
 
-    dependencies = [];
+    const maybeDependencies = getDependencies(change.document.uri, [
+      `${dir}/project.txt`,
+      `${dir}/../project.txt`, // Look one folder above 
+      folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+    ].map(p => new URL(p)));
+
+    if (!maybeDependencies.hasValue) {
+      diagnostics.push(Diagnostic.create(
+        Range.create(Position.create(0, 0), Position.create(0, 0)),
+        `No valid project.txt found for the current document. Completions and other features may not work as expected`,
+        DiagnosticSeverity.Warning,
+        undefined,
+        change.document.uri));
+
+      dependencies = [];
+    }
+    else {
+      dependencies = maybeDependencies.value;
+    }
+    cachedProject = dependencies;
   }
-  else {
-    dependencies = maybeDependencies.value;
-  }
-  connection.console.log(`Dep: ${JSON.stringify(dependencies)}`);
 
   const parseErrors = await validateTextDocument(dependencies, change.document);
 
