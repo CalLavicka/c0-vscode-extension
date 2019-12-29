@@ -7,11 +7,9 @@ import {
     fullTypeName
 } from "./globalenv";
 import { Env, Synthed, isSubtype, leastUpperBoundSynthedType, actualSynthed, ActualSynthed } from "./types";
-//import { error } from "./error";
 import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";
 import { typeToString } from "../print";
-//import { typeToString } from "../print";
 
 export type mode =
     | null
@@ -52,7 +50,7 @@ function valueDescription(genv: GlobalEnv, tp: Synthed): string {
 
 /** Asserts that a synthesized type has small type */
 export function synthLValue(genv: GlobalEnv, env: Env, mode: mode, exp: ast.LValue): ast.ValueType {
-    let synthedType = synthExpression(genv, env, mode, exp);
+    const synthedType = synthExpression(genv, env, mode, exp);
     switch (synthedType.tag) {
         case "AmbiguousNullPointer":
             throw new ImpossibleError("lvalue cannot be null");
@@ -67,7 +65,7 @@ export function synthLValue(genv: GlobalEnv, env: Env, mode: mode, exp: ast.LVal
         case "VoidType":
             throw new TypingError(exp, "cannot assign to an expression with type 'void'");
     }
-    let actualSynthedType = actualType(genv, synthedType);
+    const actualSynthedType = actualType(genv, synthedType);
     switch (actualSynthedType.tag) {
         case "StructType": {
             throw new TypingError(
@@ -108,7 +106,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
         case "NullLiteral":
             return { tag: "AmbiguousNullPointer" };
         case "ArrayMemberExpression": {
-            let objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object));
+            const objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object));
             if (objectType.tag !== "ArrayType") {
                 throw new TypingError(
                     exp,
@@ -159,7 +157,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     );
                 }
             }
-            let structDef = getStructDefinition(genv, objectType.id.name);
+            const structDef = getStructDefinition(genv, objectType.id.name);
             if (structDef === null) {
                 throw new TypingError(
                     exp,
@@ -177,7 +175,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 );
             }
             exp.struct = structDef.id.name; // INSERTING TYPE INFORMATION HERE
-            for (let field of structDef.definitions) {
+            for (const field of structDef.definitions) {
                 if (field.id.name === exp.field.name) {
                     exp.size = concreteType(genv, field.kind); // INSERTING TYPE INFORMATION HERE
                     return field.kind;
@@ -189,6 +187,8 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
             );
         }
         case "CallExpression": {
+            // Variables cannot be declared with the same name as a 
+            // function 
             if (env.has(exp.callee.name)) {
                 throw new TypingError(
                     exp,
@@ -198,18 +198,31 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     )}, not a function`
                 );
             }
-            const func = getFunctionDeclaration(genv, exp.callee.name);
-            if (func === null) { throw new TypingError(exp, `function ${exp.callee.name} not declared`); }
-            if (exp.arguments.length !== func.params.length) {
-                throw new TypingError(
-                    exp,
-                    `function ${exp.callee.name} requires ${func.params.length} argument${
-                        func.params.length === 1 ? "" : "s"
-                    } but was given ${exp.arguments.length}`
-                );
+
+            const isPrintf = genv.libsLoaded.has("conio") && exp.callee.name === "printf" ;
+            if (isPrintf) {
+                // Validate printf here 
+                if (exp.arguments.length === 0) { throw new TypingError(exp, "printf requires at least 1 argument"); }
+                if (exp.arguments[0].tag !== "StringLiteral") { 
+                    throw new TypingError(exp.arguments[0], "argument must be a string constant");
+                }
+
+                return { tag: "VoidType" };
             }
-            exp.arguments.forEach((exp, i) => checkExpression(genv, env, mode, exp, func.params[i].kind));
-            return func.returns;
+            else {
+                const func = getFunctionDeclaration(genv, exp.callee.name);
+                if (func === null) { throw new TypingError(exp, `function ${exp.callee.name} not declared`); }
+                if (exp.arguments.length !== func.params.length) {
+                    throw new TypingError(
+                        exp,
+                        `function ${exp.callee.name} requires ${func.params.length} argument${
+                            func.params.length === 1 ? "" : "s"
+                        } but was given ${exp.arguments.length}`
+                    );
+                }
+                exp.arguments.forEach((e, i) => checkExpression(genv, env, mode, e, func.params[i].kind));
+                return func.returns;
+            }
         }
         case "IndirectCallExpression": {
             const callType = synthExpression(genv, env, mode, exp.callee);
@@ -246,8 +259,8 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     } but was given ${exp.arguments.length}`
                 );
             }
-            exp.arguments.forEach((exp, i) =>
-                checkExpression(genv, env, mode, exp, actualFunctionType.definition.params[i].kind)
+            exp.arguments.forEach((e, i) =>
+                checkExpression(genv, env, mode, e, actualFunctionType.definition.params[i].kind)
             );
             return actualFunctionType.definition.returns;
         }
@@ -585,8 +598,8 @@ function leastUpperBoundSmallSynthedType(
     t2: Synthed,
     cond: boolean
 ): ActualSynthed {
-    const lub_ = leastUpperBoundSynthedType(genv, t1, t2);
-    const lub = lub_ && actualSynthed(genv, lub_);
+    const lubWithIdents = leastUpperBoundSynthedType(genv, t1, t2);
+    const lub = lubWithIdents && actualSynthed(genv, lubWithIdents);
     const doThatThingTo = () =>
         cond ? "use the conditional expression 'e ? e1 : e2' on" : "check equality of";
     if (lub === null) {
