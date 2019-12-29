@@ -86,7 +86,8 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
 
       // Filenames should be relative to the config file's location
       const base = path.dirname(configPath.toString());
-      const fname = path.relative(base, name);
+      // path will add platform-specific separators, which is not what we want
+      const fname = path.relative(base, name).replace(path.sep, "/");
 
       const dependencies = [];
 
