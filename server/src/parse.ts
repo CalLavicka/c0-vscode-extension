@@ -145,7 +145,7 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
   return diagnostics;
 }
  
-type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
+export type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 
 /**
  * The global library cache, storing all declarations for any given
@@ -337,13 +337,13 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
     try {
       parser.feed(segment.segment);
-      const parsed = parser.finish();
+      const parsedSegment = parser.finish();
 
-      if (parsed.length > 1) {
+      if (parsedSegment.length > 1) {
         // Shouldn't happen
-        console.error("Parse ambiguous:", parsed);
+        console.error("Parse ambiguous:", parsedSegment);
       } 
-      else if (parsed.length === 0) {
+      else if (parsedSegment.length === 0) {
         if (segment.last) {
           addError(
             null,
@@ -358,7 +358,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       } 
       else {
         // parsed.length === 1
-        const parsedGlobalDecls = parsed[0];
+        const parsedGlobalDecls = parsedSegment[0];
         for (let i = size; i < parsedGlobalDecls.length - 1; i++) {
           switch (parsedGlobalDecls[i].tag) {
             case "TypeDefinition":

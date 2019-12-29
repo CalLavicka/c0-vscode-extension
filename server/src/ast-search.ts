@@ -192,7 +192,6 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
             break;
 
-
         // We could also provide the type of a literal on hover
         // ...although that doesnt seem super useful
         case "IntLiteral":
