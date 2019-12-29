@@ -14,7 +14,7 @@ import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
 import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
 import * as path from "path";
-import { mkParser, parseDocument, typingErrorsToDiagnostics } from "./parse";
+import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -54,7 +54,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     // (TSLint false positive)
     // tslint:disable-next-line: no-shadowed-variable
     const parser = mkParser(typeIds, dep);
-    let parseResult;
+    let parseResult: ParseResult;
     try {
       parseResult = parseDocument(dep, parser, genv);
     }
