@@ -23,7 +23,7 @@ import { WordListClass } from './word-list';
 import { openFiles, validateTextDocument } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement, findGenv } from "./ast-search";
+import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -193,6 +193,12 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
 
   // TODO: only show decls up to this point 
   for (const decl of decls.decls) {
+    // Stop once we get to a decl after the curser position 
+    // in the current file
+    if (decl.loc && decl.loc.source === completionInfo.textDocument.uri 
+        && comparePositions(pos, decl.loc?.start) === Ordering.Less) 
+      break;
+
     switch (decl.tag) {
       case "TypeDefinition":
         typedefs.push({
