@@ -62,7 +62,7 @@ connection.onInitialize((params: InitializeParams) => {
   };
 });
 
-connection.onInitialized(async () => {
+connection.onInitialized(() => {
   if (hasWorkspaceFolderCapability) {
     connection.workspace.onDidChangeWorkspaceFolders(event => {
       connection.console.log('Workspace folder change event received.');
