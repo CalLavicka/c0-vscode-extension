@@ -12,7 +12,7 @@ import {
 
 import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
-import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
+import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 
@@ -21,6 +21,34 @@ import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from 
  * good ASTs. 
  */
 export const openFiles: Map<string, GlobalEnv> = new Map();
+
+/**
+ * A cached file is identified by its lastUpdate date.
+ * Also store all dependants so we can invalidate them
+ */
+type FileCache = {
+  genv: GlobalEnv,
+  decls: ast.Declaration[],
+  typeIds: Set<string>,
+  dependants: Set<string>
+};
+
+/**
+ * Cached files for internal usage
+ */
+const cachedFiles = new Map<string, FileCache>();
+
+export function invalidate(file: string) {
+  const cache = cachedFiles.get(file);
+  if (cache) {
+    cachedFiles.delete(file);
+    cache.dependants.forEach(invalidate);
+  }
+}
+
+export function invalidateAll() {
+  cachedFiles.clear();
+}
 
 // Max length a line can be before we produce a diagnostic
 const MAX_LINE_LENGTH = 80;
@@ -41,11 +69,31 @@ export async function validateTextDocument(dependencies: string[], textDocument:
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
+  let genv: GlobalEnv = initEmpty();
+  const processed = new Set<string>();
 
-  const genv = initEmpty();
+  // Find deepest cached dependency
+  let i: number;
+  for (i = dependencies.length - 1; i >= 0; i--) {
+    const cache = cachedFiles.get(dependencies[i]);
+    if (cache) {
+      genv = cloneGenv(cache.genv);
+      decls.push(...cache.decls);
+      typeIds = cache.typeIds;
+      for (let j = 0; j <= i; j++) {
+        processed.add(dependencies[j]);
+      }
+      break;
+    }
+  }
+  for (i = i + 1; i < dependencies.length; i++) {
+    const dep = dependencies[i];
 
-  for (const dep of dependencies) {
-    if (genv.filesLoaded.has(dep)) continue;
+    if (genv.filesLoaded.has(dep)) {
+      processed.add(dep);
+      continue;
+    }
+
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
@@ -90,6 +138,9 @@ export async function validateTextDocument(dependencies: string[], textDocument:
         decls.push(...parseResult.result);
         typeIds = parser.lexer.getTypeIds();
     }
+
+    cachedFiles.set(dep, { genv: cloneGenv(genv), decls: [...decls], typeIds: new Set(typeIds), dependants: new Set(processed)});
+    processed.add(dep);
   }
 
   const parser = mkParser(typeIds, textDocument.uri);

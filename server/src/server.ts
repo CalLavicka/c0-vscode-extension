@@ -15,12 +15,12 @@ import {
   LocationLink,
   CompletionParams,
   Range,
-  Position,
+  Position
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
-import { openFiles, validateTextDocument } from "./validate-program";
+import { openFiles, validateTextDocument, invalidate } from "./validate-program";
 
 import * as ast from "./ast";
 import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
@@ -62,7 +62,7 @@ connection.onInitialize((params: InitializeParams) => {
   };
 });
 
-connection.onInitialized(() => {
+connection.onInitialized(async () => {
   if (hasWorkspaceFolderCapability) {
     connection.workspace.onDidChangeWorkspaceFolders(event => {
       connection.console.log('Workspace folder change event received.');
@@ -105,6 +105,13 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
   return Nothing;
 }
 
+connection.onDidChangeWatchedFiles(async params => {
+    params.changes.forEach(change => {
+        connection.console.log(`Invalidating ${change.uri}`);
+        invalidate(change.uri);
+    });
+});
+
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(async change => {
@@ -138,16 +145,12 @@ documents.onDidChangeContent(async change => {
   else {
     dependencies = maybeDependencies.value;
   }
+  connection.console.log(`Dep: ${JSON.stringify(dependencies)}`);
 
   const parseErrors = await validateTextDocument(dependencies, change.document);
 
   connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
   WordList.handleContextChange(change);
-});
-
-connection.onDidChangeWatchedFiles(change => {
-  // Monitored files have change in VS Code
-  connection.console.log('We received an file change event');
 });
 
 /**
