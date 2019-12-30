@@ -117,7 +117,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
 /**
  * The cached project.txt for each file, or null if invalid
  */
-const cachedProject = new Map<string, Dependencies>();
+const cachedProjects = new Map<string, Dependencies>();
 
 connection.onDidChangeWatchedFiles(async params => {
   params.changes.forEach(change => {
@@ -126,12 +126,12 @@ connection.onDidChangeWatchedFiles(async params => {
     if (change.uri.endsWith('/project.txt')) {
       if (change.type === FileChangeType.Created) {
         // Invalidate all project.txt caches, since this may be a new project file
-        cachedProject.clear();
+        cachedProjects.clear();
       } else {
         // Invalidate all references to this project.txt
-        cachedProject.forEach((value, key) => {
+        cachedProjects.forEach((value, key) => {
           if (value.uri === change.uri) {
-            cachedProject.delete(key);
+            cachedProjects.delete(key);
           }
         });
       }
@@ -148,7 +148,7 @@ documents.onDidChangeContent(async change => {
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  const project = cachedProject.get(change.document.uri);
+  const project = cachedProjects.get(change.document.uri);
   if (project) {
     dependencies = project.dependencies;
   } else {
@@ -176,7 +176,7 @@ documents.onDidChangeContent(async change => {
     }
     else {
       dependencies = maybeDependencies.value.dependencies;
-      cachedProject.set(change.document.uri, maybeDependencies.value);
+      cachedProjects.set(change.document.uri, maybeDependencies.value);
     }
   }
 
