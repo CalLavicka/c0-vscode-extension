@@ -1,5 +1,6 @@
 import * as ast from "./ast";
-import { ConnectionStrategy } from "vscode-languageserver";
+import { ConnectionStrategy, ApplyWorkspaceEditRequest } from "vscode-languageserver";
+import { ConditionalExpression } from "./parse/nearley-helper";
 
 export function typeToString(syn: ast.AnyType): string {
     switch (syn.tag) {
@@ -45,6 +46,41 @@ export function parens(s: string): string {
     return `(${s})`;
 }
 
+// To avoid confusion, we will assume 
+// 1. logical operators && and || have equal precedence
+// 2. bitwise (binary) operators have the equal precedence 
+// so we add extra parens in these cases even if unnecessary
+
+export function create_opmap() {
+    let opmap = new Map();
+    opmap.set("*", 1);
+    opmap.set("/", 1);
+    opmap.set("%", 1);
+    opmap.set("+", 2);
+    opmap.set("-", 2);
+    opmap.set("<<", 3);
+    opmap.set(">>", 3);
+    opmap.set("<", 4);
+    opmap.set(">", 4);
+    opmap.set("<=", 4);
+    opmap.set(">=", 4);
+    opmap.set("==", 5);
+    opmap.set("!=", 5);
+    opmap.set("&", 6);
+    opmap.set("^", 6);
+    opmap.set("|", 6);
+    opmap.set("&&", 7);
+    opmap.set("||", 7);
+
+    return opmap;
+
+}
+
+export function has_loweq_precedence(o1: string, o2: string) {
+    let opmap = create_opmap();
+    return opmap.get(o1) >= opmap.get(o2);
+}
+
 export function expressionToString(e: ast.Expression): string {
     switch (e.tag) {
         case "AllocArrayExpression": // 1
@@ -56,10 +92,32 @@ export function expressionToString(e: ast.Expression): string {
             return `${expressionToString(e.object)}[${expressionToString(e.index)}]`;
     
         // 3-12 
+        // Wrap subexpression in parens if it has lower or equal precedence as current operator
         case "LogicalExpression":
         case "BinaryExpression":
-            // Place parenthesis for safety
-            return `${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)}`;  
+            let res1: string;
+            if (e.left.tag === "ConditionalExpression") {
+                res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+            } else if (e.left.tag === "LogicalExpression" || e.left.tag === "BinaryExpression") {
+                if (has_loweq_precedence(e.left.operator, e.operator)) {
+                    res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+                } else {
+                    res1 = `${expressionToString(e.left)} ${e.operator} `;
+                }
+            } else res1 = `${expressionToString(e.left)} ${e.operator} `;
+
+            if (e.right.tag === "ConditionalExpression") {
+                res1 += `${parens(expressionToString(e.right))}`;
+            } else if (e.right.tag === "LogicalExpression" || e.right.tag === "BinaryExpression") {
+                if (has_loweq_precedence(e.right.operator, e.operator)) {
+                    res1 += `${parens(expressionToString(e.right))}`;
+                } else {
+                    res1 += `${expressionToString(e.right)}`;
+                }
+            } else {
+                res1 += `${expressionToString(e.right)}`;
+            }
+            return res1;
 
         case "Identifier": // n/a
             return e.name;    
