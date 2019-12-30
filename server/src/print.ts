@@ -1,4 +1,5 @@
 import * as ast from "./ast";
+import { ConnectionStrategy } from "vscode-languageserver";
 
 export function typeToString(syn: ast.AnyType): string {
     switch (syn.tag) {
@@ -40,6 +41,10 @@ export function typeToString(syn: ast.AnyType): string {
     }
 }
 
+export function parens(s: string): string {
+    return `(${s})`;
+}
+
 export function expressionToString(e: ast.Expression): string {
     switch (e.tag) {
         case "AllocArrayExpression": // 1
@@ -54,7 +59,7 @@ export function expressionToString(e: ast.Expression): string {
         case "LogicalExpression":
         case "BinaryExpression":
             // Place parenthesis for safety
-            return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;  
+            return `${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)}`;  
 
         case "Identifier": // n/a
             return e.name;    
@@ -73,7 +78,7 @@ export function expressionToString(e: ast.Expression): string {
                 case "LogicalExpression":
                 case "BinaryExpression":
                 case "ConditionalExpression":
-                    return `(${typeToString(e.kind)})(${expressionToString(e.argument)})`;
+                    return `(${typeToString(e.kind)})${parens(expressionToString(e.argument))}`;
                 default:
                     return `(${typeToString(e.kind)})${expressionToString(e.argument)}`;
             }
@@ -83,13 +88,23 @@ export function expressionToString(e: ast.Expression): string {
                 case "LogicalExpression":
                 case "BinaryExpression":
                 case "ConditionalExpression":
-                    return `${e.operator}${(expressionToString(e.argument))}`;
+                    return `${e.operator}${parens(expressionToString(e.argument))}`;
                 default:
                     return `${e.operator}${expressionToString(e.argument)}`;
             }
 
         case "ConditionalExpression": // 13
-            return `(${expressionToString(e.test)} ? ${expressionToString(e.consequent)} : ${expressionToString(e.alternate)})`;
+            let res: string;
+            if (e.test.tag === "ConditionalExpression") res = `${parens(expressionToString(e.test))} ? `;
+            else res = `${expressionToString(e.test)} ? `;
+
+            if (e.consequent.tag === "ConditionalExpression") res += `${parens(expressionToString(e.consequent))} : `
+            else res += `${expressionToString(e.consequent)} : `;
+
+            if (e.alternate.tag === "ConditionalExpression") res += `${parens(expressionToString(e.alternate))}`;
+            else res += `${expressionToString(e.alternate)}`;
+            
+            return res; // should not need parens when binary cases is added
 
         case "ResultExpression": // n/a
             return '\\result';
