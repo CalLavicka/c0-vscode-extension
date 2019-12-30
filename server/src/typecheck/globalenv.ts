@@ -74,7 +74,7 @@ export function cloneGenv(genv: GlobalEnv): GlobalEnv {
         libfuncs: new Set(genv.libfuncs),
         libsLoaded: new Set(genv.libsLoaded),
         filesLoaded: new Set(genv.filesLoaded),
-        decls: []
+        decls: [...genv.decls]
     }
 }
 
