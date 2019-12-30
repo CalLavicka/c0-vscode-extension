@@ -327,23 +327,31 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
   // add 1
   const hoverPos: ast.Position = ast.fromVscodePosition(data.position);
 
-  // Search for which function we are in now
-  // PERF: Cache the last function we found ourselves in
-  // since it is likely we will return to it immediately after
-  // That being said, this code is fairly efficient in my opinion
   const searchResult = findGenv({ pos: hoverPos, genv: genv }, data.textDocument.uri);
 
-  // This indicates that the user hovered over something that
-  // wasn't an indentifier
   if (searchResult === null || searchResult.data === null) return null;
 
   switch (searchResult.data.tag) {
     case "FoundIdent": {
       const { name, type } = searchResult.data;
-      return {
-        contents: mkMarkdownCode(`${
-          type.tag !== 'FunctionType' ? `${name}:` : ''} ${typeToString(type)}`)
-      };
+      if (type.tag === "FunctionType") {
+        // Also display contracts in hover result for a function 
+        const decl = getFunctionDeclaration(genv, name);
+        if (decl === null) return null; 
+        const requires = decl.preconditions.map(precond =>
+          `//@requires ${expressionToString(precond)}`);
+        const ensures = decl.postconditions.map(postcond =>
+          `//@ensures ${expressionToString(postcond)}`);
+
+        return {
+          contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
+        };
+      }
+      else {
+        return {
+          contents: mkMarkdownCode(`${typeToString(type)} ${name}`)
+        };
+      }
     }
     case "FoundType": {
       const { type } = searchResult.data;
@@ -376,7 +384,6 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   if (genv === undefined) { return null; }
 
   const pos: ast.Position = ast.fromVscodePosition(data.position);
-
   const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
 
   // This indicates that the user hovered over something that
