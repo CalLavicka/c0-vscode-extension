@@ -117,7 +117,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       if (e?.code === "ENOENT") {
         return [{
           severity: DiagnosticSeverity.Error,
-          message: `File '${dep}', referenced in projects.txt not found.` +
+          message: `File '${dep}', referenced in projects.txt not found. ` +
                    `Code completion and other features will not be available`,
           range: {
             start: Position.create(0, 0),
