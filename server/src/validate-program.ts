@@ -86,7 +86,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
     if (cache) {
       genv = cloneGenv(cache.genv);
       decls.push(...cache.decls);
-      typeIds = cache.typeIds;
+      typeIds = new Set(cache.typeIds);
       for (let j = 0; j <= i; j++) {
         processed.add(dependencies[j]);
       }
