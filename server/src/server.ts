@@ -75,7 +75,12 @@ documents.onDidClose(e => {
   openFiles.delete(e.document.uri);
 });
 
-function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
+type Dependencies = {
+  uri: string,
+  dependencies: string[]
+};
+
+function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
   for (const configPath of configPaths) {
 
     if (fs.existsSync(configPath)) {
@@ -96,7 +101,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
           continue;
         }
         if (file === fname) {
-          return Just(dependencies);
+          return Just({ uri: `${base}/project.txt`, dependencies: dependencies});
         }
 
         // Note that URIs always use /
@@ -109,16 +114,21 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
 }
 
 /**
- * The cached project.txt, or null if invalid
+ * The cached project.txt for each file, or null if invalid
  */
-let cachedProject: string[] | null = null;
+const cachedProject = new Map<string, Dependencies>();
 
 connection.onDidChangeWatchedFiles(async params => {
   params.changes.forEach(change => {
     invalidate(change.uri);
 
     if (change.uri.endsWith('/project.txt')) {
-      cachedProject = null;
+      // Invalidate all references to this project.txt
+      cachedProject.forEach((value, key) => {
+        if (value.uri === change.uri) {
+          cachedProject.delete(key);
+        }
+      });
       // Ordering of files may have changed, screwing dependencies.
       invalidateAll();
     }
@@ -131,8 +141,9 @@ documents.onDidChangeContent(async change => {
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  if (cachedProject) {
-    dependencies = cachedProject;
+  const project = cachedProject.get(change.document.uri);
+  if (project) {
+    dependencies = project.dependencies;
   } else {
     // Look for a config file
     const dir = path.dirname(change.document.uri);
@@ -157,9 +168,9 @@ documents.onDidChangeContent(async change => {
       dependencies = [];
     }
     else {
-      dependencies = maybeDependencies.value;
+      dependencies = maybeDependencies.value.dependencies;
+      cachedProject.set(change.document.uri, maybeDependencies.value);
     }
-    cachedProject = dependencies;
   }
 
   const parseErrors = await validateTextDocument(dependencies, change.document);
