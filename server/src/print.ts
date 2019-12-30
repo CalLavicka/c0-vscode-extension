@@ -42,58 +42,73 @@ export function typeToString(syn: ast.AnyType): string {
 
 export function expressionToString(e: ast.Expression): string {
     switch (e.tag) {
-        case "AllocArrayExpression":
+        case "AllocArrayExpression": // 1
             return `alloc_array(${typeToString(e.kind)}, ${expressionToString(e.argument)})`;
-        case "AllocExpression":
+        case "AllocExpression": // 1
             return `alloc(${typeToString(e.kind)})`;
 
-        case "ArrayMemberExpression":
+        case "ArrayMemberExpression": // 1
             return `${expressionToString(e.object)}[${expressionToString(e.index)}]`;
     
+        // 3-12 
         case "LogicalExpression":
         case "BinaryExpression":
             // Place parenthesis for safety
             return `(${expressionToString(e.left)} ${e.operator} ${expressionToString(e.right)})`;  
 
-        case "Identifier":
+        case "Identifier": // n/a
             return e.name;    
 
-        case "StructMemberExpression":
+        case "StructMemberExpression": // 1
             return `${expressionToString(e.object)}${e.deref ? "->" : "."}${e.field.name}`;
 
-        case "CallExpression":
+        case "CallExpression": // 1
             return `${e.callee.name}(${(e.arguments.map(x => expressionToString(x))).join(', ')})`;
         
-        case "IndirectCallExpression":
+        case "IndirectCallExpression": // 2
             return `(*${expressionToString(e.callee)})(${(e.arguments.map(x => expressionToString(x))).join(', ')})`; 
 
-        case "CastExpression":
-            return `((${typeToString(e.kind)})${expressionToString(e.argument)})`;
+        case "CastExpression": // 2
+            switch (e.argument.tag) {
+                case "LogicalExpression":
+                case "BinaryExpression":
+                case "ConditionalExpression":
+                    return `(${typeToString(e.kind)})(${expressionToString(e.argument)})`;
+                default:
+                    return `(${typeToString(e.kind)})${expressionToString(e.argument)}`;
+            }
         
-        case "UnaryExpression":
-            return `(${e.operator}${expressionToString(e.argument)})`;
+        case "UnaryExpression": // 2
+            switch (e.argument.tag) {
+                case "LogicalExpression":
+                case "BinaryExpression":
+                case "ConditionalExpression":
+                    return `${e.operator}${(expressionToString(e.argument))}`;
+                default:
+                    return `${e.operator}${expressionToString(e.argument)}`;
+            }
 
-        case "ConditionalExpression":
+        case "ConditionalExpression": // 13
             return `(${expressionToString(e.test)} ? ${expressionToString(e.consequent)} : ${expressionToString(e.alternate)})`;
 
-        case "ResultExpression":
+        case "ResultExpression": // n/a
             return '\\result';
 
-        case "LengthExpression":
+        case "LengthExpression": // n/a
             return `\\length(${expressionToString(e.argument)})`;
 
-        case "HasTagExpression":
+        case "HasTagExpression": // n/a
             return `\\hastag(${typeToString(e.kind)}, ${expressionToString(e.argument)})`;
 
-        case "IntLiteral":
+        case "IntLiteral": // n/a
         case "StringLiteral":
         case "CharLiteral":
             return e.raw;
 
-        case "BoolLiteral":
+        case "BoolLiteral":  // n/a
             return e.value.toString();
 
-        case "NullLiteral":
+        case "NullLiteral":  // n/a
             return 'NULL';
         default:
             throw new Error(`Expression-to-string not yet implemented for: ${JSON.stringify(e)}`);
