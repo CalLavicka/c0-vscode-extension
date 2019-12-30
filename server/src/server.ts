@@ -16,12 +16,12 @@ import {
   CompletionParams,
   Range,
   Position,
-  FileChangeType
+  FileChangeType,
+  TextDocumentChangeEvent
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
-import { WordListClass } from './word-list';
-import { openFiles, validateTextDocument, invalidate, invalidateAll } from "./validate-program";
+import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
 import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
@@ -32,6 +32,7 @@ import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
+import { addListener } from 'cluster';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -42,7 +43,6 @@ const connection = createConnection(ProposedFeatures.all);
 const documents: TextDocuments = new TextDocuments();
 
 let hasWorkspaceFolderCapability: boolean = false;
-const WordList: WordListClass = new WordListClass(basicLexing.identifier.keywords.keyword);
 
 connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
@@ -71,14 +71,11 @@ connection.onInitialized(() => {
   }
 });
 
-// Only keep settings for open documents
-documents.onDidClose(e => {
-  openFiles.delete(e.document.uri);
-});
-
 type Dependencies = {
-  uri: string,
-  dependencies: string[]
+  /** Path to project.txt */
+  uri: string, 
+  /** List of files which should be loaded before this one */
+  dependencies: string[] 
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
@@ -142,9 +139,12 @@ connection.onDidChangeWatchedFiles(async params => {
   });
 });
 
+documents.onDidOpen(validateTextDocument);
+documents.onDidChangeContent(validateTextDocument);
+
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
-documents.onDidChangeContent(async change => {
+async function validateTextDocument(change: TextDocumentChangeEvent) {
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
 
@@ -180,11 +180,10 @@ documents.onDidChangeContent(async change => {
     }
   }
 
-  const parseErrors = await validateTextDocument(dependencies, change.document);
+  const parseErrors = await parseTextDocument(dependencies, change.document);
 
   connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
-  WordList.handleContextChange(change);
-});
+}
 
 /**
  * Turns a string with C0 code and wraps it

@@ -18,7 +18,7 @@ import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from 
 
 /** 
  * Map from TextDocument URI's to their last 
- * good ASTs. 
+ * good ASTs. They may have failed typechecking
  */
 export const openFiles: Map<string, GlobalEnv> = new Map();
 
@@ -62,17 +62,17 @@ const MAX_LINE_LENGTH = 80;
 
 /**
  * Parses a VSCode document, reporting any syntax or 
- * type errors. It returns the global environment representing
- * this file, so it includes any libraries or dependencies
+ * type errors. It updates the global environment representing
+ * this file in `openFiles`, so it includes any libraries or dependencies
  * 
  * @param dependencies 
  * List of files which need to be parsed before this one,
- * in URI format (i.e. including leading )
+ * in URI format (i.e. including leading `file:///`)
  * 
  * @param textDocument 
  * VSCode document to parse. Errors will be reported only for this document
  */
-export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function parseTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
