@@ -59,7 +59,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       parseResult = parseDocument(dep, parser, genv);
     }
     catch (e) {
-      if (e && e.code === "ENOENT") {
+      if (e?.code === "ENOENT") {
         return [{
           severity: DiagnosticSeverity.Error,
           message: `File '${dep}', referenced in projects.txt not found.` +
