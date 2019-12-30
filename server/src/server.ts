@@ -16,12 +16,11 @@ import {
   CompletionParams,
   Range,
   Position,
-  FileChangeType
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { WordListClass } from './word-list';
-import { openFiles, validateTextDocument, invalidate, invalidateAll } from "./validate-program";
+import { openFiles, validateTextDocument } from "./validate-program";
 
 import * as ast from "./ast";
 import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
@@ -76,12 +75,7 @@ documents.onDidClose(e => {
   openFiles.delete(e.document.uri);
 });
 
-type Dependencies = {
-  uri: string,
-  dependencies: string[]
-};
-
-function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
+function getDependencies(name: string, configPaths: URL[]): Maybe<string[]> {
   for (const configPath of configPaths) {
 
     if (fs.existsSync(configPath)) {
@@ -98,11 +92,8 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       const dependencies = [];
 
       for (const file of files) {
-        if (file === '') {
-          continue;
-        }
         if (file === fname) {
-          return Just({ uri: `${base}/project.txt`, dependencies: dependencies});
+          return Just(dependencies);
         }
 
         // Note that URIs always use /
@@ -114,76 +105,49 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
   return Nothing;
 }
 
-/**
- * The cached project.txt for each file, or null if invalid
- */
-const cachedProject = new Map<string, Dependencies>();
-
-connection.onDidChangeWatchedFiles(async params => {
-  params.changes.forEach(change => {
-    invalidate(change.uri);
-
-    if (change.uri.endsWith('/project.txt')) {
-      if (change.type === FileChangeType.Created) {
-        // Invalidate all project.txt caches, since this may be a new project file
-        cachedProject.clear();
-      } else {
-        // Invalidate all references to this project.txt
-        cachedProject.forEach((value, key) => {
-          if (value.uri === change.uri) {
-            cachedProject.delete(key);
-          }
-        });
-      }
-
-      // Ordering of files may have changed, screwing dependencies.
-      invalidateAll();
-    }
-  });
-});
-
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(async change => {
+  // Look for a config file
+  // TODO: cache the config file
+
+  const dir = path.dirname(change.document.uri);
+
+  // maybe just use a VSCode config file...
+  const folders = await connection.workspace.getWorkspaceFolders();
+
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  const project = cachedProject.get(change.document.uri);
-  if (project) {
-    dependencies = project.dependencies;
-  } else {
-    // Look for a config file
-    const dir = path.dirname(change.document.uri);
+  const maybeDependencies = getDependencies(change.document.uri, [
+    `${dir}/project.txt`,
+    `${dir}/../project.txt`, // Look one folder above 
+    folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+  ].map(p => new URL(p)));
 
-    // maybe just use a VSCode config file...
-    const folders = await connection.workspace.getWorkspaceFolders();
+  if (!maybeDependencies.hasValue) {
+    diagnostics.push(Diagnostic.create(
+      Range.create(Position.create(0, 0), Position.create(0, 0)),
+      `No valid project.txt found for the current document. Completions and other features may not work as expected`,
+      DiagnosticSeverity.Warning,
+      undefined,
+      change.document.uri));
 
-    const maybeDependencies = getDependencies(change.document.uri, [
-      `${dir}/project.txt`,
-      `${dir}/../project.txt`, // Look one folder above
-      folders && folders.length ? `${folders[0].uri}/project.txt` : ""
-    ].map(p => new URL(p)));
-
-    if (!maybeDependencies.hasValue) {
-      diagnostics.push(Diagnostic.create(
-        Range.create(Position.create(0, 0), Position.create(0, 0)),
-        `No valid project.txt found for the current document. Completions and other features may not work as expected`,
-        DiagnosticSeverity.Warning,
-        undefined,
-        change.document.uri));
-
-      dependencies = [];
-    }
-    else {
-      dependencies = maybeDependencies.value.dependencies;
-      cachedProject.set(change.document.uri, maybeDependencies.value);
-    }
+    dependencies = [];
+  }
+  else {
+    dependencies = maybeDependencies.value;
   }
 
   const parseErrors = await validateTextDocument(dependencies, change.document);
 
   connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
   WordList.handleContextChange(change);
+});
+
+connection.onDidChangeWatchedFiles(change => {
+  // Monitored files have change in VS Code
+  connection.console.log('We received an file change event');
 });
 
 /**
@@ -194,7 +158,7 @@ function mkCodeString(s: string): string {
   return `\`\`\`c0\n${s}\n\`\`\``;
 }
 
-/**
+/** 
  * Turns a string with C0 code into a MarkupContent object,
  * which can be sent as part of various LSP responses
  */
@@ -210,7 +174,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   // TODO: use completionInfo to figure out if we should add keywords or not
 
   // The pass parameter contains the position of the text document in
-  // which code complete got requested.
+  // which code complete got requested. 
   const keywords: CompletionItem[] =
     basicLexing.identifier.keywords.keyword.map(word => ({
       label: word,
@@ -228,12 +192,12 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   const locals: CompletionItem[] = [];
   const fieldNames: CompletionItem[] = [];
 
-  // TODO: only show decls up to this point
+  // TODO: only show decls up to this point 
   for (const decl of decls.decls) {
-    // Stop once we get to a decl after the curser position
+    // Stop once we get to a decl after the curser position 
     // in the current file
-    if (decl.loc && decl.loc.source === completionInfo.textDocument.uri
-        && comparePositions(pos, decl.loc?.start) === Ordering.Less)
+    if (decl.loc && decl.loc.source === completionInfo.textDocument.uri 
+        && comparePositions(pos, decl.loc?.start) === Ordering.Less) 
       break;
 
     switch (decl.tag) {
@@ -242,7 +206,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
-          detail: decl.loc?.source || undefined
+          detail: decl.loc?.source || undefined 
         });
         break;
 
@@ -251,7 +215,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString({ tag: "FunctionType", definition: decl.definition })}`),
-          detail: decl.loc?.source || undefined
+          detail: decl.loc?.source || undefined 
         });
         break;
 
@@ -262,7 +226,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
             label: field.id.name,
             kind: CompletionItemKind.Field,
             documentation: mkMarkdownCode(`${typeToString(field.kind)} ${decl.id.name}::${field.id.name}`),
-            detail: decl.loc?.source || undefined
+            detail: decl.loc?.source || undefined 
           });
         }
         break;
@@ -270,7 +234,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
       case "FunctionDeclaration": {
         // Prefer to use contracts from a function definition
         if (decl.body || !functionDecls.has(decl.id.name)) {
-          const requires = decl.preconditions.map(precond =>
+          const requires = decl.preconditions.map(precond => 
               `//@requires ${expressionToString(precond)}`);
           const ensures = decl.postconditions.map(postcond =>
               `//@ensures ${expressionToString(postcond)}`);
@@ -284,7 +248,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           });
         }
         if (decl.body) {
-          // Look in the function body for local variables
+          // Look in the function body for local variables 
           if (!isInside(pos, decl.body.loc)) break;
 
           const searchResult = findStatement(decl.body, null, { pos, genv: decls });
@@ -304,10 +268,10 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
     }
   }
 
-  // Don't include keywords since that corrupts the list
+  // Don't include keywords since that corrupts the list 
   // FIXME: we can just use "sortText" to move them
   // to the end of the completion list. But we then
-  // have to implement sortText for everything it seems
+  // have to implement sortText for everything it seems 
 
   const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
 
@@ -320,12 +284,12 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => item);
 
 connection.onHover((data: TextDocumentPositionParams): Hover | null => {
   const genv = openFiles.get(data.textDocument.uri);
-  // Indicates no successful parse so far
+  // Indicates no successful parse so far 
   if (genv === undefined) { return null; }
 
   // Note that VSCode 0-indexes positions,
   // so to be compatible with nearley we must
-  // add 1
+  // add 1 
   const hoverPos: ast.Position = ast.fromVscodePosition(data.position);
 
   // Search for which function we are in now
@@ -335,7 +299,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
   const searchResult = findGenv({ pos: hoverPos, genv: genv }, data.textDocument.uri);
 
   // This indicates that the user hovered over something that
-  // wasn't an indentifier
+  // wasn't an indentifier 
   if (searchResult === null || searchResult.data === null) return null;
 
   switch (searchResult.data.tag) {
@@ -373,7 +337,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   }
 
   const genv = openFiles.get(data.textDocument.uri);
-  // Indicates no successful parse so far
+  // Indicates no successful parse so far 
   if (genv === undefined) { return null; }
 
   const pos: ast.Position = ast.fromVscodePosition(data.position);
@@ -381,7 +345,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
 
   // This indicates that the user hovered over something that
-  // wasn't an indentifier
+  // wasn't an indentifier 
   if (searchResult === null || searchResult.data === null) return null;
 
   switch (searchResult.data.tag) {
@@ -390,7 +354,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
       switch (type.tag) {
         case "Identifier":
-          // Find a typedef with this tag
+          // Find a typedef with this tag 
           const typedef = getTypedefDefinition(genv, type.name);
           if (typedef !== null && typedef.loc) {
             return toLocationLink(typedef.loc);
@@ -411,7 +375,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
       if (type.tag === "FunctionType") {
         // Look up function
-        // TODO: suggest both the function declaration and the function definition
+        // TODO: suggest both the function declaration and the function definition 
         const func = getFunctionDeclaration(genv, name);
         if (func && func.loc) {
           return toLocationLink(func.loc);
