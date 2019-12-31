@@ -307,7 +307,12 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
             }
 
             // Environment of just the arguments, for use in contracts
-            const env = getEnvironmentFromParams(info.genv, decl.params);
+            let env: Env | null;
+            try {
+                env = getEnvironmentFromParams(info.genv, decl.params);
+            } catch (err) {
+                env = null;
+            }
 
             // Check args 
             for (const arg of decl.params) {
