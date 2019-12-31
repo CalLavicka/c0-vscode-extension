@@ -213,6 +213,23 @@
 			}
 		},
 		{
+			"name": "Clac: token definition related punctuation",
+			"scope": [
+				"punctuation.definition.statement.clac",
+				"punctuation.terminator.statement.clac"
+			],
+			"settings": {
+				"foreground": "#d247ee"
+			}
+		},
+		{
+			"name": "Clac: user-defined tokens",
+			"scope": "keyword.other.token.clac",
+			"settings": {
+				"foreground": "#aae58f"
+			}
+		},
+		{
 			"scope": "token.info-token",
 			"settings": {
 				"foreground": "#6796e6"

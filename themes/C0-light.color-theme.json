@@ -211,6 +211,30 @@
 			}
 		},
 		{
+			"name": "Clac: token definition token name",
+			"scope": "entity.name.function.clac",
+			"settings": {
+				"foreground": "#09ac96"
+			}
+		},
+		{
+			"name": "Clac: token definition related punctuation",
+			"scope": [
+				"punctuation.definition.statement.clac",
+				"punctuation.terminator.statement.clac"
+			],
+			"settings": {
+				"foreground": "#6508fc"
+			}
+		},
+		{
+			"name": "Clac: user-defined tokens",
+			"scope": "keyword.other.token.clac",
+			"settings": {
+				"foreground": "#2b7409"
+			}
+		},
+		{
 			"scope": "token.info-token",
 			"settings": {
 				"foreground": "#6796e6"

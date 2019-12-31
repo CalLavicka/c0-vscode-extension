@@ -19,6 +19,9 @@
         },
         {
             "include": "#numbers"
+        }, 
+        {
+            "include": "#other_tokens"
         }
     ],
     "repository": {
@@ -31,21 +34,25 @@
         "line": {
             "begin":"(:)([\\s]*)([\\S]*)([\\s]*)",
             "beginCaptures": {
-                "1": {"name": "keyword.control.clac"},
-                "3": {"name": "entity.name.function"}
+                "1": {"name": "punctuation.definition.statement.clac"},
+                "3": {"name": "entity.name.function.clac"}
             },
-            "end":";",
-            "endCaptures": {"1": {"name": "punctuation.terminator.statement"}},
-            "name": "line.something.lol",
+            "end":"(;)",
+            "endCaptures": {"1": {"name": "punctuation.terminator.statement.clac"}},
             "patterns": [ 
                 {"include": "#keyword_tokens"},
                 {"include": "#operators"},
-                {"include": "#numbers"}  
+                {"include": "#numbers"},
+                {"include": "#other_tokens"}
             ]
         },
         "keyword_tokens": {
             "match": "(drop|pick|swap|rot|print|quit|if|skip)",
-            "name": "keyword.token.clac"
+            "name": "keyword.defined.token.clac"
+        },
+        "numbers": {
+            "match": "(?<!\\w)\\.?\\d(?:(?:[0-9a-zA-Z_\\.]|'))*",
+            "name": "constant.numeric"
         },
         "operators": {
             "patterns": [
@@ -59,9 +66,9 @@
                 }
             ]
         },
-        "numbers": {
-            "match": "(?<!\\w)\\.?\\d(?:(?:[0-9a-zA-Z_\\.]|'))*",
-            "name": "constant.numeric"
+        "other_tokens": {
+            "match": "(\\b)([\\S]+)(\\s)",
+            "name": "keyword.other.token.clac"
         }
     }
 }
