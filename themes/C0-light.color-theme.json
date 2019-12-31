@@ -106,7 +106,7 @@
 				"entity.name.operator.custom-literal"
 			],
 			"settings": {
-				"foreground": "#700c97"
+				"foreground": "#5c067e"
 			}
 		},
 		{
@@ -208,6 +208,78 @@
 			],
 			"settings": {
 				"foreground": "#2d9bc0"
+			}
+		},
+		{
+			"name": "Clac: token definition token name",
+			"scope": "entity.name.function.clac",
+			"settings": {
+				"foreground": "#0513d3"
+			}
+		},
+		{
+			"name": "Clac: token definition related punctuation",
+			"scope": [
+				"punctuation.definition.statement.clac",
+				"punctuation.terminator.statement.clac"
+			],
+			"settings": {
+				"foreground": "#5f08eb"
+			}
+		},
+		{
+			"name": "Clac: user-defined tokens",
+			"scope": "keyword.other.token.clac",
+			"settings": {
+				"foreground": "#018d01"
+			}
+		},
+		{
+			"name": "Clac: operators",
+			"scope": [
+				"keyword.operator.clac",
+				"keyword.operator.comparison.clac"
+			],
+			"settings": {
+				"foreground": "#8857e2"
+			}
+		},
+		{
+			"name": "bc0: instructions",
+			"scope": "comment.instruction.bc0",
+			"settings": {
+				"foreground": "#c71a1a"
+			}
+		},
+		{
+			"name": "bc0: function names",
+			"scope": "comment.function.name.bc0",
+			"settings": {
+				"fontStyle": "italic",
+				"foreground": "#0183ee"
+			}
+		},
+		{
+			"name": "bc0: function description",
+			"scope": "comment.function.description.bc0",
+			"settings": {
+				"fontStyle": "bold",
+				"foreground": "#0343cc"
+			}
+		},
+		{
+			"name": "bc0: descriptions",
+			"scope": "comment.description.bc0",
+			"settings": {
+				"fontStyle": "bold",
+				"foreground": "#0511be"
+			}
+		},
+		{
+			"name": "bc0: other comments",
+			"scope": "comment.line.bc0",
+			"settings": {
+				"foreground": "#2e57c9"
 			}
 		},
 		{

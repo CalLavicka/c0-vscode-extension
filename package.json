@@ -42,6 +42,20 @@
 					".h1"
 				],
 				"configuration": "./language-configuration.json"
+			}, 
+			{
+				"id": "Clac",
+				"extensions": [
+					".clac"
+				],
+				"configuration": "./language-configuration.json"
+			},
+			{
+				"id": "BC0",
+				"extensions": [
+					".bc0"
+				],
+				"configuration": "./language-configuration.json"
 			}
 		],
 		"grammars": [
@@ -49,6 +63,16 @@
 				"language": "C0",
 				"scopeName": "source.c0",
 				"path": "./syntaxes/C0.tmLanguage.json"
+			},
+			{
+				"language": "Clac",
+				"scopeName": "source.clac",
+				"path": "./syntaxes/Clac.tmLanguage.json"
+			},
+			{
+				"language": "BC0",
+				"scopeName": "source.bc0",
+				"path": "./syntaxes/BC0.tmLanguage.json"
 			}
 		]
 	},

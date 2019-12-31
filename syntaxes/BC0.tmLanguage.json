@@ -1,0 +1,58 @@
+{
+    "scopeName": "source.bc0",
+    "fileTypes": [
+      "bc0"
+    ],
+    "version": "",
+    "patterns": [
+        {
+            "match": "# (int pool count|int pool|string pool total size|string pool|function count|function_pool|native count|native pool)",
+            "name": "comment.description.bc0"
+        },
+        {
+            "match": "#<([a-zA-Z0-9]*)>",
+            "name": "comment.function.name.bc0"
+        },
+        {
+            "include": "#function_innards"
+        },
+        {
+            "include": "#comments"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "begin": "#",
+            "end": "$(\n?)",
+            "name": "comment.line.bc0"
+        },
+        "function_innards": {
+            "patterns": [
+                {
+                    "match": "#\\snumber\\sof\\sarguments\\s=\\s[0-9]+",
+                    "name": "comment.function.description.bc0"
+                },
+                {
+                    "match": "#\\snumber\\sof\\slocal\\svariables\\s=\\s[0-9]+",
+                    "name": "comment.function.description.bc0"
+                },
+                {
+                    "match": "#\\scode\\slength\\s=\\s[0-9]+\\sbytes",
+                    "name": "comment.function.description.bc0"
+                },
+                {
+                    "match": "#\\s(new|newarray|aaddf|ildc|aldc|vstore|vload|invokenative|invokestatic)\\s[0-9]+",
+                    "name": "comment.instruction.bc0"
+                },
+                {
+                    "match": "#\\s(bipush|goto|if_icmplt|if_icmple|if_icmpgt|if_icmpge|if_cmpeq|if_cmpne|goto)\\s([+-]?)[0-9]+",
+                    "name": "comment.instruction.bc0"
+                },
+                {
+                    "match": "#\\s(dup|pop|swap|iadd|iand|idiv|imul|ior|irem|ishl|ishr|isub|ixor|athrow|assert|aconst_null|nop|arraylength|aadds|cmload|cmstore|amload|amstore|imload|imstore|return)\\s",
+                    "name": "comment.instruction.bc0"
+                }
+            ]
+        }
+    }
+}

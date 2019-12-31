@@ -1,0 +1,74 @@
+{
+    "scopeName": "source.clac",
+    "fileTypes": [
+      "clac"
+    ],
+    "version": "",
+    "patterns": [
+        {
+            "include": "#comment_line"
+        },
+        {
+            "include": "#line"
+        }, 
+        {
+            "include": "#keyword_tokens"
+        },
+        {
+            "include": "#operators"
+        },
+        {
+            "include": "#numbers"
+        }, 
+        {
+            "include": "#other_tokens"
+        }
+    ],
+    "repository": {
+        "comment_line": {
+            "begin": ":([\\s]*)(comment)",
+            "end":";", 
+            "endCaptures": {"1": {"name": "punctuation.terminator.statement"}},
+            "name":"comment.line.clac"
+        }, 
+        "line": {
+            "begin":"(:)([\\s]*)([\\S]*)([\\s]*)",
+            "beginCaptures": {
+                "1": {"name": "punctuation.definition.statement.clac"},
+                "3": {"name": "entity.name.function.clac"}
+            },
+            "end":"(;)",
+            "endCaptures": {"1": {"name": "punctuation.terminator.statement.clac"}},
+            "patterns": [ 
+                {"include": "#keyword_tokens"},
+                {"include": "#operators"},
+                {"include": "#numbers"},
+                {"include": "#other_tokens"}
+            ]
+        },
+        "keyword_tokens": {
+            "match": "(drop|pick|swap|rot|print|quit|if|skip)",
+            "name": "keyword.defined.token.clac"
+        },
+        "numbers": {
+            "match": "(?<!\\w)\\.?\\d(?:(?:[0-9a-zA-Z_\\.]|'))*",
+            "name": "constant.numeric.clac"
+        },
+        "operators": {
+            "patterns": [
+                {
+                    "match": "%|\\*|/|-|\\+|\\*\\*",
+                    "name": "keyword.operator.clac"
+                },
+                {
+                    "match": "<",
+                    "name": "keyword.operator.comparison.clac"
+                }
+            ]
+        },
+        "other_tokens": {
+            "match": "(\\b)([\\S]+)(\\s)",
+            "name": "keyword.other.token.clac"
+        }
+    }
+}
