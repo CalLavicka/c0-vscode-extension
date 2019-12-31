@@ -52,7 +52,7 @@ export function parens(s: string): string {
 // so we add extra parens in these cases even if unnecessary
 
 export function create_opmap() {
-    let opmap = new Map();
+    const opmap = new Map();
     opmap.set("*", 1);
     opmap.set("/", 1);
     opmap.set("%", 1);
@@ -77,7 +77,7 @@ export function create_opmap() {
 }
 
 export function cmp_precedence(o1: string, o2: string) {
-    let opmap = create_opmap();
+    const opmap = create_opmap();
     if (opmap.get(o1) > opmap.get(o2)) return -1;
     else if (opmap.get(o1) === opmap.get(o2)) return 0;
     else return 1;
