@@ -121,8 +121,18 @@ export function expressionToString(e: ast.Expression): string {
                 res1 += `${parens(expressionToString(e.right))}`;
             } else if (e.right.tag === "LogicalExpression" || e.right.tag === "BinaryExpression") {
                 let cmp = cmp_precedence(e.right.operator, e.operator);
-                if (cmp === -1 || cmp === 0) {
+                if (cmp === -1) {
                     res1 += `${parens(expressionToString(e.right))}`;
+                } else if (cmp === 0) {
+                    if (e.right.operator === e.operator &&
+                        (e.right.operator === "+" || e.right.operator === "*" || e.right.operator === "|" ||
+                         e.right.operator === "&" || e.right.operator === "^" || e.right.operator === "&&" ||
+                         e.right.operator === "||"))
+                    {
+                        res1 += `${expressionToString(e.right)}`;
+                    } else {
+                        res1 += `${parens(expressionToString(e.right))}`;
+                    }
                 } else {
                     res1 += `${expressionToString(e.right)}`;
                 }
