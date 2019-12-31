@@ -52,17 +52,17 @@
         },
         "numbers": {
             "match": "(?<!\\w)\\.?\\d(?:(?:[0-9a-zA-Z_\\.]|'))*",
-            "name": "constant.numeric"
+            "name": "constant.numeric.clac"
         },
         "operators": {
             "patterns": [
                 {
                     "match": "%|\\*|/|-|\\+|\\*\\*",
-                    "name": "keyword.operator"
+                    "name": "keyword.operator.clac"
                 },
                 {
                     "match": "<",
-                    "name": "keyword.operator.comparison"
+                    "name": "keyword.operator.comparison.clac"
                 }
             ]
         },

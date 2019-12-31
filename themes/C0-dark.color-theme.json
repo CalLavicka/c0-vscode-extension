@@ -230,6 +230,58 @@
 			}
 		},
 		{
+			"name": "Clac: numeric constants",
+			"scope": "constant.numeric.clac",
+			"settings": {
+				"foreground": "#8af3e2"
+			}
+		},
+		{
+			"name": "Clac: token definition token name",
+			"scope": "entity.name.function.clac",
+			"settings": {
+				"foreground": "#93d2fc"
+			}
+		},
+		{
+			"name": "bc0: instructions",
+			"scope": "comment.instruction.bc0",
+			"settings": {
+				"foreground": "#dd7bc8"
+			}
+		},
+		{
+			"name": "bc0: function names",
+			"scope": "comment.function.name.bc0",
+			"settings": {
+				"fontStyle": "italic",
+				"foreground": "#0aceff"
+			}
+		},
+		{
+			"name": "bc0: function description",
+			"scope": "comment.function.description.bc0",
+			"settings": {
+				"fontStyle": "bold",
+				"foreground": "#2b67e7"
+			}
+		},
+		{
+			"name": "bc0: descriptions",
+			"scope": "comment.description.bc0",
+			"settings": {
+				"fontStyle": "bold",
+				"foreground": "#1bb5fd"
+			}
+		},
+		{
+			"name": "bc0: other comments",
+			"scope": "comment.line.bc0",
+			"settings": {
+				"foreground": "#94a8df"
+			}
+		},
+		{
 			"scope": "token.info-token",
 			"settings": {
 				"foreground": "#6796e6"
