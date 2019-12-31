@@ -23,7 +23,7 @@ function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string
     return defined;
 }
 
-function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
+export function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
     const env = new Map<string, EnvEntry>();
     for (const param of params) {
         checkTypeInDeclaration(genv, param.kind, true);

@@ -15,6 +15,7 @@ import {
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
 import { Env } from "./typecheck/types";
+import { getEnvironmentFromParams } from "./typecheck/programs"
 
 export const enum Ordering {
     Less = -1,
@@ -243,7 +244,7 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
 
         case "VariableDeclaration":
             if (isInside(pos, s.kind.loc)) return findType(s.kind, currentEnv, info);
-
+            if (isInside(pos, s.id.loc)) return findExpression(s.id, currentEnv, info);
             if (s.init && isInside(pos, s.init.loc))
                 return findExpression(s.init, currentEnv, info);
             break;
@@ -288,19 +289,34 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
     return { environment: currentEnv, data: null };
 }
 
-function findDecl(decl: Declaration, info: SearchInfo) {
+function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
     const { pos } = info;
     switch (decl.tag) {
         case "FunctionDeclaration":
             if (isInside(pos, decl.returns.loc)) return findType(decl.returns, null, info);
+            if (isInside(pos, decl.id.loc)) {
+                const type: AnyType = { tag: "FunctionType", definition: decl };
+                return {
+                    environment: null,
+                    data: {
+                        tag: "FoundIdent",
+                        name: decl.id.name,
+                        type
+                    }
+                };
+            }
+
+            // Environment of just the arguments, for use in contracts
+            const env = getEnvironmentFromParams(info.genv, decl.params);
+
             // Check args 
             for (const arg of decl.params) {
-                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, null, info);
+                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, env, info);
+                if (isInside(pos, arg.id.loc)) return findExpression(arg.id, env, info);
             }
+
             for (const contract of [...decl.preconditions, ...decl.postconditions]) {
-                // TODO: Create an environment from function arguments 
-                // as they are valid inside function contracts
-                if (isInside(pos, contract.loc)) return findExpression(contract, null, info);
+                if (isInside(pos, contract.loc)) return findExpression(contract, env, info);
             }
 
             if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);
