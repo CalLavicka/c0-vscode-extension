@@ -38,7 +38,7 @@ The extension will look for `project.txt` first in the same directory as the cur
 * CTRL-SPACE will suggest variables which are in scope and function names, struct field names
 * Command/Ctrl click to go to a definition for almost anything
 * Full support for C0 standard library
-* Full support for all C0/C1 features, including `#use "foo.c0"` and C1 features
+* Full support for all C0/C1 features 
 * Highlighting for C0-specific features
 * New C0-specific themes 
 

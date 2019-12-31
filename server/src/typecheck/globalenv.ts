@@ -68,6 +68,16 @@ export function initEmpty(): GlobalEnv {
     };
 }
 
+export function cloneGenv(genv: GlobalEnv): GlobalEnv {
+    return {
+        libstructs: new Set(genv.libstructs),
+        libfuncs: new Set(genv.libfuncs),
+        libsLoaded: new Set(genv.libsLoaded),
+        filesLoaded: new Set(genv.filesLoaded),
+        decls: [...genv.decls]
+    }
+}
+
 /**
  * Create an initial GlobalEnv with the correct type for main()
  */

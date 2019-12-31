@@ -12,40 +12,95 @@ import {
 
 import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
-import { GlobalEnv, initEmpty } from "./typecheck/globalenv";
+import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 
 /** 
  * Map from TextDocument URI's to their last 
- * good ASTs. 
+ * good ASTs. They may have failed typechecking
  */
 export const openFiles: Map<string, GlobalEnv> = new Map();
+
+/**
+ * A cached file is identified by its lastUpdate date.
+ * Also store all dependants so we can invalidate them
+ */
+type FileCache = {
+  genv: GlobalEnv,
+  decls: ast.Declaration[],
+  typeIds: Set<string>,
+  dependants: Set<string>
+};
+
+/**
+ * Cached files for internal usage
+ */
+const cachedFiles = new Map<string, FileCache>();
+
+/**
+ * Invalidates a file in the cache
+ * @param file the URI of the file to invalidate
+ */
+export function invalidate(file: string) {
+  const cache = cachedFiles.get(file);
+  if (cache) {
+    cachedFiles.delete(file);
+    cache.dependants.forEach(invalidate);
+  }
+}
+
+/**
+ * Invalidates all files in the cache.
+ */
+export function invalidateAll() {
+  cachedFiles.clear();
+}
 
 // Max length a line can be before we produce a diagnostic
 const MAX_LINE_LENGTH = 80;
 
 /**
  * Parses a VSCode document, reporting any syntax or 
- * type errors. It returns the global environment representing
- * this file, so it includes any libraries or dependencies
+ * type errors. It updates the global environment representing
+ * this file in `openFiles`, so it includes any libraries or dependencies
  * 
  * @param dependencies 
  * List of files which need to be parsed before this one,
- * in URI format (i.e. including leading )
+ * in URI format (i.e. including leading `file:///`)
  * 
  * @param textDocument 
  * VSCode document to parse. Errors will be reported only for this document
  */
-export async function validateTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function parseTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
+  let genv: GlobalEnv = initEmpty();
+  const processed = new Set<string>();
 
-  const genv = initEmpty();
+  // Find deepest cached dependency
+  let i: number;
+  for (i = dependencies.length - 1; i >= 0; i--) {
+    const cache = cachedFiles.get(dependencies[i]);
+    if (cache) {
+      genv = cloneGenv(cache.genv);
+      decls.push(...cache.decls);
+      typeIds = new Set(cache.typeIds);
+      for (let j = 0; j <= i; j++) {
+        processed.add(dependencies[j]);
+      }
+      break;
+    }
+  }
+  for (i = i + 1; i < dependencies.length; i++) {
+    const dep = dependencies[i];
 
-  for (const dep of dependencies) {
-    if (genv.filesLoaded.has(dep)) continue;
+    if (genv.filesLoaded.has(dep)) {
+      processed.add(dep);
+      continue;
+    }
+
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
@@ -62,7 +117,7 @@ export async function validateTextDocument(dependencies: string[], textDocument:
       if (e?.code === "ENOENT") {
         return [{
           severity: DiagnosticSeverity.Error,
-          message: `File '${dep}', referenced in projects.txt not found.` +
+          message: `File '${dep}', referenced in projects.txt not found. ` +
                    `Code completion and other features will not be available`,
           range: {
             start: Position.create(0, 0),
@@ -90,6 +145,9 @@ export async function validateTextDocument(dependencies: string[], textDocument:
         decls.push(...parseResult.result);
         typeIds = parser.lexer.getTypeIds();
     }
+
+    cachedFiles.set(dep, { genv: cloneGenv(genv), decls: [...decls], typeIds: new Set(typeIds), dependants: new Set(processed)});
+    processed.add(dep);
   }
 
   const parser = mkParser(typeIds, textDocument.uri);
