@@ -1,6 +1,5 @@
 import * as ast from "./ast";
-import { ConnectionStrategy, ApplyWorkspaceEditRequest } from "vscode-languageserver";
-import { ConditionalExpression } from "./parse/nearley-helper";
+import { BoolLiteral } from "./parse/nearley-helper";
 
 export function typeToString(syn: ast.AnyType): string {
     switch (syn.tag) {
@@ -42,7 +41,7 @@ export function typeToString(syn: ast.AnyType): string {
     }
 }
 
-export function parens(s: string): string {
+function parens(s: string): string {
     return `(${s})`;
 }
 
@@ -51,7 +50,7 @@ export function parens(s: string): string {
 // 2. bitwise (binary) operators have the equal precedence 
 // so we add extra parens in these cases even if unnecessary
 
-export function create_opmap() {
+function createOpmap() {
     const opmap = new Map();
     opmap.set("*", 1);
     opmap.set("/", 1);
@@ -76,8 +75,9 @@ export function create_opmap() {
 
 }
 
-export function cmp_precedence(o1: string, o2: string) {
-    const opmap = create_opmap();
+const opmap = createOpmap();
+
+function cmpPrecedence(o1: string, o2: string) {
     if (opmap.get(o1) > opmap.get(o2)) return -1;
     else if (opmap.get(o1) === opmap.get(o2)) return 0;
     else return 1;
@@ -97,11 +97,70 @@ export function expressionToString(e: ast.Expression): string {
         case "LogicalExpression":
         case "BinaryExpression":
             let res1: string;
+            switch (e.left.tag) {
+                case "ConditionalExpression":
+                    res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+                    break;
+                case "LogicalExpression":
+                case "BinaryExpression":
+                    const cmp = cmpPrecedence(e.left.operator, e.operator);
+                    if (cmp === -1) {
+                        res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+                    } else if (cmp === 0) {
+                        const left: string = e.left.operator;
+
+                        // special cases where having parens is more readable even if unnecessary 
+                        if ((left === "&&" && e.operator === "||") || 
+                            (left === "||" && e.operator === "&&") ||
+                            ((left === "==" || left === "!=") &&
+                             (e.operator === "==" || e.operator === "!="))) {
+                                res1 = `${parens(expressionToString(e.left))} ${e.operator} `; 
+                            } else {
+                                res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                            }
+                    } else { // cmp === 1
+                        res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                    }
+                    break;
+                default:
+                    res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                    break;
+            }
+            switch (e.right.tag) {
+                case "ConditionalExpression":
+                    res1 += `${parens(expressionToString(e.right))}`;
+                    break;
+                case "LogicalExpression":
+                case "BinaryExpression":
+                    const cmp = cmpPrecedence(e.right.operator, e.operator);
+                    if (cmp === -1) {
+                        res1 += `${parens(expressionToString(e.right))}`;
+                    } else if (cmp === 0) {
+
+                        // associative operators don't need parens
+                        if (e.right.operator === e.operator &&
+                            (e.right.operator === "+" || e.right.operator === "*" || e.right.operator === "|" ||
+                             e.right.operator === "&" || e.right.operator === "^"))
+                        {
+                            res1 += `${expressionToString(e.right)}`;
+                        } else {
+                            res1 += `${parens(expressionToString(e.right))}`;
+                        }
+                    } else { // cmp === 1
+                        res1 += `${expressionToString(e.right)}`;
+                    }
+                    break;
+                default:
+                    res1 += `${expressionToString(e.right)}`;
+            }
+            return res1;
+
+            /*
             if (e.left.tag === "ConditionalExpression") {
                 res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
 
             } else if (e.left.tag === "LogicalExpression" || e.left.tag === "BinaryExpression") {
-                const cmp = cmp_precedence(e.left.operator, e.operator);
+                const cmp = cmpPrecedence(e.left.operator, e.operator);
                 if (cmp === -1) { 
                     res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
 
@@ -118,19 +177,19 @@ export function expressionToString(e: ast.Expression): string {
                         res1 = `${expressionToString(e.left)} ${e.operator} `; 
                     }
 
-                } else { 
+                } else { // cmp === 1
                     res1 = `${expressionToString(e.left)} ${e.operator} `;
                 }
 
             } else {
                 res1 = `${expressionToString(e.left)} ${e.operator} `;
             }
-
+            
             if (e.right.tag === "ConditionalExpression") {
                 res1 += `${parens(expressionToString(e.right))}`;
 
             } else if (e.right.tag === "LogicalExpression" || e.right.tag === "BinaryExpression") {
-                const cmp = cmp_precedence(e.right.operator, e.operator);
+                const cmp = cmpPrecedence(e.right.operator, e.operator);
                 if (cmp === -1) {
                     res1 += `${parens(expressionToString(e.right))}`;
 
@@ -153,7 +212,7 @@ export function expressionToString(e: ast.Expression): string {
             }
 
             return res1;
-
+*/
         case "Identifier":
             return e.name;    
 
