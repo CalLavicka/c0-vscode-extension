@@ -1,0 +1,14 @@
+{
+    "scopeName": "source.bc0",
+    "fileTypes": [
+      "bc0"
+    ],
+    "version": "",
+    "patterns": [
+        {
+            "begin": "#",
+            "end": "$(\n?)",
+            "name": "comment.line.bc0"
+        }
+    ]
+}
