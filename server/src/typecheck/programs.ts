@@ -30,7 +30,7 @@ export function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDe
         if (env.has(param.id.name)) {
             // TODO: Previous location
             // We can get the previous location from the environment now
-            throw new TypingError(param, `local ${param.id.name} declared a second time`);
+            throw new TypingError(param.id, `Parameter ${param.id.name} declared a second time`);
         } else {
             env.set(param.id.name, { ...param.kind, position: param.id.loc });  
         }
