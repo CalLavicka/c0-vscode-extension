@@ -21,7 +21,7 @@
       "beginCaptures":{"0": {"name":"comment.block"},
         "1": {"name":"comment.block.contract"},
         "2": {"name":"keyword.control.contract"}},
-      "end":"[ \t]*((@.*\/))",
+      "end":"[ \t]*((@[*]\/))",
       "endCaptures":{
         "1": {"name": "punctuation.definition.comment.end"},
         "2": {"name": "comment.block.contract"}},

@@ -15,9 +15,9 @@ import {
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
 import { Env } from "./typecheck/types";
-import { ImpossibleError } from "./error";
+import { getEnvironmentFromParams } from "./typecheck/programs"
 
-export enum Ordering {
+export const enum Ordering {
     Less = -1,
     Equal = 0,
     Greater = 1
@@ -113,11 +113,22 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             }
             break;
 
+        case "IndirectCallExpression":
+            if (isInside(pos, e.callee.loc)) return findExpression(e.callee, currentEnv, info);
+            for (const arg of e.arguments) {
+                if (isInside(pos, arg.loc)) return findExpression(arg, currentEnv, info);
+            }
+            break;
+
         case "Identifier": {
             if (currentEnv === null) break;
 
-            const type = currentEnv.get(e.name);
-            if (type === undefined) break; // Impossible
+            let type: AnyType | undefined = currentEnv.get(e.name);
+            if (type === undefined) {
+                const func = getFunctionDeclaration(info.genv, e.name);
+                if (func === null) break;
+                type = { tag: "FunctionType", definition: func };
+            }
 
             return {
                 environment: currentEnv,
@@ -140,9 +151,9 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                 if (struct === null || struct.definitions === null) break;
 
                 const field = struct.definitions.find(def => def.id.name === e.field.name);
-                // Should be impossible - field should always be found unless there
-                // is a bug in the typechecker 
-                if (field === undefined) throw new ImpossibleError("Field not found (typechecker bug, please report!)");
+                // This is now possible - it means that the 
+                // user is typing in a field name right now 
+                if (field === undefined) break;
                 return {
                     environment: currentEnv,
                     data: {
@@ -152,10 +163,6 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                     }
                 };
             }
-
-        case "UnaryExpression":
-            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
-            break;
 
         case "LogicalExpression":
         case "BinaryExpression":
@@ -168,16 +175,23 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
             if (isInside(pos, e.index.loc)) return findExpression(e.index, currentEnv, info);
             break;
 
-        case "AllocArrayExpression":
-            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
-
-        // tslint:disable-next-line: no-switch-case-fall-through
         case "AllocExpression":
             // FIXME: more precise type location
             // For example, alloc(typedefName*) will always
             // just return the pointer type, and not go straight 
             // to the identifier as desired
-            return findType(e.kind, currentEnv, info);
+            if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+            break;
+
+        case "HasTagExpression":
+        case "CastExpression":
+            if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+        // tslint:disable-next-line: no-switch-case-fall-through 
+        case "UnaryExpression":
+        case "AllocArrayExpression":
+        case "LengthExpression":
+            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
+            break;
 
         // We could also provide the type of a literal on hover
         // ...although that doesnt seem super useful
@@ -230,7 +244,7 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
 
         case "VariableDeclaration":
             if (isInside(pos, s.kind.loc)) return findType(s.kind, currentEnv, info);
-
+            if (isInside(pos, s.id.loc)) return findExpression(s.id, currentEnv, info);
             if (s.init && isInside(pos, s.init.loc))
                 return findExpression(s.init, currentEnv, info);
             break;
@@ -275,19 +289,39 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
     return { environment: currentEnv, data: null };
 }
 
-function findDecl(decl: Declaration, info: SearchInfo) {
+function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
     const { pos } = info;
     switch (decl.tag) {
         case "FunctionDeclaration":
             if (isInside(pos, decl.returns.loc)) return findType(decl.returns, null, info);
+            if (isInside(pos, decl.id.loc)) {
+                const type: AnyType = { tag: "FunctionType", definition: decl };
+                return {
+                    environment: null,
+                    data: {
+                        tag: "FoundIdent",
+                        name: decl.id.name,
+                        type
+                    }
+                };
+            }
+
+            // Environment of just the arguments, for use in contracts
+            let env: Env | null;
+            try {
+                env = getEnvironmentFromParams(info.genv, decl.params);
+            } catch (err) {
+                env = null;
+            }
+
             // Check args 
             for (const arg of decl.params) {
-                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, null, info);
+                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, env, info);
+                if (isInside(pos, arg.id.loc)) return findExpression(arg.id, env, info);
             }
+
             for (const contract of [...decl.preconditions, ...decl.postconditions]) {
-                // TODO: Create an environment from function arguments 
-                // as they are valid inside function contracts
-                if (isInside(pos, contract.loc)) return findExpression(contract, null, info);
+                if (isInside(pos, contract.loc)) return findExpression(contract, env, info);
             }
 
             if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);

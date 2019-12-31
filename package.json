@@ -1,13 +1,15 @@
 {
-	"name": "c0-for-122-students",
-	"displayName": "C0 For 122 Students",
-	"description": "",
-	"version": "0.0.1",
+	"name": "c0-lsp",
+	"displayName": "C0 VSCode Language Support",
+	"publisher": "15122staff",
+	"description": "C0 IDE features for VSCode",
+	"repository": "https://github.com/CalLavicka/c0-vscode-extension",
+	"version": "1.2.0",
 	"engines": {
 		"vscode": "^1.39.0"
 	},
 	"categories": [
-		"Other"
+		"Programming Languages"
 	],
 	"activationEvents": [
 		"onLanguage:C0"
@@ -26,29 +28,6 @@
 				"path": "./themes/C0-light.color-theme.json"
 			}
 		],
-		"configuration": {
-			"type": "object",
-			"title": "example",
-			"properties": {
-				"c0LanguageServer.maxNumberOfProblems": {
-					"scope": "resource",
-					"type": "number",
-					"default": 3,
-					"description": "Controls the maximum number of problems produced by the server."
-				},
-				"c0LanguageServer.trace.server": {
-					"scope": "window",
-					"type": "string",
-					"enum": [
-						"off",
-						"messages",
-						"verbose"
-					],
-					"default": "off",
-					"description": "Traces the communication between VS Code and the language server."
-				}
-			}
-		},
 		"languages": [
 			{
 				"id": "C0",
@@ -94,12 +73,6 @@
 				"language": "BC0",
 				"scopeName": "source.bc0",
 				"path": "./syntaxes/BC0.tmLanguage.json"
-			}
-		],
-		"commands": [
-			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
 			}
 		]
 	},
