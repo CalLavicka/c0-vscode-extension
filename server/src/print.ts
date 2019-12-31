@@ -76,9 +76,18 @@ export function create_opmap() {
 
 }
 
+/*
 export function has_loweq_precedence(o1: string, o2: string) {
     let opmap = create_opmap();
     return opmap.get(o1) >= opmap.get(o2);
+}
+*/
+
+export function cmp_precedence(o1: string, o2: string) {
+    let opmap = create_opmap();
+    if (opmap.get(o1) > opmap.get(o2)) return -1;
+    else if (opmap.get(o1) === opmap.get(o2)) return 0;
+    else return 1;
 }
 
 export function expressionToString(e: ast.Expression): string {
@@ -93,6 +102,35 @@ export function expressionToString(e: ast.Expression): string {
     
         // 3-12 
         // Wrap subexpression in parens if it has lower or equal precedence as current operator
+        case "LogicalExpression":
+        case "BinaryExpression":
+            let res1: string;
+            if (e.left.tag === "ConditionalExpression") {
+                res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+            } else if (e.left.tag === "LogicalExpression" || e.left.tag === "BinaryExpression") {
+                let cmp = cmp_precedence(e.left.operator, e.operator);
+                if (cmp === -1) { 
+                    res1 = `${parens(expressionToString(e.left))} ${e.operator} `; 
+                } else { // all logical/binary are left associative, so don't need parens when operators have equal precedence
+                    res1 = `${expressionToString(e.left)} ${e.operator} `;
+                }
+            } else {
+                res1 = `${expressionToString(e.left)} ${e.operator} `;
+            }
+            if (e.right.tag === "ConditionalExpression") {
+                res1 += `${parens(expressionToString(e.right))}`;
+            } else if (e.right.tag === "LogicalExpression" || e.right.tag === "BinaryExpression") {
+                let cmp = cmp_precedence(e.right.operator, e.operator);
+                if (cmp === -1 || cmp === 0) {
+                    res1 += `${parens(expressionToString(e.right))}`;
+                } else {
+                    res1 += `${expressionToString(e.right)}`;
+                }
+            } else {
+                res1 += `${expressionToString(e.right)}`;
+            }
+            return res1;
+        /*
         case "LogicalExpression":
         case "BinaryExpression":
             let res1: string;
@@ -118,7 +156,7 @@ export function expressionToString(e: ast.Expression): string {
                 res1 += `${expressionToString(e.right)}`;
             }
             return res1;
-
+*/
         case "Identifier": // n/a
             return e.name;    
 
