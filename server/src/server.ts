@@ -69,6 +69,11 @@ connection.onInitialized(() => {
       connection.console.log('Workspace folder change event received.');
     });
   }
+
+  // Change header files to be read-only so they aren't accidentally editted
+  fs.readdirSync(path.join(path.dirname(process.argv[1]), 'c0lib')).forEach((file) => {
+    fs.chmodSync(path.join(path.dirname(process.argv[1]), 'c0lib', file), '444');
+  });
 });
 
 type Dependencies = {
