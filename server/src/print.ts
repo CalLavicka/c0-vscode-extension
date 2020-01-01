@@ -156,64 +156,6 @@ export function expressionToString(e: ast.Expression): string {
             return res1;
         }
 
-            /*
-            if (e.left.tag === "ConditionalExpression") {
-                res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
-
-            } else if (e.left.tag === "LogicalExpression" || e.left.tag === "BinaryExpression") {
-                const cmp = cmpPrecedence(e.left.operator, e.operator);
-                if (cmp === -1) { 
-                    res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
-
-                // specifically add parens for || and && which can be confusing, and for other edge cases
-                } else if (cmp === 0) { 
-                    const left: string = e.left.operator;
-                    if ((left === "&&" && e.operator === "||") ||
-                        (left === "||" && e.operator === "&&") ||
-                        ((left === "==" || left === "!=") && 
-                        (e.operator === "==" || e.operator === "!=")))
-                    {
-                        res1 = `${parens(expressionToString(e.left))} ${e.operator} `; 
-                    } else {
-                        res1 = `${expressionToString(e.left)} ${e.operator} `; 
-                    }
-
-                } else { // cmp === 1
-                    res1 = `${expressionToString(e.left)} ${e.operator} `;
-                }
-
-            } else {
-                res1 = `${expressionToString(e.left)} ${e.operator} `;
-            }
-            
-            if (e.right.tag === "ConditionalExpression") {
-                res1 += `${parens(expressionToString(e.right))}`;
-
-            } else if (e.right.tag === "LogicalExpression" || e.right.tag === "BinaryExpression") {
-                const cmp = cmpPrecedence(e.right.operator, e.operator);
-                if (cmp === -1) {
-                    res1 += `${parens(expressionToString(e.right))}`;
-
-                } else if (cmp === 0) {
-                    if (e.right.operator === e.operator &&
-                        (e.right.operator === "+" || e.right.operator === "*" || e.right.operator === "|" ||
-                         e.right.operator === "&" || e.right.operator === "^"))
-                    {
-                        res1 += `${expressionToString(e.right)}`;
-                    } else {
-                        res1 += `${parens(expressionToString(e.right))}`;
-                    }
-
-                } else {
-                    res1 += `${expressionToString(e.right)}`;
-                }
-
-            } else {
-                res1 += `${expressionToString(e.right)}`;
-            }
-
-            return res1;
-*/
         case "Identifier":
             return e.name;    
 
