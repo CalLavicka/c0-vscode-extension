@@ -95,7 +95,7 @@ export function expressionToString(e: ast.Expression): string {
 
         // Wrap subexpression in parens if it has lower or equal precedence as current operator
         case "LogicalExpression":
-        case "BinaryExpression":
+        case "BinaryExpression": {
             let res1: string;
             switch (e.left.tag) {
                 case "ConditionalExpression":
@@ -154,6 +154,7 @@ export function expressionToString(e: ast.Expression): string {
                     res1 += `${expressionToString(e.right)}`;
             }
             return res1;
+        }
 
             /*
             if (e.left.tag === "ConditionalExpression") {
@@ -245,7 +246,7 @@ export function expressionToString(e: ast.Expression): string {
                     return `${e.operator}${expressionToString(e.argument)}`;
             }
 
-        case "ConditionalExpression":
+        case "ConditionalExpression": {
             let res2: string;
             if (e.test.tag === "ConditionalExpression") res2 = `${parens(expressionToString(e.test))} ? `;
             else res2 = `${expressionToString(e.test)} ? `;
@@ -257,6 +258,7 @@ export function expressionToString(e: ast.Expression): string {
             else res2 += `${expressionToString(e.alternate)}`;
             
             return res2; 
+        }
 
         case "ResultExpression":
             return '\\result';
