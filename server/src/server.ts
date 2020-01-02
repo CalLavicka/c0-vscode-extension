@@ -24,7 +24,7 @@ import { basicLexing } from './lex';
 import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement, findGenv, comparePositions, Ordering } from "./ast-search";
+import { isInside, findStatement, findGenv, comparePositions } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -33,6 +33,8 @@ import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 import { addListener } from 'cluster';
+import { Ordering } from './util';
+import { utils } from 'mocha';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.

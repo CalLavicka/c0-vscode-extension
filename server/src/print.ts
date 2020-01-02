@@ -1,5 +1,5 @@
 import * as ast from "./ast";
-import { BoolLiteral } from "./parse/nearley-helper";
+import { Ordering } from "./util";
 
 export function typeToString(syn: ast.AnyType): string {
     switch (syn.tag) {
@@ -78,9 +78,9 @@ function createOpmap() {
 const opmap = createOpmap();
 
 function cmpPrecedence(o1: string, o2: string) {
-    if (opmap.get(o1) > opmap.get(o2)) return -1;
-    else if (opmap.get(o1) === opmap.get(o2)) return 0;
-    else return 1;
+    if (opmap.get(o1) > opmap.get(o2)) return Ordering.Less;
+    else if (opmap.get(o1) === opmap.get(o2)) return Ordering.Equal;
+    else return Ordering.Greater;
 }
 
 export function expressionToString(e: ast.Expression): string {
@@ -96,17 +96,17 @@ export function expressionToString(e: ast.Expression): string {
         // Wrap subexpression in parens if it has lower or equal precedence as current operator
         case "LogicalExpression":
         case "BinaryExpression": {
-            let res1: string;
+            let res: string;
             switch (e.left.tag) {
                 case "ConditionalExpression":
-                    res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
+                    res = `${parens(expressionToString(e.left))} ${e.operator} `;
                     break;
                 case "LogicalExpression":
                 case "BinaryExpression":
                     const cmp = cmpPrecedence(e.left.operator, e.operator);
-                    if (cmp === -1) {
-                        res1 = `${parens(expressionToString(e.left))} ${e.operator} `;
-                    } else if (cmp === 0) {
+                    if (cmp === Ordering.Less) {
+                        res = `${parens(expressionToString(e.left))} ${e.operator} `;
+                    } else if (cmp === Ordering.Equal) {
                         const left: string = e.left.operator;
 
                         // special cases where having parens is more readable even if unnecessary 
@@ -114,46 +114,46 @@ export function expressionToString(e: ast.Expression): string {
                             (left === "||" && e.operator === "&&") ||
                             ((left === "==" || left === "!=") &&
                              (e.operator === "==" || e.operator === "!="))) {
-                                res1 = `${parens(expressionToString(e.left))} ${e.operator} `; 
+                                res = `${parens(expressionToString(e.left))} ${e.operator} `; 
                             } else {
-                                res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                                res = `${expressionToString(e.left)} ${e.operator} `; 
                             }
-                    } else { // cmp === 1
-                        res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                    } else { // cmp === Ordering.Greater
+                        res = `${expressionToString(e.left)} ${e.operator} `; 
                     }
                     break;
                 default:
-                    res1 = `${expressionToString(e.left)} ${e.operator} `; 
+                    res = `${expressionToString(e.left)} ${e.operator} `; 
                     break;
             }
             switch (e.right.tag) {
                 case "ConditionalExpression":
-                    res1 += `${parens(expressionToString(e.right))}`;
+                    res += `${parens(expressionToString(e.right))}`;
                     break;
                 case "LogicalExpression":
                 case "BinaryExpression":
                     const cmp = cmpPrecedence(e.right.operator, e.operator);
-                    if (cmp === -1) {
-                        res1 += `${parens(expressionToString(e.right))}`;
-                    } else if (cmp === 0) {
+                    if (cmp === Ordering.Less) {
+                        res += `${parens(expressionToString(e.right))}`;
+                    } else if (cmp === Ordering.Equal) {
 
                         // associative operators don't need parens
                         if (e.right.operator === e.operator &&
                             (e.right.operator === "+" || e.right.operator === "*" || e.right.operator === "|" ||
                              e.right.operator === "&" || e.right.operator === "^"))
                         {
-                            res1 += `${expressionToString(e.right)}`;
+                            res += `${expressionToString(e.right)}`;
                         } else {
-                            res1 += `${parens(expressionToString(e.right))}`;
+                            res += `${parens(expressionToString(e.right))}`;
                         }
-                    } else { // cmp === 1
-                        res1 += `${expressionToString(e.right)}`;
+                    } else { // cmp === Ordering.Greater
+                        res += `${expressionToString(e.right)}`;
                     }
                     break;
                 default:
-                    res1 += `${expressionToString(e.right)}`;
+                    res += `${expressionToString(e.right)}`;
             }
-            return res1;
+            return res;
         }
 
         case "Identifier":
@@ -189,17 +189,17 @@ export function expressionToString(e: ast.Expression): string {
             }
 
         case "ConditionalExpression": {
-            let res2: string;
-            if (e.test.tag === "ConditionalExpression") res2 = `${parens(expressionToString(e.test))} ? `;
-            else res2 = `${expressionToString(e.test)} ? `;
+            let res: string;
+            if (e.test.tag === "ConditionalExpression") res = `${parens(expressionToString(e.test))} ? `;
+            else res = `${expressionToString(e.test)} ? `;
 
-            if (e.consequent.tag === "ConditionalExpression") res2 += `${parens(expressionToString(e.consequent))} : `
-            else res2 += `${expressionToString(e.consequent)} : `;
+            if (e.consequent.tag === "ConditionalExpression") res += `${parens(expressionToString(e.consequent))} : `
+            else res += `${expressionToString(e.consequent)} : `;
 
-            if (e.alternate.tag === "ConditionalExpression") res2 += `${parens(expressionToString(e.alternate))}`;
-            else res2 += `${expressionToString(e.alternate)}`;
+            if (e.alternate.tag === "ConditionalExpression") res += `${parens(expressionToString(e.alternate))}`;
+            else res += `${expressionToString(e.alternate)}`;
             
-            return res2; 
+            return res; 
         }
 
         case "ResultExpression":

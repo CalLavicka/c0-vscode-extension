@@ -109,6 +109,30 @@ export type ValueType =
     | StructType
     | Identifier;
 
+export type BinaryOperator = 
+    | "*"
+    | "/"
+    | "%"
+    | "+"
+    | "-"
+    | "<<"
+    | ">>"
+    | "<"
+    | "<="
+    | ">="
+    | ">"
+    | "=="
+    | "!="
+    | "&"
+    | "^"
+    | "|";
+
+export type LogicalOperator = "||" | "&&";
+
+export type UnaryOperator = "&" | "!" | "~" | "-" | "*";
+
+export type ExpressionOperator = BinaryOperator | LogicalOperator | UnaryOperator;
+
 export interface IntType extends Syn {
     readonly tag: "IntType";
 }

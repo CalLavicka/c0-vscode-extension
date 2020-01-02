@@ -15,13 +15,8 @@ import {
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
 import { Env } from "./typecheck/types";
-import { getEnvironmentFromParams } from "./typecheck/programs"
-
-export const enum Ordering {
-    Less = -1,
-    Equal = 0,
-    Greater = 1
-}
+import { getEnvironmentFromParams } from "./typecheck/programs";
+import { Ordering } from "./util";
 
 export function comparePositions(a: Position, b: Position): Ordering {
     if (a.line < b.line) return Ordering.Less;

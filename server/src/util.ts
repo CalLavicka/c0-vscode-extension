@@ -16,3 +16,9 @@ export type Maybe<T> = Nothing | Just<T>;
 
 export const Nothing: Nothing = { hasValue: false };
 export const Just: <T>(value: T) => Just<T> = value => ({ hasValue: true, value: value });
+
+export const enum Ordering {
+  Less = -1,
+  Equal = 0,
+  Greater = 1
+}
