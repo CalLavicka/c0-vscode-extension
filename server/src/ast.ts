@@ -109,6 +109,30 @@ export type ValueType =
     | StructType
     | Identifier;
 
+export type BinaryOperator = 
+    | "*"
+    | "/"
+    | "%"
+    | "+"
+    | "-"
+    | "<<"
+    | ">>"
+    | "<"
+    | "<="
+    | ">="
+    | ">"
+    | "=="
+    | "!="
+    | "&"
+    | "^"
+    | "|";
+
+export type LogicalOperator = "||" | "&&";
+
+export type UnaryOperator = "&" | "!" | "~" | "-" | "*";
+
+export type ExpressionOperator = BinaryOperator | LogicalOperator | UnaryOperator;
+
 export interface IntType extends Syn {
     readonly tag: "IntType";
 }
@@ -251,7 +275,7 @@ export interface CastExpression extends Syn {
  */
 export interface UnaryExpression extends Syn {
     readonly tag: "UnaryExpression";
-    readonly operator: "&" | "!" | "~" | "-" | "*";
+    readonly operator: UnaryOperator;
     readonly argument: Expression;
     size?: ConcreteType;
 }
@@ -261,23 +285,7 @@ export interface UnaryExpression extends Syn {
  */
 export interface BinaryExpression extends Syn {
     readonly tag: "BinaryExpression";
-    readonly operator:
-        | "*"
-        | "/"
-        | "%"
-        | "+"
-        | "-"
-        | "<<"
-        | ">>"
-        | "<"
-        | "<="
-        | ">="
-        | ">"
-        | "=="
-        | "!="
-        | "&"
-        | "^"
-        | "|";
+    readonly operator: BinaryOperator;
     readonly left: Expression;
     readonly right: Expression;
     size?: ConcreteType;
@@ -288,7 +296,7 @@ export interface BinaryExpression extends Syn {
  */
 export interface LogicalExpression extends Syn {
     readonly tag: "LogicalExpression";
-    readonly operator: "||" | "&&";
+    readonly operator: LogicalOperator;
     readonly left: Expression;
     readonly right: Expression;
 }
