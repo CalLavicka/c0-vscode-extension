@@ -8,6 +8,10 @@ Simply click "install" on the [VSCode Marketplace](https://marketplace.visualstu
 
 For more information on getting started with this extension at CMU for 15-122, see [this presentation](https://docs.google.com/presentation/d/1Y3T15cJWumS-a0lOQwwyOhLMF6Yz7YBsbGfrZ0EmaZM/edit?usp=sharing)
 
+## Issues
+
+If you run into any problems with the extension, have a feature request, or have any other feedback, please let ua know on our [issues page](https://github.com/CalLavicka/c0-vscode-extension/issues)
+
 ## Usage
 
 The extension will activate when opening a C0/C1 file. To select the C0 theme, press CMD+SHIFT+P or CTRL+SHIFT+P, type "color theme", and select C0-light or C0-dark
