@@ -45,12 +45,9 @@ function parens(s: string): string {
     return `(${s})`;
 }
 
-// To avoid confusion, we will assume 
-// 1. logical operators && and || have equal precedence
-// 2. bitwise (binary) operators have the equal precedence 
-// so we add extra parens in these cases even if unnecessary
+// We assume && and || have equal precedence since expressions with both can be confusing
 
-function createOpmap() {
+function createOpmap(): Map<ast.ExpressionOperator, number> {
     const opmap = new Map();
     opmap.set("*", 1);
     opmap.set("/", 1);
@@ -70,16 +67,17 @@ function createOpmap() {
     opmap.set("|", 8);
     opmap.set("&&", 9);
     opmap.set("||", 9);
-
     return opmap;
 
 }
 
-const opmap = createOpmap();
+const opmap: Map<ast.ExpressionOperator, number> = createOpmap();
 
-function cmpPrecedence(o1: string, o2: string) {
-    if (opmap.get(o1) > opmap.get(o2)) return Ordering.Less;
-    else if (opmap.get(o1) === opmap.get(o2)) return Ordering.Equal;
+function cmpPrecedence(o1: ast.ExpressionOperator, o2: ast.ExpressionOperator) {
+    const x = <number>opmap.get(o1);
+    const y = <number>opmap.get(o2);
+    if (x > y) return Ordering.Less;
+    else if (x === y) return Ordering.Equal;
     else return Ordering.Greater;
 }
 
@@ -93,7 +91,7 @@ export function expressionToString(e: ast.Expression): string {
         case "ArrayMemberExpression":
             return `${expressionToString(e.object)}[${expressionToString(e.index)}]`;
 
-        // Wrap subexpression in parens if it has lower or equal precedence as current operator
+        // Wrap left/right subexpression in parens if it has lower or equal precedence as current operator
         case "LogicalExpression":
         case "BinaryExpression": {
             let res: string;
@@ -109,7 +107,7 @@ export function expressionToString(e: ast.Expression): string {
                     } else if (cmp === Ordering.Equal) {
                         const left: string = e.left.operator;
 
-                        // special cases where having parens is more readable even if unnecessary 
+                        // special cases where having unnecessary parens is more readable  
                         if ((left === "&&" && e.operator === "||") || 
                             (left === "||" && e.operator === "&&") ||
                             ((left === "==" || left === "!=") &&
