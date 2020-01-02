@@ -34,7 +34,6 @@ import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefi
 import { Maybe, Just, Nothing } from './util';
 import { addListener } from 'cluster';
 import { Ordering } from './util';
-import { utils } from 'mocha';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
