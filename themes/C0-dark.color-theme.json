@@ -84,7 +84,7 @@
 			"name": "Units (i.e. 0x in 0xFF)",
 			"scope": "keyword.other.unit",
 			"settings": {
-				"foreground": "#b5cea8"
+				"foreground": "#71deff"
 			}
         },
         {
@@ -195,7 +195,7 @@
 				"storage.modifier"
 			],
 			"settings": {
-				"foreground": "#ec7ebb"
+				"foreground": "#FF7F50"
 			}
 		},
 		{
