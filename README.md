@@ -28,7 +28,10 @@ lib/hdict.c1
 lib/peg-util.c1
 lib/stacks.c1
 peg-moves.c1
-peg1.c1
+// Start a line with // to comment it out
+// Blank lines are ignored
+
+//peg1.c1
 peg2.c1
 peg-main.c1
 ```
