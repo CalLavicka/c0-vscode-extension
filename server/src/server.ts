@@ -482,8 +482,8 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
     case "FoundField": {
       const { field } = searchResult.data;
 
-      if (field.loc === undefined) return null;
-      return toLocationLink(field.loc);
+      if (field.id.loc === undefined) return null;
+      return toLocationLink(field.id.loc);
     }
   }
 
