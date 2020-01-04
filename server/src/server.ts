@@ -415,7 +415,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 });
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
-  function toLocationLink(loc: ast.SourceLocation): LocationLink[] | null {
+  function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
     return [{
       targetUri: loc.source || data.textDocument.uri,
       targetSelectionRange: {
@@ -425,6 +425,10 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       targetRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
+      },
+      originSelectionRange: origin === undefined ? undefined : {
+        start: ast.toVscodePosition(origin.start),
+        end: ast.toVscodePosition(origin.end)
       }
     }];
   }
@@ -456,7 +460,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         case "StructType":
           const struct = getStructDefinition(genv, type.id.name);
           if (struct !== null && struct.loc) {
-            return toLocationLink(struct.loc);
+            return toLocationLink(struct.loc, type.loc);
           }
           break;
       }
