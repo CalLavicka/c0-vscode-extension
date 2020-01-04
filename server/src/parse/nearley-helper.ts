@@ -806,7 +806,7 @@ export function StructDefinition([struct, s1, s, s2, l, s3, defs, r, s5, semi]: 
                 tag: "VariableDeclaration",
                 id: value[2],
                 kind: value[0],
-                loc: { start: tokloc(struct).start, end: tokloc(semi).end }
+                loc: { start: value[0].loc.start, end: value[2].loc.end }
             })
         ),
         loc: { start: tokloc(struct).start, end: tokloc(semi).end }

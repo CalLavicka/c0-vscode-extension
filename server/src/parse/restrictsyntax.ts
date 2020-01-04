@@ -697,7 +697,8 @@ export function restrictParams(
     return params.map(param => ({
         tag: param.tag,
         kind: restrictValueType(lang, param.kind),
-        id: param.id
+        id: param.id,
+        loc: param.loc
     }));
 }
 
