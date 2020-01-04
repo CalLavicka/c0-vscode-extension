@@ -23,20 +23,26 @@ import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from 
 export const openFiles: Map<string, GlobalEnv> = new Map();
 
 /**
- * A cached file is identified by its lastUpdate date.
+ * A cached file, with the environment at the time.
  * Also store all dependants so we can invalidate them
  */
 type FileCache = {
   genv: GlobalEnv,
   decls: ast.Declaration[],
   typeIds: Set<string>,
-  dependants: Set<string>
+  dependants: Set<string>,
+  fullCache: true
+};
+
+type DependencyList = {
+  dependants: Set<string>,
+  fullCache: false
 };
 
 /**
  * Cached files for internal usage
  */
-const cachedFiles = new Map<string, FileCache>();
+const cachedFiles = new Map<string, FileCache | DependencyList>();
 
 /**
  * Invalidates a file in the cache
@@ -76,10 +82,26 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
-  const genv: GlobalEnv = initEmpty();
-  const processed = new Set<string>();
+  let genv: GlobalEnv = initEmpty();
 
-  for (const dep of dependencies) {
+  // Find deepest cached dependency
+  let i: number;
+  for (i = dependencies.length - 1; i >= 0; i--) {
+    const cache = cachedFiles.get(dependencies[i]);
+    if (cache?.fullCache) {
+      genv = cloneGenv(cache.genv);
+      decls.push(...cache.decls);
+      typeIds = new Set(cache.typeIds);
+      break;
+    }
+  }
+  for (i = i + 1; i < dependencies.length; i++) {
+    const dep = dependencies[i];
+
+    if (genv.filesLoaded.has(dep)) {
+      continue;
+    }
+
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
@@ -125,7 +147,24 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         typeIds = parser.lexer.getTypeIds();
     }
 
-    processed.add(dep);
+    // Existing dependants (from earlier files which #use this one)
+    const dependants = cachedFiles.get(dep)?.dependants;
+
+    cachedFiles.set(dep, { genv: cloneGenv(genv), decls: [...decls], typeIds: new Set(typeIds),
+      dependants: new Set(dependants), fullCache: true});
+
+    // Add as dependant to all files this one uses
+    genv.filesLoaded.forEach((file) => {
+      if (file !== dep) {
+        // Add this file as a dependant of that one
+        const cache = cachedFiles.get(file);
+        if (cache) {
+          cache.dependants.add(dep);
+        } else {
+          cachedFiles.set(file, { dependants: new Set([dep]), fullCache: false});
+        }
+      }
+    });
   }
 
   const parser = mkParser(typeIds, textDocument.uri);
