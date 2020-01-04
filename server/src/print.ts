@@ -158,8 +158,17 @@ export function expressionToString(e: ast.Expression): string {
             return e.name;    
 
         case "StructMemberExpression":
-            return `${expressionToString(e.object)}${e.deref ? "->" : "."}${e.field.name}`;
-
+            // Check if we need parantheses
+            switch (e.object.tag) {
+                case "BinaryExpression":
+                case "CastExpression":
+                case "ConditionalExpression":
+                case "LogicalExpression":
+                case "UnaryExpression":
+                    return `${parens(expressionToString(e.object))}${e.deref ? "->" : "."}${e.field.name}`;
+                default:
+                    return `${expressionToString(e.object)}${e.deref ? "->" : "."}${e.field.name}`;
+            }
         case "CallExpression":
             return `${e.callee.name}(${(e.arguments.map(x => expressionToString(x))).join(', ')})`;
         
