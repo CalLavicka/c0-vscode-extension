@@ -1,12 +1,10 @@
 import {
   createConnection,
   TextDocuments,
-  TextDocument,
   Diagnostic,
   DiagnosticSeverity,
   ProposedFeatures,
   InitializeParams,
-  DidChangeConfigurationNotification,
   CompletionItem,
   CompletionItemKind,
   TextDocumentPositionParams,
@@ -32,7 +30,6 @@ import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
-import { addListener } from 'cluster';
 import { Ordering } from './util';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
@@ -103,9 +100,11 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       const dependencies = [];
 
       for (const file of files) {
-        if (file === '') {
-          continue;
-        }
+        // Skip blank lines
+        if (file === '') continue;
+        // Skip comments 
+        if (file.startsWith("//")) continue;
+
         if (file === fname) {
           return Just({ uri: `${base}/project.txt`, dependencies: dependencies});
         }
@@ -125,7 +124,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
 const cachedProjects = new Map<string, Dependencies>();
 
 connection.onDidChangeWatchedFiles(async params => {
-  params.changes.forEach(change => {
+  for (const change of params.changes) {
     invalidate(change.uri);
 
     if (change.uri.endsWith('/project.txt')) {
@@ -143,8 +142,13 @@ connection.onDidChangeWatchedFiles(async params => {
 
       // Ordering of files may have changed, screwing dependencies.
       invalidateAll();
+
+      // Reload diagnostics for all documents 
+      for (const document of documents.all()) {
+        await validateTextDocument({ document });
+      }
     }
-  });
+  }
 });
 
 documents.onDidOpen(validateTextDocument);
