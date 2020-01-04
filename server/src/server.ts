@@ -168,7 +168,10 @@ connection.onDidChangeWatchedFiles(async params => {
 });
 
 documents.onDidOpen(validateTextDocument);
-documents.onDidChangeContent(validateTextDocument);
+documents.onDidChangeContent(async (change) => {
+  invalidate(change.document.uri);
+  await validateTextDocument(change);
+});
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
