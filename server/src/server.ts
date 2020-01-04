@@ -71,10 +71,12 @@ connection.onInitialized(() => {
     });
   }
 
-  // Change header files to be read-only so they aren't accidentally editted
-  fs.readdirSync(path.join(path.dirname(process.argv[1]), 'c0lib')).forEach((file) => {
-    fs.chmodSync(path.join(path.dirname(process.argv[1]), 'c0lib', file), '444');
-  });
+  // Commented out since making them read-only causes issues with 
+  // updating the plugin
+  // // Change header files to be read-only so they aren't accidentally editted
+  // fs.readdirSync(path.join(path.dirname(process.argv[1]), 'c0lib')).forEach((file) => {
+  //   fs.chmodSync(path.join(path.dirname(process.argv[1]), 'c0lib', file), '444');
+  // });
 });
 
 type Dependencies = {
