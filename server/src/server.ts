@@ -100,13 +100,18 @@ type Dependencies = {
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
-  for (const configPath of configPaths) {
+  /** Takes a line from project.txt and removes comments and leading/trailing whitespace */
+  function parseLine(line: string): string {
+    const index = line.indexOf("//");
+    return (index === - 1 ? line : line.substr(0, index)).trim();
+  }
 
+  for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
       const files = fs
         .readFileSync(configPath, { encoding: "utf-8" })
         .split("\n")
-        .map(s => s.trim());
+        .map(s => parseLine(s));
 
       // Filenames should be relative to the config file's location
       const base = path.dirname(configPath.toString());
