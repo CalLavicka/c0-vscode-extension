@@ -76,31 +76,10 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
-  let genv: GlobalEnv = initEmpty();
+  const genv: GlobalEnv = initEmpty();
   const processed = new Set<string>();
 
-  // Find deepest cached dependency
-  let i: number;
-  for (i = dependencies.length - 1; i >= 0; i--) {
-    const cache = cachedFiles.get(dependencies[i]);
-    if (cache) {
-      genv = cloneGenv(cache.genv);
-      decls.push(...cache.decls);
-      typeIds = new Set(cache.typeIds);
-      for (let j = 0; j <= i; j++) {
-        processed.add(dependencies[j]);
-      }
-      break;
-    }
-  }
-  for (i = i + 1; i < dependencies.length; i++) {
-    const dep = dependencies[i];
-
-    if (genv.filesLoaded.has(dep)) {
-      processed.add(dep);
-      continue;
-    }
-
+  for (const dep of dependencies) {
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
@@ -146,7 +125,6 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         typeIds = parser.lexer.getTypeIds();
     }
 
-    cachedFiles.set(dep, { genv: cloneGenv(genv), decls: [...decls], typeIds: new Set(typeIds), dependants: new Set(processed)});
     processed.add(dep);
   }
 

@@ -14,6 +14,7 @@ import * as process from "process";
 import { GlobalEnv } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
+import { openFile } from "./server";
 
 /** 
  * Splits exclusively on semicolons,
@@ -188,7 +189,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   const parser = mkParser(oldParser.lexer.getTypeIds(), fileName, language);
 
   const fileText = typeof text === "string" 
-    ? fs.readFileSync((<any>url).fileURLToPath(text), { encoding: "utf-8" }) 
+    ? openFile(text) 
     : text.getText();
 
   // Before we go through the file, look at each line for a #use 

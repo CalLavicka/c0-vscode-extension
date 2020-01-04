@@ -76,6 +76,22 @@ connection.onInitialized(() => {
   // });
 });
 
+/**
+ * Returns the text of the given file, possibly using a file
+ * open in the editor. 
+ * @param uri URI with file:// protocol
+ */
+export function openFile(uri: string): string {
+  // Check if the document is open, and use that instead
+  for (const document of documents.all()) {
+    if (document.uri === uri) return document.getText();
+  }
+
+  // Otherwise open the document, potentially
+  // throwing if it doesn't exist
+  return fs.readFileSync(new URL(uri), "utf-8");
+}
+
 type Dependencies = {
   /** Path to project.txt */
   uri: string, 
