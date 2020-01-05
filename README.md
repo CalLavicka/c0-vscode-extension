@@ -51,4 +51,4 @@ The extension will look for `project.txt` first in the same directory as the cur
 
 ## Contributing
 
-See CONTRIBUTING.md in the repository's root directory
+See [CONTRIBUTING.md](https://github.com/CalLavicka/c0-vscode-extension/blob/master/CONTRIBUTING.md) in the repository's root directory

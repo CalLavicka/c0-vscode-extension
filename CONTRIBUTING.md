@@ -1,9 +1,9 @@
 # Contributing to the VSCode extension
 
-Thanks for contribuing! Here are some tips on getting started with development
+Thanks for contributing! Here are some tips on getting started with development
 
 ## General information
-* Please let us know what you are working on so we don't duplicate effort, by using GitHub issues
+* Check our [issues page](https://github.com/CalLavicka/c0-vscode-extension/issues) page, or if you want to work on something else feel free to create a new issue for it (to keep track of who is working on what) 
 * Please work in a new branch until your feature is ready
 
 ## Development

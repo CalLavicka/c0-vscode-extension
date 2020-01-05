@@ -1,9 +1,13 @@
 # Change Log
 
-All notable changes to the "c0-for-122-students" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
+## [1.1.7]
 
 - Initial release
+- Code completion of local variables, function names, typedefs, struct names, struct field names
+- Syntax highlighting for all C1 constructs
+- Full C0/C1 feature support
+- Go-to-definition for everything
+- Type information on hover for everything, as well as contracts on functions
+- Hover over a type identifier to expand it
+- Syntax highlighting for C0VM bytecode and Clac definition files
+
