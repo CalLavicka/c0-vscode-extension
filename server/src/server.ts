@@ -393,15 +393,29 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
       const { type } = searchResult.data;
       const realType = actualType(genv, type);
 
+      // Display as typedef if custom type
+      if (type.tag === "Identifier") {
+        return {
+          contents: mkMarkdownCode(`typedef ${typeToString(realType)} ${type.name}`)
+        };
+      }
+
       return {
         contents: mkMarkdownCode(typeToString(realType))
+      };
+    }
+    case "FoundField": {
+      const { field, expression } = searchResult.data;
+
+      return {
+        contents: mkMarkdownCode(`${typeToString(field.kind)} ${expression}`)
       };
     }
   }
 });
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
-  function toLocationLink(loc: ast.SourceLocation): LocationLink[] | null {
+  function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
     return [{
       targetUri: loc.source || data.textDocument.uri,
       targetSelectionRange: {
@@ -411,6 +425,10 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       targetRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
+      },
+      originSelectionRange: origin === undefined ? undefined : {
+        start: ast.toVscodePosition(origin.start),
+        end: ast.toVscodePosition(origin.end)
       }
     }];
   }
@@ -442,7 +460,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
         case "StructType":
           const struct = getStructDefinition(genv, type.id.name);
           if (struct !== null && struct.loc) {
-            return toLocationLink(struct.loc);
+            return toLocationLink(struct.loc, type.loc);
           }
           break;
       }
@@ -464,6 +482,12 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       if (definition === undefined || definition.position === undefined) return null;
 
       return toLocationLink(definition.position);
+    }
+    case "FoundField": {
+      const { field } = searchResult.data;
+
+      if (field.id.loc === undefined) return null;
+      return toLocationLink(field.id.loc);
     }
   }
 

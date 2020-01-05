@@ -10,7 +10,9 @@ import {
     SourceLocation,
     Statement,
     Type,
-    Declaration
+    Declaration,
+    StructDeclaration,
+    VariableDeclarationOnly
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
@@ -43,7 +45,7 @@ export type SearchInfo = {
 
 export interface AstSearchResult {
     environment: Env | null;
-    data: FoundIdent | FoundType | null;
+    data: FoundIdent | FoundType | FoundField | null;
 }
 
 export interface FoundIdent {
@@ -55,6 +57,13 @@ export interface FoundIdent {
 export interface FoundType {
     tag: "FoundType";
     type: Type;
+}
+
+export interface FoundField {
+    tag: "FoundField";
+    struct: StructDeclaration;
+    field: VariableDeclarationOnly;
+    expression: string;
 }
 
 function findType(e: Type, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
@@ -152,9 +161,10 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                 return {
                     environment: currentEnv,
                     data: {
-                        tag: "FoundIdent",
-                        name: expressionToString(e),
-                        type: field.kind
+                        tag: "FoundField",
+                        expression: expressionToString(e),
+                        struct,
+                        field
                     }
                 };
             }
@@ -324,6 +334,13 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
 
         case "TypeDefinition":
             if (isInside(pos, decl.definition.kind.loc)) return findType(decl.definition.kind, null, info);
+            if (isInside(pos, decl.definition.id.loc)) return {
+                environment: null,
+                data: {
+                    tag: "FoundType",
+                    type: decl.definition.id
+                }
+            };
             break;
 
         case "StructDeclaration":

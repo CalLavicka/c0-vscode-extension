@@ -10,7 +10,7 @@ For more information on getting started with this extension at CMU for 15-122, s
 
 ## Issues
 
-If you run into any problems with the extension, have a feature request, or have any other feedback, please let ua know on our [issues page](https://github.com/CalLavicka/c0-vscode-extension/issues)
+If you run into any problems with the extension, have a feature request, or have any other feedback, please let us know on our [issues page](https://github.com/CalLavicka/c0-vscode-extension/issues)
 
 ## Usage
 
