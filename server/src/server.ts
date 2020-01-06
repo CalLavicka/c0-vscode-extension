@@ -121,10 +121,9 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       const dependencies = [];
 
       for (const file of files) {
-        // Skip blank lines
+        // Lines will be blank if they are all whitespace
+        // or all comments 
         if (file === '') continue;
-        // Skip comments 
-        if (file.startsWith("//")) continue;
 
         if (file === fname) {
           return Just({ uri: `${base}/project.txt`, dependencies: dependencies});
