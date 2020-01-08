@@ -199,15 +199,19 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 );
             }
 
-            const isPrintf = genv.libsLoaded.has("conio") && exp.callee.name === "printf" ;
-            if (isPrintf) {
+            const fname = exp.callee.name;
+
+            const isPrintfLike = 
+                 (genv.libsLoaded.has("conio") && fname === "printf")
+              || (genv.libsLoaded.has("string") && fname === "format");
+            if (isPrintfLike) {
                 // Validate printf here 
-                if (exp.arguments.length === 0) { throw new TypingError(exp, "printf requires at least 1 argument"); }
+                if (exp.arguments.length === 0) { throw new TypingError(exp, `${fname} requires at least 1 argument`); }
                 if (exp.arguments[0].tag !== "StringLiteral") { 
                     throw new TypingError(exp.arguments[0], "argument must be a string constant");
                 }
 
-                return { tag: "VoidType" };
+                return { tag: fname === "printf" ? "VoidType" : "StringType" };
             }
             else {
                 const func = getFunctionDeclaration(genv, exp.callee.name);
