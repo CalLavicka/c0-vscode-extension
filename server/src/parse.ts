@@ -49,6 +49,13 @@ function* semicolonSplit(s: string) {
           end++;
           start = end;
         }
+        if (s[end] === '{') {
+          yield { last: false, segment: s.slice(start, end), semicolon: false};
+          // Don't jump over this character, it needs to be fed
+          // to the parser on the next iteration 
+          start = end;
+          end++;
+        }
         else if (s[end] === '"') {
           state = SplitState.String;
           end++;
