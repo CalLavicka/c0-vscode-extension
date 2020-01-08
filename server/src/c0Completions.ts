@@ -50,6 +50,7 @@ function scanFunctionName(source: string, index: number) {
     if (!/[A-Za-z0-9_]/.test(source[pos])) break;
   }
 
+  // Add one, `index` is the last character of the function name 
   return pos < 0 ? "" : source.slice(pos + 1, index + 1).trim();
 }
 
@@ -85,7 +86,7 @@ export function getCompletionContext(source: string, index: number): CompletionR
       };
     }
     catch (e) {
-      // nothing
+      // pass 
     }
   }
 
@@ -93,9 +94,8 @@ export function getCompletionContext(source: string, index: number): CompletionR
   let parenStack = 0;
   let argumentNumber = 0;
 
-  // We possibly look for 2 character substrings,
-  // so we need to stop at index 1 
-  for (pos = index; pos >= 1; pos--) {
+  // Iterate to the start of the function call 
+  for (pos = index; pos >= 0; pos--) {
     if (source[pos] === ";") return null;
     if (source[pos] === "," && parenStack === 0) argumentNumber++;
     if (source[pos] === ")") parenStack++;

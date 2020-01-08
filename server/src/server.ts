@@ -341,7 +341,8 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                 case CompletionContextKind.StructAccess:
                   try {
                     // Type safety? :D 
-                    const structname = getStructId(decls, <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr));
+                    const type = <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr);
+                    const structname = getStructId(decls, type);
                     
                     const struct = getStructDefinition(decls, structname);
                     if (struct && struct.definitions) {
@@ -355,6 +356,14 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                   }
                   catch (e) { /* pass */ }
                   break;
+                case CompletionContextKind.FunctionCall: {
+                  // TODO: Promote functions with a return-type
+                  // of our current function argument
+                  // and local variables with either the correct type
+                  // or are pointers to structs 
+                  // (otherwise we have to do a search and deal with cycles)
+                  break;
+                }
               }
             }
           }
@@ -530,12 +539,14 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
 
 connection.onSignatureHelp((data) => {
   const genv = openFiles.get(data.textDocument.uri);
-  // Indicates no successful parse so far
   if (genv === undefined) { return null; }
 
   const doc = documents.get(data.textDocument.uri);
   if (!doc) return null;
 
+  // Subtract one from the offset because 
+  // data.position is the character right after
+  // the opening paren or comma, which we want to ignore 
   const context = getCompletionContext(
     doc.getText(),
     doc.offsetAt(data.position) - 1);
