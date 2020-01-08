@@ -27,7 +27,7 @@ function* semicolonSplit(s: string) {
     Regular,
     LineComment,
     BlockComment,
-    String,
+    String, 
     Char
   }
   

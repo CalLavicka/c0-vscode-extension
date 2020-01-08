@@ -283,3 +283,17 @@ export function checkFunctionReturnType(genv: GlobalEnv, t: ast.Type) {
             return checkTypeInDeclaration(genv, t, true);
     }
 }
+
+export function getStructId(genv: GlobalEnv, t: ast.Type) {
+    const actual = actualType(genv, t);
+    switch (actual.tag) {
+        case "StructType": return actual.id.name;
+        case "PointerType": {
+            const actualArgument = actualType(genv, actual.argument);
+            if (actualArgument.tag === "StructType") 
+                return actualArgument.id.name;
+        }
+    }
+
+    return "";
+}

@@ -11,6 +11,10 @@
  * ast.ts as much as practical.
  */
 
+ /*
+  * (This file is being used in generating code completions now (c0Completions.ts))
+  */
+
 import * as ast from "../ast";
 
 export interface Syn {

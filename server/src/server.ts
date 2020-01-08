@@ -27,10 +27,12 @@ import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
 import * as fs from "fs";
-import { EnvEntry } from './typecheck/types';
+import { EnvEntry, getStructId } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 import { Ordering } from './util';
+import { getCompletionContext } from './c0Completions';
+import { synthExpression } from './typecheck/expressions';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -53,6 +55,7 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documents.syncKind,
       completionProvider: {
+        triggerCharacters: ["(", ".", ">"], // "> is for ->"
         resolveProvider: false
       },
       hoverProvider: true,
@@ -256,6 +259,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   const decls = openFiles.get(completionInfo.textDocument.uri);
   if (decls === undefined) return keywords;
 
+
   // Add all gdecl names
   const functionDecls: Map<string, CompletionItem> = new Map();
   const typedefs: CompletionItem[] = [];
@@ -323,6 +327,31 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
 
           const searchResult = findStatement(decl.body, null, { pos, genv: decls });
           if (searchResult === null || searchResult.environment === null) break;
+
+          const doc = documents.get(completionInfo.textDocument.uri);
+          if (doc) {
+            const context = getCompletionContext(
+              doc.getText(),
+              doc.offsetAt(completionInfo.position));
+
+            if (context) {
+              try {
+                // Type safety? :D 
+                const structname = getStructId(decls, <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr));
+                
+                const struct = getStructDefinition(decls, structname);
+                if (struct && struct.definitions) {
+                  return struct.definitions.map(field => ({
+                      label: field.id.name,
+                      kind: CompletionItemKind.Field,
+                      documentation: mkMarkdownCode(`${typeToString(field.kind)} ${struct.id.name}::${field.id.name}`),
+                      detail: field.loc?.source || undefined
+                  }));
+                }
+              }
+              catch (e) { /* pass */ }
+            }
+          }
 
           for (const [name, type] of searchResult.environment) {
             locals.push({
