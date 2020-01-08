@@ -65,6 +65,7 @@ export interface CreatesScope {
     environment?: Map<string, Type>;
 }
 
+/** Represents a 1-indexed source code position */
 export interface Position {
     readonly line: number;
     readonly column: number;
