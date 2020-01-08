@@ -15,7 +15,9 @@ import {
   Range,
   Position,
   FileChangeType,
-  TextDocumentChangeEvent
+  TextDocumentChangeEvent,
+  ParameterInformation,
+  SignatureInformation
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -31,7 +33,7 @@ import { EnvEntry, getStructId } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 import { Ordering } from './util';
-import { getCompletionContext } from './c0Completions';
+import { getCompletionContext, CompletionContextKind } from './c0Completions';
 import { synthExpression } from './typecheck/expressions';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
@@ -55,11 +57,12 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documents.syncKind,
       completionProvider: {
-        triggerCharacters: ["(", ".", ">"], // "> is for ->"
+        triggerCharacters: [".", ">"], // ">" is for ->
         resolveProvider: false
       },
       hoverProvider: true,
-      definitionProvider: true
+      definitionProvider: true,
+      signatureHelpProvider: { triggerCharacters: ["(", ","] }
     }
   };
 });
@@ -259,7 +262,6 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   const decls = openFiles.get(completionInfo.textDocument.uri);
   if (decls === undefined) return keywords;
 
-
   // Add all gdecl names
   const functionDecls: Map<string, CompletionItem> = new Map();
   const typedefs: CompletionItem[] = [];
@@ -335,21 +337,25 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
               doc.offsetAt(completionInfo.position));
 
             if (context) {
-              try {
-                // Type safety? :D 
-                const structname = getStructId(decls, <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr));
-                
-                const struct = getStructDefinition(decls, structname);
-                if (struct && struct.definitions) {
-                  return struct.definitions.map(field => ({
-                      label: field.id.name,
-                      kind: CompletionItemKind.Field,
-                      documentation: mkMarkdownCode(`${typeToString(field.kind)} ${struct.id.name}::${field.id.name}`),
-                      detail: field.loc?.source || undefined
-                  }));
-                }
+              switch (context.tag) {
+                case CompletionContextKind.StructAccess:
+                  try {
+                    // Type safety? :D 
+                    const structname = getStructId(decls, <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr));
+                    
+                    const struct = getStructDefinition(decls, structname);
+                    if (struct && struct.definitions) {
+                      return struct.definitions.map(field => ({
+                          label: field.id.name,
+                          kind: CompletionItemKind.Field,
+                          documentation: mkMarkdownCode(`${typeToString(field.kind)} ${struct.id.name}::${field.id.name}`),
+                          detail: field.loc?.source || undefined
+                      }));
+                    }
+                  }
+                  catch (e) { /* pass */ }
+                  break;
               }
-              catch (e) { /* pass */ }
             }
           }
 
@@ -520,6 +526,53 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   }
 
   return null;
+});
+
+connection.onSignatureHelp((data) => {
+  const genv = openFiles.get(data.textDocument.uri);
+  // Indicates no successful parse so far
+  if (genv === undefined) { return null; }
+
+  const doc = documents.get(data.textDocument.uri);
+  if (!doc) return null;
+
+  const context = getCompletionContext(
+    doc.getText(),
+    doc.offsetAt(data.position) - 1);
+
+  if (context && context.tag === CompletionContextKind.FunctionCall) {
+    const functionDecl = getFunctionDeclaration(genv, context.name);
+    if (!functionDecl) return null;
+
+    let signature = `${typeToString(functionDecl.returns)} ${functionDecl.id.name}(`;
+    let signatureLength = signature.length;
+
+    const paramInfo: ParameterInformation[] = [];
+
+    //for (const param of functionDecl.params) {
+    for (let i = 0; i < functionDecl.params.length; i++) {
+      const param = functionDecl.params[i];
+
+      const paramText = `${typeToString(param.kind)} ${param.id.name}`;
+      paramInfo.push(ParameterInformation.create([signatureLength, signatureLength + paramText.length]));
+
+      signature += paramText;
+      signatureLength += paramText.length;
+
+      if (i !== functionDecl.params.length - 1) {
+        signature += ", ";
+        signatureLength += 2;
+      }
+    }
+
+    const sig = SignatureInformation.create(signature, undefined, ...paramInfo);
+
+    return {
+      signatures: [sig], // Functions only have one signature ever in C0
+      activeSignature: 0,
+      activeParameter: context.argumentNumber
+    };
+  }
 });
 
 // Make the text document manager listen on the connection
