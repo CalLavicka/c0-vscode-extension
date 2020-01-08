@@ -42,7 +42,7 @@ const documents: TextDocuments = new TextDocuments();
 
 let hasWorkspaceFolderCapability: boolean = false;
 
-connection.onInitialize((params: InitializeParams) => {
+connection.onInitialize((params: InitializeParams) => {  
   const capabilities = params.capabilities;
 
   // Does the client support the `workspace/configuration` request?

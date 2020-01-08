@@ -27,7 +27,8 @@ function* semicolonSplit(s: string) {
     Regular,
     LineComment,
     BlockComment,
-    String
+    String,
+    Char
   }
   
   // The main issue this tries to resolve is that 
@@ -50,6 +51,10 @@ function* semicolonSplit(s: string) {
         }
         else if (s[end] === '"') {
           state = SplitState.String;
+          end++;
+        }
+        else if (s[end] === '\'') {
+          state = SplitState.Char;
           end++;
         }
         else if (s.startsWith("//", end)) {
@@ -84,6 +89,14 @@ function* semicolonSplit(s: string) {
         // get fooled by something like "the string is \"asd\" asd"
         if (s[end] === "\\") end += 2;
         else if (s[end] === "\"") {
+          state = SplitState.Regular;
+          end++;
+        }
+        else end++;
+        break;
+      case SplitState.Char:
+        if (s[end] === "\\") end += 2;
+        else if (s[end] === "\'") {
           state = SplitState.Regular;
           end++;
         }

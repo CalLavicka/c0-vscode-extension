@@ -25,7 +25,7 @@
     "arrow-parens": false,
     "no-angle-bracket-type-assertion": false,
     "max-line-length": [true, 130],
-    "no-console": [true, "log"],
+    "no-console": [true, "log"], 
     "whitespace": [true, 
       "check-branch",
       "check-decl",
