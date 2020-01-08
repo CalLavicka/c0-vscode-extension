@@ -63,13 +63,39 @@ export function getCompletionContext(source: string, index: number): CompletionR
   // - comma (function argument, we can skip to the left paren and then use that)
   // - struct dereference (-> or .)
 
+  let pos = index;
+  // Skip whitespace
+  while (source[pos] === " ") pos--;
+
+  // Struct access must be at the cursor (barring whitespace)
+  if (source.startsWith("->", pos - 1)) {
+    // Scan backwards for as much expression as we can get, either
+    // to a left paren (function call), left bracket (array index),
+    // comma (function argument), or equals sign (assignment)
+    const expressionText = scanExpression(source, pos - 1);
+
+    try {
+      parser.feed(expressionText);
+      const results = parser.finish();
+      console.assert(results && results.length === 1);
+
+      return {
+        tag: CompletionContextKind.StructAccess,
+        expr: results[0]
+      };
+    }
+    catch (e) {
+      // nothing
+    }
+  }
+
   // If we are in a function call we need to know what argument we are in
   let parenStack = 0;
   let argumentNumber = 0;
 
   // We possibly look for 2 character substrings,
   // so we need to stop at index 1 
-  for (let pos = index; pos >= 1; pos--) {
+  for (pos = index; pos >= 1; pos--) {
     if (source[pos] === ";") return null;
     if (source[pos] === "," && parenStack === 0) argumentNumber++;
     if (source[pos] === ")") parenStack++;
@@ -84,26 +110,6 @@ export function getCompletionContext(source: string, index: number): CompletionR
         };
       }
       else parenStack--;
-    }
-    if (source.startsWith("->", pos - 1)) {
-      // Scan backwards for as much expression as we can get, either
-      // to a left paren (function call), left bracket (array index),
-      // comma (function argument), or equals sign (assignment)
-      const expressionText = scanExpression(source, pos - 1);
-
-      try {
-        parser.feed(expressionText);
-        const results = parser.finish();
-        console.assert(results && results.length === 1);
-
-        return {
-          tag: CompletionContextKind.StructAccess,
-          expr: results[0]
-        };
-      }
-      catch (e) {
-        // nothing
-      }
     }
   }
 

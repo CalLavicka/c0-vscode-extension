@@ -549,7 +549,6 @@ connection.onSignatureHelp((data) => {
 
     const paramInfo: ParameterInformation[] = [];
 
-    //for (const param of functionDecl.params) {
     for (let i = 0; i < functionDecl.params.length; i++) {
       const param = functionDecl.params[i];
 
@@ -562,6 +561,9 @@ connection.onSignatureHelp((data) => {
       if (i !== functionDecl.params.length - 1) {
         signature += ", ";
         signatureLength += 2;
+      }
+      else {
+        signature += ")";
       }
     }
 
