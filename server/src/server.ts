@@ -301,7 +301,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           fieldNames.push({
             label: field.id.name,
             kind: CompletionItemKind.Field,
-            documentation: mkMarkdownCode(`${typeToString(field.kind)} ${decl.id.name}::${field.id.name}`),
+            documentation: mkMarkdownCode(`struct ${decl.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
             detail: decl.loc?.source || undefined
           });
         }
@@ -342,14 +342,21 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                   try {
                     // Type safety? :D 
                     const type = <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr);
-                    const structname = getStructId(decls, type);
-                    
+                    let actual;
+                    if (context.derefenced && type.tag === "PointerType") {
+                      actual = actualType(decls, type.argument);
+                    }
+                    else {
+                      actual = actualType(decls, type);
+                    }
+                    const structname = (<ast.StructType>actual).id?.name || "";
+
                     const struct = getStructDefinition(decls, structname);
                     if (struct && struct.definitions) {
                       return struct.definitions.map(field => ({
                           label: field.id.name,
                           kind: CompletionItemKind.Field,
-                          documentation: mkMarkdownCode(`${typeToString(field.kind)} ${struct.id.name}::${field.id.name}`),
+                          documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
                           detail: field.loc?.source || undefined
                       }));
                     }

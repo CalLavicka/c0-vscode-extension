@@ -17,6 +17,7 @@ export type CompletionResult =
 export interface StructAccess {
   tag: CompletionContextKind.StructAccess;
   expr: parsed.Expression;
+  derefenced: boolean;
 }
 
 export interface FunctionCall {
@@ -39,6 +40,7 @@ function scanExpression(source: string, index: number) {
     if (c === "=") break;
     if (c === ";") break;
     if (c === ",") break;
+    if (c === "{") break;
 
     if (source.startsWith("return", pos - 6)) break;
   }
@@ -69,12 +71,15 @@ export function getCompletionContext(source: string, index: number): CompletionR
   // Skip whitespace
   while (source[pos] === " ") pos--;
 
+
   // Struct access must be at the cursor (barring whitespace)
-  if (source.startsWith("->", pos - 2)) {
+  if (source.startsWith("->", pos - 2) || source[pos - 1] === ".") {
+    const derefenced = source[pos - 1] !== ".";
+
     // Scan backwards for as much expression as we can get, either
     // to a left paren (function call), left bracket (array index),
     // comma (function argument), or equals sign (assignment)
-    const expressionText = scanExpression(source, pos - 2);
+    const expressionText = scanExpression(source, pos - (derefenced ? 2 : 1));
 
     try {
       parser.feed(expressionText);
@@ -83,12 +88,11 @@ export function getCompletionContext(source: string, index: number): CompletionR
 
       return {
         tag: CompletionContextKind.StructAccess,
-        expr: results[0]
+        expr: results[0],
+        derefenced: derefenced
       };
     }
-    catch (e) {
-      // pass 
-    }
+    catch (e) { /* pass */ }
   }
 
   // If we are in a function call we need to know what argument we are in
