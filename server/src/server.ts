@@ -580,10 +580,9 @@ connection.onSignatureHelp((data) => {
         signature += ", ";
         signatureLength += 2;
       }
-      else {
-        signature += ")";
-      }
     }
+    
+    signature += ")";
 
     const sig = SignatureInformation.create(signature, undefined, ...paramInfo);
 

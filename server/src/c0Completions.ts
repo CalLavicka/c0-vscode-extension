@@ -71,7 +71,6 @@ export function getCompletionContext(source: string, index: number): CompletionR
   // Skip whitespace
   while (source[pos] === " ") pos--;
 
-
   // Struct access must be at the cursor (barring whitespace)
   if (source.startsWith("->", pos - 2) || source[pos - 1] === ".") {
     const derefenced = source[pos - 1] !== ".";
