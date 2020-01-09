@@ -4,7 +4,7 @@
 	"publisher": "15122staff",
 	"description": "C0 IDE features for VSCode",
 	"repository": "https://github.com/CalLavicka/c0-vscode-extension",
-	"version": "1.1.7",
+	"version": "1.2.1",
 	"icon": "122.png",
 	"engines": {
 		"vscode": "^1.39.0"
