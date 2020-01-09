@@ -15,7 +15,9 @@ import {
   Range,
   Position,
   FileChangeType,
-  TextDocumentChangeEvent
+  TextDocumentChangeEvent,
+  ParameterInformation,
+  SignatureInformation
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -27,10 +29,12 @@ import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
 import * as fs from "fs";
-import { EnvEntry } from './typecheck/types';
+import { EnvEntry, getStructId } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 import { Ordering } from './util';
+import { getCompletionContext, CompletionContextKind } from './c0Completions';
+import { synthExpression } from './typecheck/expressions';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -53,10 +57,12 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documents.syncKind,
       completionProvider: {
+        triggerCharacters: [".", ">"], // ">" is for ->
         resolveProvider: false
       },
       hoverProvider: true,
-      definitionProvider: true
+      definitionProvider: true,
+      signatureHelpProvider: { triggerCharacters: ["(", ","] }
     }
   };
 });
@@ -295,7 +301,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           fieldNames.push({
             label: field.id.name,
             kind: CompletionItemKind.Field,
-            documentation: mkMarkdownCode(`${typeToString(field.kind)} ${decl.id.name}::${field.id.name}`),
+            documentation: mkMarkdownCode(`struct ${decl.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
             detail: decl.loc?.source || undefined
           });
         }
@@ -323,6 +329,51 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
 
           const searchResult = findStatement(decl.body, null, { pos, genv: decls });
           if (searchResult === null || searchResult.environment === null) break;
+
+          const doc = documents.get(completionInfo.textDocument.uri);
+          if (doc) {
+            const context = getCompletionContext(
+              doc.getText(),
+              doc.offsetAt(completionInfo.position));
+
+            if (context) {
+              switch (context.tag) {
+                case CompletionContextKind.StructAccess:
+                  try {
+                    // Type safety? :D 
+                    const type = <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr);
+                    let actual;
+                    if (context.derefenced && type.tag === "PointerType") {
+                      actual = actualType(decls, type.argument);
+                    }
+                    else {
+                      actual = actualType(decls, type);
+                    }
+                    const structname = (<ast.StructType>actual).id?.name || "";
+
+                    const struct = getStructDefinition(decls, structname);
+                    if (struct && struct.definitions) {
+                      return struct.definitions.map(field => ({
+                          label: field.id.name,
+                          kind: CompletionItemKind.Field,
+                          documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
+                          detail: field.loc?.source || undefined
+                      }));
+                    }
+                  }
+                  catch (e) { /* pass */ }
+                  break;
+                case CompletionContextKind.FunctionCall: {
+                  // TODO: Promote functions with a return-type
+                  // of our current function argument
+                  // and local variables with either the correct type
+                  // or are pointers to structs 
+                  // (otherwise we have to do a search and deal with cycles)
+                  break;
+                }
+              }
+            }
+          }
 
           for (const [name, type] of searchResult.environment) {
             locals.push({
@@ -491,6 +542,56 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   }
 
   return null;
+});
+
+connection.onSignatureHelp((data) => {
+  const genv = openFiles.get(data.textDocument.uri);
+  if (genv === undefined) { return null; }
+
+  const doc = documents.get(data.textDocument.uri);
+  if (!doc) return null;
+
+  // Subtract one from the offset because 
+  // data.position is the character right after
+  // the opening paren or comma, which we want to ignore 
+  const context = getCompletionContext(
+    doc.getText(),
+    doc.offsetAt(data.position) - 1);
+
+  if (context && context.tag === CompletionContextKind.FunctionCall) {
+    const functionDecl = getFunctionDeclaration(genv, context.name);
+    if (!functionDecl) return null;
+
+    let signature = `${typeToString(functionDecl.returns)} ${functionDecl.id.name}(`;
+    let signatureLength = signature.length;
+
+    const paramInfo: ParameterInformation[] = [];
+
+    for (let i = 0; i < functionDecl.params.length; i++) {
+      const param = functionDecl.params[i];
+
+      const paramText = `${typeToString(param.kind)} ${param.id.name}`;
+      paramInfo.push(ParameterInformation.create([signatureLength, signatureLength + paramText.length]));
+
+      signature += paramText;
+      signatureLength += paramText.length;
+
+      if (i !== functionDecl.params.length - 1) {
+        signature += ", ";
+        signatureLength += 2;
+      }
+    }
+    
+    signature += ")";
+
+    const sig = SignatureInformation.create(signature, undefined, ...paramInfo);
+
+    return {
+      signatures: [sig], // Functions only have one signature ever in C0
+      activeSignature: 0,
+      activeParameter: context.argumentNumber
+    };
+  }
 });
 
 // Make the text document manager listen on the connection
