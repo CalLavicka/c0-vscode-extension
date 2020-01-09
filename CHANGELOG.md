@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.2.1]
+
+- Added signature and parameter hints, these show details about the current parameter when calling a function
+- In some cases where the struct type can be determined, the completion list will now only suggest fields of that struct when invoking completions after `->` or `.`
+
 ## [1.1.7]
 
 - Initial release
