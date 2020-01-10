@@ -28,6 +28,7 @@ export interface FunctionCall {
 
 function scanExpression(source: string, index: number) {
   let parenStack = 0;
+  let braceStack = 0;
 
   let pos;
   for (pos = index; pos >= 0; pos--) {
@@ -41,6 +42,13 @@ function scanExpression(source: string, index: number) {
     if (c === ";") break;
     if (c === ",") break;
     if (c === "{") break;
+    // Technically it's valid to break a field access over a newline
+    // but whatever
+    if (c === "\n") break; 
+    if (c === "]") braceStack++;
+    if (c === "[") {
+      if (braceStack === 0) break; else braceStack--;
+    }
 
     if (source.startsWith("return", pos - 6)) break;
   }
