@@ -17,7 +17,8 @@ import {
   FileChangeType,
   TextDocumentChangeEvent,
   ParameterInformation,
-  SignatureInformation
+  SignatureInformation,
+  WorkspaceFolder
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -246,7 +247,7 @@ function mkMarkdownCode(s: string): MarkupContent {
 }
 
 // This handler provides the initial list of the completion items.
-connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => {
+connection.onCompletion(async (completionInfo: CompletionParams): Promise<CompletionItem[]> => {
   // TODO: use completionInfo to figure out if we should add keywords or not
 
   // The pass parameter contains the position of the text document in
@@ -268,6 +269,28 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
   const locals: CompletionItem[] = [];
   const fieldNames: CompletionItem[] = [];
 
+  const folders = await connection.workspace.getWorkspaceFolders();
+
+  /**
+   * Converts a URI-format file path to a more readable one, local to the directory.
+   * @param uri The URI to convert, with the leading file://
+   */
+  function uriToWorkspace(uri: string | undefined): string | undefined {
+    if (!uri) {
+      return undefined;
+    }
+
+    // If relative to a workspace, print relative path; otherwise, default to base file name
+    if (folders) {
+      for (const folder of folders) {
+        if (uri.indexOf(folder.uri) === 0) {
+          return path.relative(folder.uri, uri);
+        }
+      }
+    }
+    return path.parse(uri).base;
+  }
+
   // TODO: only show decls up to this point
   for (const decl of decls.decls) {
     // Stop once we get to a decl after the curser position
@@ -282,7 +305,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
-          detail: decl.loc?.source || undefined
+          detail: uriToWorkspace(decl.loc?.source || undefined)
         });
         break;
 
@@ -291,7 +314,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString({ tag: "FunctionType", definition: decl.definition })}`),
-          detail: decl.loc?.source || undefined
+          detail: uriToWorkspace(decl.loc?.source || undefined)
         });
         break;
 
@@ -302,7 +325,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
             label: field.id.name,
             kind: CompletionItemKind.Field,
             documentation: mkMarkdownCode(`struct ${decl.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-            detail: decl.loc?.source || undefined
+            detail: uriToWorkspace(decl.loc?.source || undefined)
           });
         }
         break;
@@ -320,7 +343,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
             kind: CompletionItemKind.Function,
             documentation: mkMarkdownCode(
               `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`),
-            detail: decl.loc?.source || undefined
+            detail: uriToWorkspace(decl.loc?.source || undefined)
           });
         }
         if (decl.body) {
@@ -357,7 +380,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
                           label: field.id.name,
                           kind: CompletionItemKind.Field,
                           documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-                          detail: field.loc?.source || undefined
+                          detail: uriToWorkspace(field.loc?.source || undefined)
                       }));
                     }
                   }
@@ -380,7 +403,7 @@ connection.onCompletion((completionInfo: CompletionParams): CompletionItem[] => 
               label: name,
               kind: CompletionItemKind.Variable,
               documentation: mkMarkdownCode(`${typeToString(type)} ${name}`),
-              detail: decl.loc?.source || undefined
+              detail: uriToWorkspace(decl.loc?.source || undefined)
             });
           }
           break;
