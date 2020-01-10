@@ -44,10 +44,12 @@ The extension will look for `project.txt` first in the same directory as the cur
 * View a function/variable/struct field's type by hovering over it
 * CTRL-SPACE will suggest variables which are in scope, function names, and struct field names
 * Command/Ctrl-click to go to a definition
+* Signature and parameter hints
 * Full support for C0 standard library
 * Full support for all C0/C1 features 
 * Highlighting for C0-specific features along with 122-specific files such as clac and c0 bytecode
 * New C0-specific themes 
+
 
 ## Contributing
 

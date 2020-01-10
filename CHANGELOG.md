@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.2.2]
+
+- In the code completion info panel, file paths will now be displayed relative to the workspace root, instead of the full URI being shown 
+
 ## [1.2.1]
 
 - Added signature and parameter hints, these show details about the current parameter when calling a function
