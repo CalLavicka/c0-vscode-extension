@@ -20,21 +20,15 @@ To activate code completion, press CTRL-SPACE. To go to the definition of someth
 
 ### Multi-file projects
 
-The extension needs to know in what order to load files. To do so, you should provide a `project.txt` file in the main directory of your project. It should be a list of the files in the order you would compile them
+The extension needs to know in what order to load files. To do so, you should provide a `project.txt` file in the main directory of your project. It should be a list of the files in the order you would compile them, separated by spaces. If there are multiple ways to compile 
+your project, then you should list each way on a different line. You can add line comments with // 
 
 Example: 
 ```
-lib/hdict.c1
-lib/peg-util.c1
-lib/stacks.c1
-peg-moves.c1
-// Start a line with // to comment it out
-// Blank lines are ignored
-
-//peg1.c1
-peg2.c1
-peg-main.c1
-```
+// This is for clac-test
+lib/dict.c0 lib/queue_of_string.c0 lib/stack_of_int.c0 lib/stack_of_queue_of_string.c0 lib/tokenize.c0 clac.c0 clac-test.c0
+// This is for (regular) clac
+lib/dict.c0 lib/queue_of_string.c0 lib/stack_of_int.c0 lib/stack_of_queue_of_string.c0 lib/tokenize.c0 clac.c0 clac-main.c0```
 
 The extension will look for `project.txt` first in the same directory as the current source file, one directory above that, and then in the workspace root. 
 

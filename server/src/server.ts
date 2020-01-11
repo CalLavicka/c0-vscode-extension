@@ -30,9 +30,9 @@ import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
 import * as fs from "fs";
-import { EnvEntry, getStructId } from './typecheck/types';
+import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
-import { Maybe, Just, Nothing } from './util';
+import { Maybe, Just, Nothing, getLibpath } from './util';
 import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
 import { synthExpression } from './typecheck/expressions';
@@ -115,30 +115,31 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
 
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
-      const files = fs
+      const lines: string[][] = fs
         .readFileSync(configPath, { encoding: "utf-8" })
         .split("\n")
-        .map(s => parseLine(s));
+        .map(line => parseLine(line).split(" ").map(file => file.trim()));
 
       // Filenames should be relative to the config file's location
       const base = path.dirname(configPath.toString());
       // path will add platform-specific separators, which is not what we want
       const fname = path.relative(base, name).replace(path.sep, "/");
 
-      const dependencies = [];
+      for (const files of lines) {
+        const dependencies = [];
+        for (const file of files) {
+          // Lines will be blank if they are all whitespace
+          // or all comments 
+          if (file === '') continue;
 
-      for (const file of files) {
-        // Lines will be blank if they are all whitespace
-        // or all comments 
-        if (file === '') continue;
+          if (file === fname) {
+            return Just({ uri: `${base}/project.txt`, dependencies });
+          }
 
-        if (file === fname) {
-          return Just({ uri: `${base}/project.txt`, dependencies: dependencies});
+          // Note that URIs always use /
+          // (even on Windows)
+          dependencies.push(`${base}/${file}`);
         }
-
-        // Note that URIs always use /
-        // (even on Windows)
-        dependencies.push(`${base}/${file}`);
       }
     }
   }
@@ -288,6 +289,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         }
       }
     }
+
+    // TODO: Check if it is in the include directory (library directory)
+
     return path.parse(uri).base;
   }
 

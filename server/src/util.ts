@@ -1,3 +1,5 @@
+import * as path from "path";
+
 export type Left<T> = { tag: "left", error: T};
 export type Right<T> = { tag: "right", result: T};
 export type Either<T, R> = Left<T> | Right<R>;
@@ -21,4 +23,9 @@ export const enum Ordering {
   Less = -1,
   Equal = 0,
   Greater = 1
+}
+
+/** Returns an OS-specific path to the C0 library header location */
+export function getLibpath(): string {
+  return path.join(__dirname, 'c0lib');
 }
