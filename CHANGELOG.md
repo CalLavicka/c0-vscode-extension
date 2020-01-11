@@ -3,7 +3,7 @@
 ## [1.2.2]
 
 - In the code completion info panel, file paths will now be displayed relative to the workspace root, instead of the full URI being shown 
-- Multiple "build targets" are now supported 
+- Multiple "build targets" are now supported. This is a breaking change to the project.txt file format. Now, each build target should be on a separate line, with files separated by spaces in the order they should be compiled 
 
 ## [1.2.1]
 
