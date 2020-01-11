@@ -28,7 +28,7 @@ Example:
 // This is for clac-test
 lib/dict.c0 lib/queue_of_string.c0 lib/stack_of_int.c0 lib/stack_of_queue_of_string.c0 lib/tokenize.c0 clac.c0 clac-test.c0
 // This is for (regular) clac
-lib/dict.c0 lib/queue_of_string.c0 lib/stack_of_int.c0 lib/stack_of_queue_of_string.c0 lib/tokenize.c0 clac.c0 clac-main.c0```
+lib/dict.c0 lib/queue_of_string.c0 lib/stack_of_int.c0 lib/stack_of_queue_of_string.c0 lib/tokenize.c0 clac.c0 clac-main.c0
 ``` 
 The extension will look for `project.txt` first in the same directory as the current source file, one directory above that, and then in the workspace root. 
 
