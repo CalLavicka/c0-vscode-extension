@@ -107,8 +107,6 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     // someone could introduce cycles 
     genv.filesLoaded.add(dep);
 
-    // (TSLint false positive)
-    // tslint:disable-next-line: no-shadowed-variable
     const parser = mkParser(typeIds, dep);
     let parseResult: ParseResult;
     try {

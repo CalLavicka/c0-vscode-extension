@@ -122,7 +122,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       // This is a string in URI format
       const base: string = path.dirname(configPath.toString());
       // path will add platform-specific separators, which is not what we want
-      const fname: string = path.relative(base, name).replace(path.sep, "/");
+      const fname: string = path.posix.relative(base, name);
 
       // Try parsing it as a README.txt file
       for (const line of fileLines) {

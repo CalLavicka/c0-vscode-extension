@@ -295,7 +295,8 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     else if ((match = line.match(matchFile)) !== null) {
       const usedName = match[1];
       const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
-      const usedURI = (<any>url).pathToFileURL(usedPath).toString();
+      // Convert /C:/ to C%3A/ to be compatible with how VSCode sends URIs
+      const usedURI = (<any>url).pathToFileURL(usedPath).toString().replace(/\/(.):/, (_: string, driveName: string) => `/${driveName}%3A`);
 
       if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent
