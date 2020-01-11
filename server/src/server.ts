@@ -672,24 +672,32 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
   if (!doc) return null;
 
   let indentLevel = 0;
+  let inMultilineComment = false;
   const indentChar = data.options.insertSpaces ? ' '.repeat(data.options.tabSize) : '\t';
   const edits: TextEdit[] = [];
   for (const [lineNum, line] of doc.getText().split("\n").entries()) {
-      const lineLen = line.length;
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith("}")) {
-          --indentLevel;
+    const lineLen = line.length;
+    const trimmedLine = line.trim();
+    if (trimmedLine.startsWith("}")) {
+      --indentLevel;
+    }
+    edits.push({
+      range: { 
+        start: { line: lineNum, character: 0 }, 
+        end: { line: lineNum, character: lineLen }
+      },
+      newText: `${inMultilineComment ? ' ' : ''}${indentChar.repeat(indentLevel)}${trimmedLine}`
+    });
+    if (trimmedLine.endsWith("{")) {
+      ++indentLevel;
+    }
+    if (!(trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/"))) {
+      if (trimmedLine.startsWith("/*")) {
+        inMultilineComment = true;
+      } else if (trimmedLine.endsWith("*/")) {
+        inMultilineComment = false;
       }
-      edits.push({
-          range: { 
-              start: { line: lineNum, character: 0 }, 
-              end: { line: lineNum, character: lineLen }
-          },
-          newText: `${indentChar.repeat(indentLevel)}${trimmedLine}`
-      });
-      if (trimmedLine.endsWith("{")) {
-          ++indentLevel;
-      }
+    }
   }
   return edits;
 });
