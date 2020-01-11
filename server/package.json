@@ -6,9 +6,11 @@
 		"node": "*"
 	},
 	"dependencies": {
-		"vscode-languageserver": "^5.2.1",
+		"@types/glob": "^7.1.1",
+		"glob": "^7.1.6",
 		"moo": "^0.4.3",
-		"nearley": "^2.15.1"
+		"nearley": "^2.15.1",
+		"vscode-languageserver": "^5.2.1"
 	},
 	"scripts": {
 		"nearley:expression": "nearleyc syntax/expression.ne -o src/expression-rules.ts",
