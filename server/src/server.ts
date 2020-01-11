@@ -36,6 +36,8 @@ import { Maybe, Just, Nothing, getLibpath } from './util';
 import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
 import { synthExpression } from './typecheck/expressions';
+import * as glob from "glob";
+import * as url from "url";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -115,15 +117,46 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
 
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
-      const lines: string[][] = fs
-        .readFileSync(configPath, { encoding: "utf-8" })
-        .split("\n")
-        .map(line => parseLine(line).split(" ").map(file => file.trim()));
-
+      const fileLines = fs.readFileSync(configPath, { encoding: "utf-8" }).split("\n");
       // Filenames should be relative to the config file's location
-      const base = path.dirname(configPath.toString());
+      // This is a string in URI format
+      const base: string = path.dirname(configPath.toString());
       // path will add platform-specific separators, which is not what we want
-      const fname = path.relative(base, name).replace(path.sep, "/");
+      const fname: string = path.relative(base, name).replace(path.sep, "/");
+
+      // Try parsing it as a README.txt file
+      for (const line of fileLines) {
+        // The OS-specific path to the directory of the file
+        const cwd = path.dirname((<any>url).fileURLToPath(configPath));
+        const dependencies: string[] = [];
+
+        if (/^\s*%\s*cc0/.test(line)) {
+          const args = line.split(" ");
+          for (let i = 0; i < args.length; i++) {
+            const arg = args[i];
+            switch (arg) {
+              case "":
+              case "%":
+              case "cc0":
+              // Skip argument
+              case "-o": i++; continue;
+              default:
+                // Skip any other option (we will assume they are nullary)
+                if (arg[0] === '-') continue;
+                // Expand any possible globs
+                const files = glob.sync(arg, { cwd });
+                for (const globbedFile of files) {
+                  if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
+                  else dependencies.push(`${base}/${globbedFile}`);
+                }
+            }
+          }
+        }
+      }
+
+      // Try parsing it as a project.txt file
+      const lines: string[][] = fileLines
+        .map(line => parseLine(line).split(" ").map(file => file.trim()));
 
       for (const files of lines) {
         const dependencies = [];
@@ -133,7 +166,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
           if (file === '') continue;
 
           if (file === fname) {
-            return Just({ uri: `${base}/project.txt`, dependencies });
+            return Just({ uri: configPath.toString(), dependencies });
           }
 
           // Note that URIs always use /
@@ -202,15 +235,18 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     const folders = await connection.workspace.getWorkspaceFolders();
 
     const maybeDependencies = getDependencies(change.document.uri, [
+      `${dir}/README.txt`,
+      `${dir}/../README.txt`, // Look one folder above
       `${dir}/project.txt`,
-      `${dir}/../project.txt`, // Look one folder above
+      `${dir}/../project.txt`, 
       folders && folders.length ? `${folders[0].uri}/project.txt` : ""
     ].map(p => new URL(p)));
 
     if (!maybeDependencies.hasValue) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
-        `No valid project.txt found for the current document. Completions and other features may not work as expected`,
+        `No valid project.txt or README.txt found for the current document.\n` + 
+        `Completions and other features may not work as expected`,
         DiagnosticSeverity.Warning,
         undefined,
         change.document.uri));

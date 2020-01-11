@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.2.3]
+- The extension will now attempt to get dependencies off `README.txt` instead of `project.txt` when available
+
 ## [1.2.2]
 
 - In the code completion info panel, file paths will now be displayed relative to the workspace root, instead of the full URI being shown 
