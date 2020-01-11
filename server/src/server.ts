@@ -333,10 +333,10 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
   // TODO: only show decls up to this point
   for (const decl of decls.decls) {
+    const inCurrentFile = decl.loc && decl.loc.source === completionInfo.textDocument.uri;
     // Stop once we get to a decl after the curser position
     // in the current file
-    if (decl.loc && decl.loc.source === completionInfo.textDocument.uri
-        && comparePositions(pos, decl.loc?.start) === Ordering.Less)
+    if (inCurrentFile && comparePositions(pos, decl.loc!.start) === Ordering.Less)
       break;
 
     switch (decl.tag) {
@@ -372,7 +372,14 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
       case "FunctionDeclaration": {
         // Prefer to use contracts from a function definition
-        if (decl.body || !functionDecls.has(decl.id.name)) {
+        // if it is in the current file, or otherwise prefer to use it
+        // from the prototype
+        if (!functionDecls.has(decl.id.name) || (inCurrentFile && decl.body)
+                                             || (!inCurrentFile && !decl.body)) {
+          // We will only show functions if they are either in the current file
+          // or if they are a prototype from another file
+          if (!inCurrentFile && decl.body) break;
+                                              
           const requires = decl.preconditions.map(precond =>
               `//@requires ${expressionToString(precond)}`);
           const ensures = decl.postconditions.map(postcond =>
