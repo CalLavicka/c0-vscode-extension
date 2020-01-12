@@ -20,7 +20,7 @@ To activate code completion, press CTRL-SPACE. To go to the definition of someth
 
 ### Multi-file projects
 
-If the file `README.txt` exits for your project, then the extension will parse and use that to figure out in what order the files should be compiled . You don't need to do anything further
+If the file `README.txt` exits for your project, then the extension will use lines starting with ` % cc0 ` to figure out in what order the files should be compiled. You don't need to do anything further.
 
 Otherwise you should provide a `project.txt` file in the main directory of your project. It should be a list of the files in the order you would compile them, separated by spaces. If there are multiple ways to compile your project, then you should list each way on a different line. 
 Example: 

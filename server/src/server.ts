@@ -131,11 +131,11 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
         const dependencies: string[] = [];
 
         if (/^\s*%\s*cc0/.test(line)) {
-          const args = line.split(" ");
+          const args = line.split(" ").filter(s => s !== "");
+
           for (let i = 0; i < args.length; i++) {
             const arg = args[i];
             switch (arg) {
-              case "":
               case "%":
               case "cc0":
               // Skip argument
