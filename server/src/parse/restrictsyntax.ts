@@ -112,7 +112,7 @@ export function restrictExpression(lang: Lang, syn: syn.Expression): ast.Express
         case "CharLiteral": {
             atleast(syn, lang, "C0", "character literals");
             if (syn.raw.length === 1) {
-                if (!syn.raw.match(/[ !#-~]/)) { throw new ParsingError(syn, `Invalid character '${syn.raw}'`); }
+                if (!syn.raw.match(/[ -~]/)) { throw new ParsingError(syn, `Invalid character '${syn.raw}'`); }
             } else {
                 if (!syn.raw.match(/\\[ntvbrfa\\'"0]/)) {
                     throw new ParsingError(syn, `Invalid escape character '${syn.raw}'`);
