@@ -143,18 +143,14 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
   const diagnostics = [];
 
   for (const error of errors) {
-    if (error.loc !== null && error.loc !== undefined) {
+    const loc = error?.loc || Position.create(0, 0);
+    
+    if (error.loc) {
       const diagnostic: Diagnostic = {
         severity: DiagnosticSeverity.Error,
         range: {
-          start: Position.create(
-            error.loc.start.line - 1,
-            error.loc.start.column - 1
-          ),
-          end: Position.create(
-            error.loc.end.line - 1,
-            error.loc.end.column - 1
-          )
+          start: ast.toVscodePosition(error.loc.start),
+          end: ast.toVscodePosition(error.loc.end)
         },
         message: error.message,
         source: "c0-language"
