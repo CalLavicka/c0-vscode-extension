@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.3.1]
+- Fixed a bug involving character literals '"' and '\\'
+- Fixed a bug involving files not found while expanding a glob in README.txt 
+- Fixed an issue involving highlighting multiline contract blocks 
+- Added squiggles for all exceptions raised during typechecking and parsing - including `ImpossibleErrors` as these help in tracking down bugs 
+
 ## [1.3.0]
 - The extension will now attempt to get dependencies off `README.txt` instead of `project.txt` when available
 - Code completion will only suggest functions from other files if they have a separate prototype declared, to prevent implementation details from leaking 
