@@ -243,7 +243,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
         // We need to do the round trip conversion
         // to accout for Windows specific business 
-        if (!fs.existsSync(url.fileURLToPath(libURI)) {
+        if (!fs.existsSync(url.fileURLToPath(libURI))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
           continue;
         }
