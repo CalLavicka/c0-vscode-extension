@@ -27,10 +27,14 @@
         "2": {"name": "comment.block.contract"}},
       "name":"meta.contract.block",
       "patterns":[
-        {"match":"@","name":"comment.block"}, 
+        {"match":"@","name":"comment.block.contract"}, 
         {"include":"#contract_innards"},
         {"include":"#block_innards"}
       ]
+    },
+    {
+      "match":"@",
+      "name":"comment.block.contract"
     },
     {
       "begin":"([ \t]*\/\/[ ]*@[ ]*(ensures|requires|loop_invariant|assert))",
