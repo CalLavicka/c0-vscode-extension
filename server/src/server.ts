@@ -248,7 +248,8 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       folders && folders.length ? `${folders[0].uri}/project.txt` : ""
     ].map(p => new URL(p)));
 
-    if (!maybeDependencies.hasValue) {
+    if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
+        || change.document.uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
         `No valid project.txt or README.txt found for the current document.\n` + 
@@ -258,8 +259,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
         change.document.uri));
 
       dependencies = [];
-    }
-    else {
+    } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
       cachedProjects.set(change.document.uri, maybeDependencies.value);
     }
