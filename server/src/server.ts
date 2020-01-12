@@ -143,11 +143,17 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
               default:
                 // Skip any other option (we will assume they are nullary)
                 if (arg[0] === '-') continue;
-                // Expand any possible globs
-                const files = glob.sync(arg, { cwd });
-                for (const globbedFile of files) {
-                  if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
-                  else dependencies.push(`${base}/${globbedFile}`);
+                // Expand any possible globs, but only if a glob is in there 
+                if (glob.hasMagic(arg)) {
+                  const files = glob.sync(arg, { cwd });
+                  for (const globbedFile of files) {
+                    if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
+                    else dependencies.push(`${base}/${globbedFile}`);
+                  }
+                }
+                else {
+                  if (arg === fname) return Just({ uri: configPath.toString(), dependencies });
+                  else dependencies.push(`${base}/${arg}`);
                 }
             }
           }

@@ -116,7 +116,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
       if (e?.code === "ENOENT") {
         return [{
           severity: DiagnosticSeverity.Error,
-          message: `File '${dep}', referenced in projects.txt not found. ` +
+          message: `File '${decodeURIComponent(dep)}' not found. ` +
                    `Code completion and other features will not be available`,
           range: {
             start: Position.create(0, 0),
