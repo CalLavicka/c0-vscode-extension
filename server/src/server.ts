@@ -127,7 +127,7 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       // Try parsing it as a README.txt file
       for (const line of fileLines) {
         // The OS-specific path to the directory of the file
-        const cwd = path.dirname((<any>url).fileURLToPath(configPath));
+        const cwd = path.dirname(url.fileURLToPath(configPath));
         const dependencies: string[] = [];
 
         if (/^\s*%\s*cc0/.test(line)) {
