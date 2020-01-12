@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.3.2]
+- Fixed a bug where a diagnostic warning that no project file was found would appear for header files.
+
 ## [1.3.1]
 - Fixed a bug involving character literals '"' and '\\'
 - Fixed a bug involving files not found while expanding a glob in README.txt 
