@@ -265,7 +265,8 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
             if (isInside(pos, s.right.loc)) return findExpression(s.right, currentEnv, info);
             break;
 
-        case "ForStatement":// Add any variable declared in the init to the environment
+        case "ForStatement":
+            // Add any variable declared in the init to the environment
             if (s.init?.tag === 'VariableDeclaration') {
                 // Duplicate environment
                 if (currentEnv) {
