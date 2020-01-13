@@ -76,13 +76,14 @@ const MAX_LINE_LENGTH = 80;
  * in URI format (i.e. including leading `file:///`)
  * 
  * @param textDocument 
- * VSCode document to parse. Errors will be reported only for this document
+ * VSCode document to parse, or the URI for the doucment. Errors will be reported only for this document
  */
-export async function parseTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function parseTextDocument(dependencies: string[], textDocument: string | TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
   let genv: GlobalEnv = initEmpty();
+  const uri = typeof textDocument === 'string' ? textDocument : textDocument.uri;
 
   // Find deepest cached dependency
   let i: number;
@@ -165,9 +166,9 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     });
   }
 
-  const parser = mkParser(typeIds, textDocument.uri);
-  if (!genv.filesLoaded.has(textDocument.uri)) {
-    genv.filesLoaded.add(textDocument.uri);
+  const parser = mkParser(typeIds, uri);
+  if (!genv.filesLoaded.has(uri)) {
+    genv.filesLoaded.add(uri);
 
     const parseResult = parseDocument(textDocument, parser, genv);
     switch (parseResult.tag) {
@@ -179,7 +180,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         // This should be in parseDocument, but since
         // people should only encounter h0 files in the context
         // of a library, this should be fine (e.g. command+click on a lib function)
-        switch (path.extname(textDocument.uri).toLowerCase()) {
+        switch (path.extname(uri).toLowerCase()) {
           case ".h0":
           case ".h1":
             for (const decl of parseResult.result) {
@@ -206,7 +207,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   // If there are errors in a dependency,
   // then give up
   for (const error of typecheckResult.errors) {
-    if (error.loc?.source && error.loc.source !== textDocument.uri) {
+    if (error.loc?.source && error.loc.source !== uri) {
       return [{
         severity: DiagnosticSeverity.Error,
         message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
@@ -219,7 +220,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     }
   }
 
-  openFiles.set(textDocument.uri, typecheckResult.genv);
+  openFiles.set(uri, typecheckResult.genv);
   return typingErrorsToDiagnostics(typecheckResult.errors);
 
   // TODO: this would have to be moved somewhere else...perhaps in parseDocument

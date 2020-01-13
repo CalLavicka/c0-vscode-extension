@@ -19,7 +19,9 @@ import {
   ParameterInformation,
   SignatureInformation,
   TextEdit,
-  ResponseError
+  ResponseError,
+  WorkspaceFolder,
+  TextDocument
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -112,81 +114,118 @@ type Dependencies = {
   dependencies: string[] 
 };
 
-function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
+/**
+ * Parses a single project.txt file or README into a list of lists of compilation orders.
+ * @param file The project.txt or README file to parse
+ */
+function parseFileListing(file: URL): string[][] {
   /** Takes a line from project.txt and removes comments and leading/trailing whitespace */
   function parseLine(line: string): string {
     const index = line.indexOf("//");
     return (index === - 1 ? line : line.substr(0, index)).trim();
   }
 
-  for (const configPath of configPaths) {
-    if (fs.existsSync(configPath)) {
-      const fileLines = fs.readFileSync(configPath, { encoding: "utf-8" }).split("\n");
-      // Filenames should be relative to the config file's location
-      // This is a string in URI format
-      const base: string = path.dirname(configPath.toString());
-      // path will add platform-specific separators, which is not what we want
-      const fname: string = path.posix.relative(base, name);
+  const groups: string[][] = [];
 
-      // Try parsing it as a README.txt file
-      for (const line of fileLines) {
-        // The OS-specific path to the directory of the file
-        const cwd = path.dirname(url.fileURLToPath(configPath));
-        const dependencies: string[] = [];
+  if (fs.existsSync(file)) {
+    const fileLines = fs.readFileSync(file, { encoding: "utf-8" }).split("\n");
+    const base: string = path.dirname(file.toString());
 
-        if (/^\s*%\s*cc0/.test(line)) {
-          const args = line.split(" ").filter(s => s !== "");
+    // Try parsing it as a README.txt file
+    for (const line of fileLines) {
+      // The OS-specific path to the directory of the file
+      const cwd = path.dirname(url.fileURLToPath(file));
+      const dependencies: string[] = [];
 
-          for (let i = 0; i < args.length; i++) {
-            const arg = args[i];
-            switch (arg) {
-              case "%":
-              case "cc0":
-              // Skip argument
-              case "-o": i++; continue;
-              default:
-                // Skip any other option (we will assume they are nullary)
-                if (arg[0] === '-') continue;
-                // Expand any possible globs, but only if a glob is in there 
-                if (glob.hasMagic(arg)) {
-                  const files = glob.sync(arg, { cwd });
-                  for (const globbedFile of files) {
-                    if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
-                    else dependencies.push(`${base}/${globbedFile}`);
-                  }
+      if (/^\s*%\s*cc0/.test(line)) {
+        const args = line.split(" ").filter(s => s !== "");
+
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i];
+          switch (arg) {
+            case "%":
+            case "cc0":
+            // Skip argument
+            case "-o": i++; continue;
+            default:
+              // Skip any other option (we will assume they are nullary)
+              if (arg[0] === '-') continue;
+              // Expand any possible globs, but only if a glob is in there 
+              if (glob.hasMagic(arg)) {
+                const files = glob.sync(arg, { cwd });
+                for (const globbedFile of files) {
+                  dependencies.push(`${base}/${globbedFile}`);
                 }
-                else {
-                  if (arg === fname) return Just({ uri: configPath.toString(), dependencies });
-                  else dependencies.push(`${base}/${arg}`);
-                }
-            }
+              }
+              else {
+                dependencies.push(`${base}/${arg}`);
+              }
           }
         }
+        groups.push(dependencies);
       }
-
+    }
+    if (groups.length === 0) {
       // Try parsing it as a project.txt file
       const lines: string[][] = fileLines
-        .map(line => parseLine(line).split(" ").map(file => file.trim()));
+        .map(line => parseLine(line).split(" ").map(f => f.trim()));
 
       for (const files of lines) {
         const dependencies = [];
-        for (const file of files) {
+        for (const f of files) {
           // Lines will be blank if they are all whitespace
           // or all comments 
-          if (file === '') continue;
-
-          if (file === fname) {
-            return Just({ uri: configPath.toString(), dependencies });
-          }
+          if (f === '') continue;
 
           // Note that URIs always use /
           // (even on Windows)
-          dependencies.push(`${base}/${file}`);
+          dependencies.push(`${base}/${f}`);
         }
+        groups.push(dependencies);
+      }
+    }
+  }
+  return groups;
+}
+
+function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
+  for (const configPath of configPaths) {
+    const group = parseFileListing(configPath);
+    for (const files of group) {
+      const dependencies: string[] = [];
+      for (const file of files) {
+        if (file === name) {
+          return Just({ uri: configPath.toString(), dependencies });
+        }
+        dependencies.push(file);
       }
     }
   }
   return Nothing;
+}
+
+function getAllFiles(name: string, configPaths: URL[]): Set<string> {
+  const files = new Set<string>();
+  for (const configPath of configPaths) {
+    const group = parseFileListing(configPath);
+    for (const dependencies of group) {
+      if (dependencies.includes(name)) {
+        dependencies.forEach((file) => files.add(file));
+      }
+    }
+  }
+  files.add(name);
+  return files;
+}
+
+function getConfigPaths(dir: string, folders: WorkspaceFolder[] | null): URL[] {
+  return [
+    `${dir}/README.txt`,
+    `${dir}/../README.txt`, // Look one folder above
+    `${dir}/project.txt`,
+    `${dir}/../project.txt`, 
+    folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+  ].map(p => new URL(p));
 }
 
 /**
@@ -216,62 +255,56 @@ connection.onDidChangeWatchedFiles(async params => {
 
       // Reload diagnostics for all documents 
       for (const document of documents.all()) {
-        await validateTextDocument({ document });
+        await validateTextDocument(document);
       }
     }
   }
 });
 
-documents.onDidOpen(validateTextDocument);
+documents.onDidOpen((change) => {
+  validateTextDocument(change.document);
+});
 documents.onDidChangeContent(async (change) => {
   invalidate(change.document.uri);
-  await validateTextDocument(change);
+  await validateTextDocument(change.document);
 });
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
-async function validateTextDocument(change: TextDocumentChangeEvent) {
+async function validateTextDocument(document: string | TextDocument, sendDiagnostics: boolean = true) {
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
+  const uri = typeof document === 'string' ? document : document.uri;
 
-  const project = cachedProjects.get(change.document.uri);
+  const project = cachedProjects.get(uri);
   if (project) {
     dependencies = project.dependencies;
   } else {
     // Look for a config file
-    const dir = path.dirname(change.document.uri);
+    const dir = path.dirname(uri);
 
     // maybe just use a VSCode config file...
     const folders = await connection.workspace.getWorkspaceFolders();
 
-    const maybeDependencies = getDependencies(change.document.uri, [
-      `${dir}/README.txt`,
-      `${dir}/../README.txt`, // Look one folder above
-      `${dir}/project.txt`,
-      `${dir}/../project.txt`, 
-      folders && folders.length ? `${folders[0].uri}/project.txt` : ""
-    ].map(p => new URL(p)));
+    const maybeDependencies = getDependencies(uri, getConfigPaths(dir, folders));
 
-    if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
-        || change.document.uri.endsWith("h1"))) {
+    if (!maybeDependencies.hasValue && !(uri.endsWith("h0") || uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
         `No valid project.txt or README.txt found for the current document.\n` + 
         `Completions and other features may not work as expected`,
-        DiagnosticSeverity.Warning,
-        undefined,
-        change.document.uri));
+        DiagnosticSeverity.Warning, undefined, uri));
 
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
-      cachedProjects.set(change.document.uri, maybeDependencies.value);
+      cachedProjects.set(uri, maybeDependencies.value);
     }
   }
 
-  const parseErrors = await parseTextDocument(dependencies, change.document);
-
-  connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
+  const parseErrors = await parseTextDocument(dependencies, document);
+  if (sendDiagnostics)
+    connection.sendDiagnostics({ uri: uri, diagnostics: [...diagnostics, ...parseErrors] });
 }
 
 /**
@@ -750,7 +783,7 @@ connection.onPrepareRename((data) => {
   return new ResponseError<void>(0, "Can't rename that.");
 });
 
-connection.onRenameRequest((data) => {
+connection.onRenameRequest(async (data) => {
   const genv = openFiles.get(data.textDocument.uri);
   // Indicates no successful parse so far
   if (genv === undefined) { return null; }
@@ -818,13 +851,28 @@ connection.onRenameRequest((data) => {
     }
   }
   if (toFind) {
+    // Get all files which could use this file
+    const dir = path.dirname(data.textDocument.uri);
+    const folders = await connection.workspace.getWorkspaceFolders();
+    const files = getAllFiles(data.textDocument.uri, getConfigPaths(dir, folders));
     try {
       const changes: {
         [uri: string]: TextEdit[]
       } = { };
-      changes[data.textDocument.uri] = findUses(genv, data.textDocument.uri, toFind).map((loc) => {
-        return TextEdit.replace(ast.locToRange(loc), data.newName);
-      });
+      for (const file of files) {
+        let fileGenv = openFiles.get(file);
+        if (!fileGenv) {
+          validateTextDocument(file);
+          fileGenv = openFiles.get(file);
+          if (!fileGenv) {
+            // Give up with this file
+            continue;
+          }
+        }
+        changes[file] = findUses(fileGenv, file, toFind).map((loc) => {
+          return TextEdit.replace(ast.locToRange(loc), data.newName);
+        });
+      }
       return { changes };
     } catch (err) {
       // Can't edit header file functions!
