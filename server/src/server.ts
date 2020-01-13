@@ -803,12 +803,20 @@ connection.onRenameRequest(async (data) => {
 
   let toFind: FindUsesParam | null = null;
 
+  // The source of the identifier, to see which files rely on this definition.
+  // If null, local to this file only.
+  let source: string | null = null;
+
   switch (searchResult.data.tag) {
     case "FoundType": {
       const { type } = searchResult.data;
 
       switch (type.tag) {
         case "Identifier":
+          // Find a typedef with this tag
+          const typedef = getTypedefDefinition(genv, type.name);
+          if (typedef?.loc?.source === null || typedef?.loc?.source === undefined) break;
+          source = typedef.loc.source;
           toFind = {
             tag: 'FindType',
             name: type.name
@@ -816,6 +824,9 @@ connection.onRenameRequest(async (data) => {
           break;
 
         case "StructType":
+          const struct = getStructDefinition(genv, type.id.name);
+          if (struct?.loc?.source === null || struct?.loc?.source === undefined) break;
+          source = struct.loc.source;
           toFind = {
             tag: 'FindStruct',
             name: type.id.name
@@ -828,6 +839,10 @@ connection.onRenameRequest(async (data) => {
       const { name, type } = searchResult.data;
 
       if (type.tag === "FunctionType") {
+        // Look up function
+        const func = getFunctionDeclaration(genv, name);
+        if (func?.loc?.source === null || func?.loc?.source === undefined) break;
+        source = func.loc.source;
         toFind = {
           tag: 'FindFunction',
           name: name
@@ -847,6 +862,8 @@ connection.onRenameRequest(async (data) => {
     }
     case "FoundField": {
       const { struct, field } = searchResult.data;
+      if (struct?.loc?.source === null || struct?.loc?.source === undefined) break;
+      source = struct.loc.source;
       
       toFind = {
         tag: 'FindField',
@@ -857,10 +874,15 @@ connection.onRenameRequest(async (data) => {
     }
   }
   if (toFind) {
-    // Get all files which could use this file
-    const dir = path.dirname(data.textDocument.uri);
-    const folders = await connection.workspace.getWorkspaceFolders();
-    const files = getAllFiles(data.textDocument.uri, getConfigPaths(dir, folders));
+    // Get all files which could use the source file
+    let files: Set<string>;
+    if (source) {
+      const dir = path.dirname(source);
+      const folders = await connection.workspace.getWorkspaceFolders();
+      files = getAllFiles(source, getConfigPaths(dir, folders));
+    } else {
+      files = new Set([data.textDocument.uri]);
+    }
     try {
       const changes: {
         [uri: string]: TextEdit[]
