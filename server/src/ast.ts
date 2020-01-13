@@ -552,3 +552,7 @@ export function toVscodePosition(pos: Position): vscode.Position {
         line: pos.line - 1
     };
 }
+
+export function locToRange(loc: SourceLocation): vscode.Range {
+  return vscode.Range.create(toVscodePosition(loc.start), toVscodePosition(loc.end));
+}

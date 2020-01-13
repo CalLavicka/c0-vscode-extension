@@ -18,8 +18,8 @@ import {
   TextDocumentChangeEvent,
   ParameterInformation,
   SignatureInformation,
-  WorkspaceFolder,
-  TextEdit
+  TextEdit,
+  ResponseError
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -67,7 +67,9 @@ connection.onInitialize((params: InitializeParams) => {
       hoverProvider: true,
       definitionProvider: true,
       signatureHelpProvider: { triggerCharacters: ["(", ","] },
-      renameProvider: true
+      renameProvider: {
+        prepareProvider: true
+      }
     }
   };
 });
@@ -671,7 +673,7 @@ connection.onSignatureHelp((data) => {
     };
   }
 });
-/*
+
 connection.onPrepareRename((data) => {
   const genv = openFiles.get(data.textDocument.uri);
   // Indicates no successful parse so far
@@ -682,7 +684,8 @@ connection.onPrepareRename((data) => {
 
   // This indicates that the user hovered over something that
   // wasn't an indentifier
-  if (searchResult === null || searchResult.data === null) return null;
+  if (searchResult === null || searchResult.data === null)
+    return new ResponseError<void>(0, "Can't rename that.");
 
   switch (searchResult.data.tag) {
     case "FoundType": {
@@ -692,54 +695,65 @@ connection.onPrepareRename((data) => {
         case "Identifier":
           // Find a typedef with this tag
           const typedef = getTypedefDefinition(genv, type.name);
-          if (typedef !== null && typedef.loc) {
-            return {}
-            return toLocationLink(typedef.loc);
+          if (typedef?.loc?.source?.endsWith('.h0') || typedef?.loc?.source?.endsWith('.h1')) {
+            return new ResponseError<void>(0, "Can't rename that type: It's defined in a library.");
+          }
+          if (type.loc) {
+            return ast.locToRange(type.loc);
           }
           break;
 
         case "StructType":
           const struct = getStructDefinition(genv, type.id.name);
-          if (struct !== null && struct.loc) {
-            return toLocationLink(struct.loc, type.loc);
+          if (struct?.loc?.source?.endsWith('.h0') || struct?.loc?.source?.endsWith('.h1')) {
+            return new ResponseError<void>(0, "Can't rename that struct: It's defined in a library.");
+          }
+          if (type.id.loc) {
+            return ast.locToRange(type.id.loc);
           }
           break;
       }
       break;
     }
+
     case "FoundIdent": {
-      const { name, type } = searchResult.data;
+      const { name, type, id } = searchResult.data;
 
       if (type.tag === "FunctionType") {
         // Look up function
-        // TODO: suggest both the function declaration and the function definition
         const func = getFunctionDeclaration(genv, name);
-        if (func && func.loc) {
-          return toLocationLink(func.loc);
+        if (func?.loc?.source?.endsWith('.h0') || func?.loc?.source?.endsWith('.h1')) {
+          return new ResponseError<void>(0, "Can't rename that function: It's defined in a library.");
+        }
+        if (id.loc) {
+          return ast.locToRange(id.loc);
         }
       }
+      // TODO: Local variables
+      /*
       const definition: EnvEntry | undefined = searchResult.environment?.get(name);
 
       if (definition === undefined || definition.position === undefined) return null;
 
-      return toLocationLink(definition.position);
+      return toLocationLink(definition.position);*/
+      break;
     }
-    case "FoundField": {
-      const { field } = searchResult.data;
 
-      if (field.id.loc === undefined) return null;
-      return toLocationLink(field.id.loc);
+    case "FoundField": {
+      const { struct, id } = searchResult.data;
+      if (struct.loc?.source?.endsWith('.h0') || struct.loc?.source?.endsWith('.h1')) {
+        return new ResponseError<void>(0, "Can't rename that field: It's defined in a library.");
+      }
+      if (id.loc) return ast.locToRange(id.loc);
+      break;
     }
   }
 
-  return null;
-});*/
+  // Generic invalid rename
+  return new ResponseError<void>(0, "Can't rename that.");
+});
 
 connection.onRenameRequest((data) => {
-  function locToRange(loc: ast.SourceLocation): Range {
-    return Range.create(ast.toVscodePosition(loc.start), ast.toVscodePosition(loc.end));
-  }
-
   const genv = openFiles.get(data.textDocument.uri);
   // Indicates no successful parse so far
   if (genv === undefined) { return null; }
@@ -799,13 +813,19 @@ connection.onRenameRequest((data) => {
     }
   }
   if (toFind) {
-    const changes: {
-      [uri: string]: TextEdit[]
-    } = { };
-    changes[data.textDocument.uri] = findUses(genv, data.textDocument.uri, toFind).map((loc) => {
-      return TextEdit.replace(locToRange(loc), data.newName);
-    });
-    return { changes };
+    try {
+      const changes: {
+        [uri: string]: TextEdit[]
+      } = { };
+      changes[data.textDocument.uri] = findUses(genv, data.textDocument.uri, toFind).map((loc) => {
+        return TextEdit.replace(ast.locToRange(loc), data.newName);
+      });
+      return { changes };
+    } catch (err) {
+      // Can't edit header file functions!
+      return null;
+    }
+    
   }
 
   return null;

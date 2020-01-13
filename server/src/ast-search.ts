@@ -12,7 +12,8 @@ import {
     Type,
     Declaration,
     StructDeclaration,
-    VariableDeclarationOnly
+    VariableDeclarationOnly,
+    Identifier
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
@@ -52,6 +53,7 @@ export interface FoundIdent {
     tag: "FoundIdent";
     name: string;
     type: AnyType;
+    id: Identifier;
 }
 
 export interface FoundType {
@@ -64,6 +66,7 @@ export interface FoundField {
     struct: StructDeclaration;
     field: VariableDeclarationOnly;
     expression: string;
+    id: Identifier;
 }
 
 function findType(e: Type, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
@@ -107,7 +110,8 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                     data: {
                         tag: "FoundIdent",
                         name: e.callee.name,
-                        type
+                        type,
+                        id: e.callee
                     }
                 };
             }
@@ -139,7 +143,8 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                 data: {
                     tag: "FoundIdent",
                     name: e.name,
-                    type
+                    type,
+                    id: e
                 }
             };
         }
@@ -164,7 +169,8 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
                         tag: "FoundField",
                         expression: expressionToString(e),
                         struct,
-                        field
+                        field,
+                        id: e.field
                     }
                 };
             }
@@ -306,7 +312,8 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
                     data: {
                         tag: "FoundIdent",
                         name: decl.id.name,
-                        type
+                        type,
+                        id: decl.id
                     }
                 };
             }
