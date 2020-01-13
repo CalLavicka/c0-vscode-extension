@@ -496,8 +496,8 @@ function findUsesExp(exp: Expression, currentEnv: Env | null, toFind: FindUsesPa
 
             const entry: EnvEntry | undefined = currentEnv.get(exp.name);
             if (entry === undefined) {
-                // Function type
-                if (toFind.tag === 'FindType' && exp.name === toFind.name) {
+                // Function pointer
+                if (toFind.tag === 'FindFunction' && exp.name === toFind.name) {
                     if (exp.loc) uses.push(exp.loc);
                 }
             } else {
