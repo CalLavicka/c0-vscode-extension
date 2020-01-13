@@ -265,10 +265,16 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
             if (isInside(pos, s.right.loc)) return findExpression(s.right, currentEnv, info);
             break;
 
-        case "ForStatement":
-            // Technically if we are in the update or guard portion
-            // we should add i to environment and look there, but 
-            // that also sounds like a later problem 
+        case "ForStatement":// Add any variable declared in the init to the environment
+            if (s.init?.tag === 'VariableDeclaration') {
+                // Duplicate environment
+                if (currentEnv) {
+                    currentEnv = new Map(currentEnv);
+                } else {
+                    currentEnv = new Map();
+                }
+                currentEnv?.set(s.init.id.name, { ...s.init.kind, position: s.init.id.loc });
+            }
             if (s.init && isInside(pos, s.init.loc)) return findStatement(s.init, currentEnv, info);
             if (s.update && isInside(pos, s.update.loc)) return findStatement(s.update, currentEnv, info);
 
@@ -303,7 +309,7 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
 function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
     const { pos } = info;
     switch (decl.tag) {
-        case "FunctionDeclaration":
+        case "FunctionDeclaration": {
             if (isInside(pos, decl.returns.loc)) return findType(decl.returns, null, info);
             if (isInside(pos, decl.id.loc)) {
                 const type: AnyType = { tag: "FunctionType", definition: decl };
@@ -338,6 +344,7 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
 
             if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);
             break;
+        }
 
         case "TypeDefinition":
             if (isInside(pos, decl.definition.kind.loc)) return findType(decl.definition.kind, null, info);
@@ -349,6 +356,41 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
                 }
             };
             break;
+
+        case "FunctionTypeDefinition": {
+            if (isInside(pos, decl.definition.returns.loc)) return findType(decl.definition.returns, null, info);
+            if (isInside(pos, decl.definition.id.loc)) {
+                return {
+                    environment: null,
+                    data: {
+                        tag: "FoundType",
+                        type: decl.definition.id
+                    }
+                };
+            }
+
+            // Environment of just the arguments, for use in contracts
+            let env: Env | null;
+            try {
+                env = getEnvironmentFromParams(info.genv, decl.definition.params);
+            } catch (err) {
+                env = null;
+            }
+
+            // Check args 
+            for (const arg of decl.definition.params) {
+                if (isInside(pos, arg.kind.loc)) return findType(arg.kind, env, info);
+                if (isInside(pos, arg.id.loc)) return findExpression(arg.id, env, info);
+            }
+
+            for (const contract of [...decl.definition.preconditions, ...decl.definition.postconditions]) {
+                if (isInside(pos, contract.loc)) return findExpression(contract, env, info);
+            }
+
+            if (decl.definition.body && isInside(pos, decl.definition.body.loc))
+                return findStatement(decl.definition.body, null, info);
+            break;
+        }
 
         case "StructDeclaration":
             if (decl.definitions === null) break;
@@ -547,10 +589,23 @@ function findUsesStatement(stmt: Statement, currentEnv: Env | null, toFind: Find
             break;
 
         case "ForStatement":
-            if (stmt.init)
+            // Add any variable declared in the init to the environment
+            if (stmt.init?.tag === 'VariableDeclaration') {
+                // Duplicate environment
+                if (currentEnv) {
+                    currentEnv = new Map(currentEnv);
+                } else {
+                    currentEnv = new Map();
+                }
+                currentEnv?.set(stmt.init.id.name, { ...stmt.init.kind, position: stmt.init.id.loc });
+            }
+
+            if (stmt.init) {
                 uses.push(...findUsesStatement(stmt.init, currentEnv, toFind));
-            if (stmt.update)
+            }
+            if (stmt.update) {
                 uses.push(...findUsesStatement(stmt.update, currentEnv, toFind));
+            }
 
         // Fall through for common loop cases 
         // tslint:disable-next-line: no-switch-case-fall-through
@@ -579,7 +634,7 @@ function findUsesStatement(stmt: Statement, currentEnv: Env | null, toFind: Find
 function findUsesDecl(genv: GlobalEnv, decl: Declaration, toFind: FindUsesParam): Array<SourceLocation> {
     const uses: Array<SourceLocation> = [];
     switch (decl.tag) {
-        case 'FunctionDeclaration':
+        case 'FunctionDeclaration': {
             if (toFind.tag === 'FindFunction' && decl.id.name === toFind.name) {
                 if (decl.id.loc) uses.push(decl.id.loc);
             }
@@ -611,6 +666,7 @@ function findUsesDecl(genv: GlobalEnv, decl: Declaration, toFind: FindUsesParam)
                 uses.push(...findUsesStatement(decl.body, null, toFind));
             }
             break;
+        }
 
         case "TypeDefinition":
             uses.push(...findUsesType(decl.definition.kind, toFind));
@@ -618,6 +674,37 @@ function findUsesDecl(genv: GlobalEnv, decl: Declaration, toFind: FindUsesParam)
                 if (decl.definition.id.loc) uses.push(decl.definition.id.loc);
             }
             break;
+
+        case "FunctionTypeDefinition": {
+            if (toFind.tag === 'FindType' && decl.definition.id.name === toFind.name) {
+                if (decl.definition.id.loc) uses.push(decl.definition.id.loc);
+            }
+            uses.push(...findUsesType(decl.definition.returns, toFind));
+            decl.definition.params.forEach((param) => {
+                uses.push(...findUsesType(param.kind, toFind));
+                
+                // Check for parameter rename
+                if (toFind.tag === 'FindVar' && param.id.loc && param.id.loc === toFind.entry.position) {
+                    uses.push(param.id.loc);
+                }
+            });
+
+            // Environment of just the arguments, for use in contracts
+            let env: Env | null;
+            try {
+                env = getEnvironmentFromParams(genv, decl.definition.params);
+            } catch (err) {
+                env = null;
+            }
+
+            decl.definition.postconditions.forEach((exp) => {
+                uses.push(...findUsesExp(exp, env, toFind));
+            });
+            decl.definition.preconditions.forEach((exp) => {
+                uses.push(...findUsesExp(exp, env, toFind));
+            });
+            break;
+        }
 
         case "StructDeclaration":
             if (toFind.tag === 'FindStruct' && decl.id.name === toFind.name) {
