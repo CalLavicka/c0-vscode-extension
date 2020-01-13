@@ -472,6 +472,13 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
   const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
 
+  // This assumes that .h0 always refers to a library in the "include path"
+  for (const completion of completions) {
+    if (completion.detail?.endsWith("h0")) {
+      completion.detail = `#use <${path.basename(completion.detail, ".h0")}>`;
+    }
+  }
+
   return completions;
 });
 

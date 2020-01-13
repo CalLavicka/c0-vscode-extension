@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.3.3]
+- Declarations from a library header now have their location reported as being from the library (e.g. `#use <string>` instead of `string.h0`) 
+
 ## [1.3.2]
 - Added semicolons to the end of contracts in hover and completion windows
 - Fixed a typo in the README
