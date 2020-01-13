@@ -1,6 +1,8 @@
 # Change Log
 
 ## [1.3.2]
+- Added semicolons to the end of contracts in hover and completion windows
+- Fixed a typo in the README
 - Fixed a bug where a diagnostic warning that no project file was found would appear for header files.
 
 ## [1.3.1]

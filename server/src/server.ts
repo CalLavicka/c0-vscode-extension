@@ -387,9 +387,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           if (!inCurrentFile && decl.body) break;
                                               
           const requires = decl.preconditions.map(precond =>
-              `//@requires ${expressionToString(precond)}`);
+              `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
-              `//@ensures ${expressionToString(postcond)}`);
+              `//@ensures ${expressionToString(postcond)};`);
 
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
@@ -501,9 +501,9 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const decl = getFunctionDeclaration(genv, name);
         if (decl === null) return null; 
         const requires = decl.preconditions.map(precond =>
-          `//@requires ${expressionToString(precond)}`);
+          `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
-          `//@ensures ${expressionToString(postcond)}`);
+          `//@ensures ${expressionToString(postcond)};`);
 
         return {
           contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
