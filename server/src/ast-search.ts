@@ -364,3 +364,290 @@ export function findGenv(info: SearchInfo, uri: string): AstSearchResult {
 
     return { environment: null, data: null };
 }
+
+export class RenameHeaderError extends Error {
+    public readonly name: "RenameHeaderError";
+    constructor(header: string | null | undefined) {
+        super(`Can't rename ${header}`);
+        this.name = "RenameHeaderError";
+    }
+}
+
+export interface FindFunction {
+    tag: 'FindFunction';
+    name: string;
+}
+
+export interface FindType {
+    tag: 'FindType';
+    name: string;
+}
+
+export interface FindStruct {
+    tag: 'FindStruct';
+    name: string;
+}
+
+export interface FindField {
+    tag: 'FindField';
+    struct: string;
+    field: string;
+}
+
+export type FindUsesParam = FindFunction | FindType | FindStruct | FindField;
+
+function findUsesType(type: Type, toFind: FindUsesParam): Array<SourceLocation> {
+    switch (type.tag) {
+        case "ArrayType":
+        case "PointerType":
+            return findUsesType(type.argument, toFind);
+
+        case "StructType":
+            if (toFind.tag === 'FindStruct' && type.id.name === toFind.name) {
+                if (type.id.loc) return [type.id.loc];
+            }
+            break;
+        case "Identifier":
+            if (toFind.tag === 'FindType' && type.name === toFind.name) {
+                if (type.loc) return [type.loc];
+            }
+            break;
+    }
+    return [];
+}
+
+function findUsesExp(exp: Expression, currentEnv: Env | null, toFind: FindUsesParam): Array<SourceLocation> {
+    const uses: Array<SourceLocation> = [];
+    switch (exp.tag) {
+        case "CallExpression":
+            if (toFind.tag === 'FindFunction' && exp.callee.name === toFind.name) {
+                if (exp.callee.loc) uses.push(exp.callee.loc);
+            }
+
+            exp.arguments.forEach((arg) => {
+                uses.push(...findUsesExp(arg, currentEnv, toFind));
+            });
+            break;
+
+        case "IndirectCallExpression":
+            uses.push(...findUsesExp(exp.callee, currentEnv, toFind));
+            exp.arguments.forEach((arg) => {
+                uses.push(...findUsesExp(arg, currentEnv, toFind));
+            });
+            break;
+
+        case "Identifier": {
+            if (currentEnv === null) break;
+
+            const type: AnyType | undefined = currentEnv.get(exp.name);
+            if (type === undefined) {
+                // Function type
+                if (toFind.tag === 'FindType' && exp.name === toFind.name) {
+                    if (exp.loc) uses.push(exp.loc);
+                }
+            }
+            // TODO: Local vars
+            break;
+        }
+        case "StructMemberExpression":
+            uses.push(...findUsesExp(exp.object, currentEnv, toFind));
+            if (toFind.tag === 'FindField' && exp.struct === toFind.struct) {
+                if (exp.field.name === toFind.field && exp.field.loc) {
+                    uses.push(exp.field.loc);
+                }
+            }
+            break;
+
+        case "LogicalExpression":
+        case "BinaryExpression":
+            uses.push(...findUsesExp(exp.left, currentEnv, toFind));
+            uses.push(...findUsesExp(exp.right, currentEnv, toFind));
+            break;
+
+        case "ArrayMemberExpression":
+            uses.push(...findUsesExp(exp.object, currentEnv, toFind));
+            uses.push(...findUsesExp(exp.index, currentEnv, toFind));
+            break;
+
+        case "AllocExpression":
+            uses.push(...findUsesType(exp.kind, toFind));
+            break;
+
+        case "HasTagExpression":
+        case "CastExpression":
+        case "AllocArrayExpression":
+            uses.push(...findUsesType(exp.kind, toFind));
+        // tslint:disable-next-line: no-switch-case-fall-through 
+        case "UnaryExpression":
+        case "LengthExpression":
+            uses.push(...findUsesExp(exp.argument, currentEnv, toFind));
+            break;
+
+        case "IntLiteral":
+        case "BoolLiteral":
+        case "StringLiteral":
+        case "CharLiteral":
+        case "NullLiteral":
+            break;
+    }
+    return uses;
+}
+
+function findUsesStatement(stmt: Statement, currentEnv: Env | null, toFind: FindUsesParam): Array<SourceLocation> {
+    const uses: Array<SourceLocation> = [];
+    switch (stmt.tag) {
+        case "BlockStatement":
+            currentEnv = stmt.environment ?? currentEnv;
+            for (const child of stmt.body) {
+                uses.push(...findUsesStatement(child, currentEnv, toFind));
+            }
+            break;
+
+        case "IfStatement":
+            uses.push(...findUsesExp(stmt.test, currentEnv, toFind));
+            uses.push(...findUsesStatement(stmt.consequent, currentEnv, toFind));
+            if (stmt.alternate)
+                uses.push(...findUsesStatement(stmt.alternate, currentEnv, toFind));
+            break;
+
+        case "ReturnStatement":
+            if (stmt.argument)
+                uses.push(...findUsesExp(stmt.argument, currentEnv, toFind));
+            break;
+
+        case "ExpressionStatement":
+            return findUsesExp(stmt.expression, currentEnv, toFind);
+
+        case "VariableDeclaration":
+            uses.push(...findUsesType(stmt.kind, toFind));
+            uses.push(...findUsesExp(stmt.id, currentEnv, toFind));
+            if (stmt.init)
+                uses.push(...findUsesExp(stmt.init, currentEnv, toFind));
+            break;
+
+        case "AssignmentStatement":
+            uses.push(...findUsesExp(stmt.left, currentEnv, toFind));
+            uses.push(...findUsesExp(stmt.right, currentEnv, toFind));
+            break;
+
+        case "ForStatement":
+            if (stmt.init)
+                uses.push(...findUsesStatement(stmt.init, currentEnv, toFind));
+            if (stmt.update)
+                uses.push(...findUsesStatement(stmt.update, currentEnv, toFind));
+
+        // Fall through for common loop cases 
+        // tslint:disable-next-line: no-switch-case-fall-through
+        case "WhileStatement":
+            uses.push(...findUsesExp(stmt.test, currentEnv, toFind));
+            uses.push(...findUsesStatement(stmt.body, currentEnv, toFind));
+            stmt.invariants.forEach((inv) => {
+                uses.push(...findUsesExp(inv, currentEnv, toFind));
+            });
+            break;
+
+        case "UpdateStatement":
+        case "ErrorStatement":
+            return findUsesExp(stmt.argument, currentEnv, toFind);
+
+        case "AssertStatement":
+            return findUsesExp(stmt.test, currentEnv, toFind);
+
+        case "BreakStatement":
+        case "ContinueStatement":
+            break;
+    }
+    return uses;
+}
+
+function findUsesDecl(genv: GlobalEnv, decl: Declaration, toFind: FindUsesParam): Array<SourceLocation> {
+    const uses: Array<SourceLocation> = [];
+    switch (decl.tag) {
+        case 'FunctionDeclaration':
+            if (toFind.tag === 'FindFunction' && decl.id.name === toFind.name) {
+                if (decl.id.loc) uses.push(decl.id.loc);
+            }
+            uses.push(...findUsesType(decl.returns, toFind));
+            decl.params.forEach((param) => {
+                uses.push(...findUsesType(param.kind, toFind));
+                // TODO: Parameter rename
+            });
+
+            // Environment of just the arguments, for use in contracts
+            let env: Env | null;
+            try {
+                env = getEnvironmentFromParams(genv, decl.params);
+            } catch (err) {
+                env = null;
+            }
+
+            decl.postconditions.forEach((exp) => {
+                uses.push(...findUsesExp(exp, env, toFind));
+            });
+            decl.preconditions.forEach((exp) => {
+                uses.push(...findUsesExp(exp, env, toFind));
+            });
+            if (decl.body) {
+                uses.push(...findUsesStatement(decl.body, null, toFind));
+            }
+            break;
+
+        case "TypeDefinition":
+            uses.push(...findUsesType(decl.definition.kind, toFind));
+            if (toFind.tag === 'FindType' && decl.definition.id.name === toFind.name) {
+                if (decl.definition.id.loc) uses.push(decl.definition.id.loc);
+            }
+            break;
+
+        case "StructDeclaration":
+            if (toFind.tag === 'FindStruct' && decl.id.name === toFind.name) {
+                if (decl.id.loc) uses.push(decl.id.loc);
+            }
+            if (decl.definitions === null) break;
+            for (const field of decl.definitions) {
+                uses.push(...findUsesType(field.kind, toFind));
+                if (toFind.tag === 'FindField' && decl.id.name === toFind.struct && field.id.name === toFind.field) {
+                    if (field.id.loc) uses.push(field.id.loc);
+                }
+            }
+            break;
+    }
+    return uses;
+}
+
+/**
+ * Finds all uses of either a function name or a type name across a given environment
+ * @param genv The global environment to search
+ * @param uri The URI of the file to find identifiers in
+ * @param identifier The identifier to search for. Either a type or a function name
+ */
+export function findUses(genv: GlobalEnv, uri: string, toFind: FindUsesParam): Array<SourceLocation> {
+    const uses: Array<SourceLocation> = [];
+    for (const decl of genv.decls) {
+        if (decl.loc?.source?.endsWith('.h0') || decl.loc?.source?.endsWith('.h1')) {
+            // Make sure not renaming header function
+            switch (decl.tag) {
+                case 'FunctionDeclaration':
+                    if (toFind.tag === 'FindFunction' && decl.id.name === toFind.name) {
+                        throw new RenameHeaderError(decl.loc?.source);
+                    }
+                    break;
+                case 'FunctionTypeDefinition':
+                case 'TypeDefinition':
+                    if (toFind.tag === 'FindType' && decl.definition.id.name === toFind.name) {
+                        throw new RenameHeaderError(decl.loc?.source);
+                    }
+                    break;
+                case 'StructDeclaration':
+                    if (toFind.tag === 'FindStruct' && decl.id.name === toFind.name) {
+                        throw new RenameHeaderError(decl.loc?.source);
+                    }
+                    break;
+            }
+            continue;
+        }
+        if (decl.loc?.source !== uri) continue;
+        uses.push(...findUsesDecl(genv, decl, toFind));
+    }
+    return uses;
+}

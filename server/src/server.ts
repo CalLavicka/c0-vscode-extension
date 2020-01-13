@@ -18,14 +18,15 @@ import {
   TextDocumentChangeEvent,
   ParameterInformation,
   SignatureInformation,
-  WorkspaceFolder
+  WorkspaceFolder,
+  TextEdit
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement, findGenv, comparePositions } from "./ast-search";
+import { isInside, findStatement, findGenv, comparePositions, FindUsesParam, findUses } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -65,7 +66,8 @@ connection.onInitialize((params: InitializeParams) => {
       },
       hoverProvider: true,
       definitionProvider: true,
-      signatureHelpProvider: { triggerCharacters: ["(", ","] }
+      signatureHelpProvider: { triggerCharacters: ["(", ","] },
+      renameProvider: true
     }
   };
 });
@@ -668,6 +670,145 @@ connection.onSignatureHelp((data) => {
       activeParameter: context.argumentNumber
     };
   }
+});
+/*
+connection.onPrepareRename((data) => {
+  const genv = openFiles.get(data.textDocument.uri);
+  // Indicates no successful parse so far
+  if (genv === undefined) { return null; }
+
+  const pos: ast.Position = ast.fromVscodePosition(data.position);
+  const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
+
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier
+  if (searchResult === null || searchResult.data === null) return null;
+
+  switch (searchResult.data.tag) {
+    case "FoundType": {
+      const { type } = searchResult.data;
+
+      switch (type.tag) {
+        case "Identifier":
+          // Find a typedef with this tag
+          const typedef = getTypedefDefinition(genv, type.name);
+          if (typedef !== null && typedef.loc) {
+            return {}
+            return toLocationLink(typedef.loc);
+          }
+          break;
+
+        case "StructType":
+          const struct = getStructDefinition(genv, type.id.name);
+          if (struct !== null && struct.loc) {
+            return toLocationLink(struct.loc, type.loc);
+          }
+          break;
+      }
+      break;
+    }
+    case "FoundIdent": {
+      const { name, type } = searchResult.data;
+
+      if (type.tag === "FunctionType") {
+        // Look up function
+        // TODO: suggest both the function declaration and the function definition
+        const func = getFunctionDeclaration(genv, name);
+        if (func && func.loc) {
+          return toLocationLink(func.loc);
+        }
+      }
+      const definition: EnvEntry | undefined = searchResult.environment?.get(name);
+
+      if (definition === undefined || definition.position === undefined) return null;
+
+      return toLocationLink(definition.position);
+    }
+    case "FoundField": {
+      const { field } = searchResult.data;
+
+      if (field.id.loc === undefined) return null;
+      return toLocationLink(field.id.loc);
+    }
+  }
+
+  return null;
+});*/
+
+connection.onRenameRequest((data) => {
+  function locToRange(loc: ast.SourceLocation): Range {
+    return Range.create(ast.toVscodePosition(loc.start), ast.toVscodePosition(loc.end));
+  }
+
+  const genv = openFiles.get(data.textDocument.uri);
+  // Indicates no successful parse so far
+  if (genv === undefined) { return null; }
+
+  const pos: ast.Position = ast.fromVscodePosition(data.position);
+  const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
+
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier
+  if (searchResult === null || searchResult.data === null) return null;
+
+  let toFind: FindUsesParam | null = null;
+
+  switch (searchResult.data.tag) {
+    case "FoundType": {
+      const { type } = searchResult.data;
+
+      switch (type.tag) {
+        case "Identifier":
+          toFind = {
+            tag: 'FindType',
+            name: type.name
+          };
+          break;
+
+        case "StructType":
+          toFind = {
+            tag: 'FindStruct',
+            name: type.id.name
+          };
+          break;
+      }
+      break;
+    }
+    case "FoundIdent": {
+      const { name, type } = searchResult.data;
+
+      if (type.tag === "FunctionType") {
+        toFind = {
+          tag: 'FindFunction',
+          name: name
+        };
+        break;
+      }
+      // TODO: Local variables
+      break;
+    }
+    case "FoundField": {
+      const { struct, field } = searchResult.data;
+      
+      toFind = {
+        tag: 'FindField',
+        struct: struct.id.name,
+        field: field.id.name
+      };
+      break;
+    }
+  }
+  if (toFind) {
+    const changes: {
+      [uri: string]: TextEdit[]
+    } = { };
+    changes[data.textDocument.uri] = findUses(genv, data.textDocument.uri, toFind).map((loc) => {
+      return TextEdit.replace(locToRange(loc), data.newName);
+    });
+    return { changes };
+  }
+
+  return null;
 });
 
 // Make the text document manager listen on the connection
