@@ -391,11 +391,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           const ensures = decl.postconditions.map(postcond =>
               `//@ensures ${expressionToString(postcond)};`);
 
+          const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
+
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
             kind: CompletionItemKind.Function,
-            documentation: mkMarkdownCode(
-              `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`),
+            documentation: {
+              kind: "markdown",
+              value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
+            },
             detail: uriToWorkspace(decl.loc?.source || undefined)
           });
         }
@@ -512,8 +516,13 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const ensures = decl.postconditions.map(postcond =>
           `//@ensures ${expressionToString(postcond)};`);
 
+        const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
+
         return {
-          contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
+          contents: {
+            kind: "markdown",
+            value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
+          }
         };
       }
       else {

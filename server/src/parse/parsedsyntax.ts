@@ -297,7 +297,8 @@ export type Declaration =
     | FunctionTypeDefinition
     | PragmaUseLib 
     | PragmaUseFile
-    | PragmaUnknown;
+    | PragmaUnknown
+    | CapturedComment;
 
 export interface VariableDeclarationOnly extends Syn {
     readonly tag: "VariableDeclaration";
@@ -342,5 +343,10 @@ export interface PragmaUseFile extends Syn {
 
 export interface PragmaUnknown extends Syn {
     readonly tag: "PragmaUnknown";
+    readonly text: string;
+}
+
+export interface CapturedComment extends Syn {
+    readonly tag: "CapturedComment";
     readonly text: string;
 }

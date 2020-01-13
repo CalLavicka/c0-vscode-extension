@@ -931,3 +931,25 @@ export function PragmaDeclaration([pragmaTok]: [Token]): syn.Declaration {
         loc: tokloc(pragmaTok)
     };
 }
+
+export function LineComment([start, text, end]: [Token, Token[], Token]) {
+    return {
+        tag: "CapturedComment",
+        loc: {
+            start: tokloc(start).start,
+            end: tokloc(end).end
+        },
+        text: text.map(x => x.value).join("")
+    }
+}
+
+export function MultiComment([start, text, end]: [Token, Token[][], Token]): syn.CapturedComment {
+    return {
+        tag: "CapturedComment",
+        loc: {
+            start: tokloc(start).start,
+            end: tokloc(end).end
+        },
+        text: text.map(x => x[0].value).join("")
+    }
+}

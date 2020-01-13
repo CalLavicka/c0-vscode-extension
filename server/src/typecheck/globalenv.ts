@@ -95,7 +95,8 @@ export function initMain(): GlobalEnv {
                 params: [],
                 preconditions: [],
                 postconditions: [],
-                body: null
+                body: null,
+                doc: "<program entry point>"
             }
         ]
     };
