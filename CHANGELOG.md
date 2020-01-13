@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.3.4]
+- Library headers are now copied when read, so any changes will not persist 
+
 ## [1.3.3]
 - Declarations from a library header now have their location reported as being from the library (e.g. `#use <string>` instead of `string.h0`) 
 

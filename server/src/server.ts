@@ -549,8 +549,18 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
+    let targetUri: string;
+    if (loc.source?.endsWith(".h0")) {
+      // Make a copy of any header files so 
+      // users can't mess it up
+      targetUri = loc.source.replace(".h0", "-view.h0");
+      fs.copyFileSync(new URL(loc.source), new URL(targetUri));
+    }
+    else {
+      targetUri = loc.source || data.textDocument.uri;
+    }
     return [{
-      targetUri: loc.source || data.textDocument.uri,
+      targetUri,
       targetSelectionRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
