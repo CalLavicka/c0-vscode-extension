@@ -17,7 +17,7 @@ import {
 } from "./ast";
 import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typecheck/globalenv";
 import { expressionToString } from "./print";
-import { Env } from "./typecheck/types";
+import { Env, EnvEntry } from "./typecheck/types";
 import { getEnvironmentFromParams } from "./typecheck/programs";
 import { Ordering } from "./util";
 
@@ -401,7 +401,12 @@ export interface FindField {
     field: string;
 }
 
-export type FindUsesParam = FindFunction | FindType | FindStruct | FindField;
+export interface FindVar {
+    tag: 'FindVar';
+    entry: EnvEntry;
+}
+
+export type FindUsesParam = FindFunction | FindType | FindStruct | FindField | FindVar;
 
 function findUsesType(type: Type, toFind: FindUsesParam): Array<SourceLocation> {
     switch (type.tag) {
@@ -446,14 +451,18 @@ function findUsesExp(exp: Expression, currentEnv: Env | null, toFind: FindUsesPa
         case "Identifier": {
             if (currentEnv === null) break;
 
-            const type: AnyType | undefined = currentEnv.get(exp.name);
-            if (type === undefined) {
+            const entry: EnvEntry | undefined = currentEnv.get(exp.name);
+            if (entry === undefined) {
                 // Function type
                 if (toFind.tag === 'FindType' && exp.name === toFind.name) {
                     if (exp.loc) uses.push(exp.loc);
                 }
+            } else {
+                // Local variable
+                if (toFind.tag === 'FindVar' && entry.position === toFind.entry.position) {
+                    if (exp.loc) uses.push(exp.loc);
+                }
             }
-            // TODO: Local vars
             break;
         }
         case "StructMemberExpression":
@@ -577,7 +586,11 @@ function findUsesDecl(genv: GlobalEnv, decl: Declaration, toFind: FindUsesParam)
             uses.push(...findUsesType(decl.returns, toFind));
             decl.params.forEach((param) => {
                 uses.push(...findUsesType(param.kind, toFind));
-                // TODO: Parameter rename
+                
+                // Check for parameter rename
+                if (toFind.tag === 'FindVar' && param.id.loc && param.id.loc === toFind.entry.position) {
+                    uses.push(param.id.loc);
+                }
             });
 
             // Environment of just the arguments, for use in contracts

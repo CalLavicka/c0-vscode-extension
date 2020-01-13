@@ -729,13 +729,10 @@ connection.onPrepareRename((data) => {
           return ast.locToRange(id.loc);
         }
       }
-      // TODO: Local variables
-      /*
       const definition: EnvEntry | undefined = searchResult.environment?.get(name);
 
-      if (definition === undefined || definition.position === undefined) return null;
-
-      return toLocationLink(definition.position);*/
+      if (definition === undefined || definition.position === undefined) return new ResponseError<void>(0, "Can't rename that.");
+      if (id.loc) return ast.locToRange(id.loc);
       break;
     }
 
@@ -797,8 +794,16 @@ connection.onRenameRequest((data) => {
           name: name
         };
         break;
+      } else {
+        const definition: EnvEntry | undefined = searchResult.environment?.get(name);
+  
+        if (definition !== undefined && definition.position !== undefined) {
+          toFind = {
+            tag: 'FindVar',
+            entry: definition
+          };
+        }
       }
-      // TODO: Local variables
       break;
     }
     case "FoundField": {
