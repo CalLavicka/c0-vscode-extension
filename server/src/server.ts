@@ -787,7 +787,7 @@ connection.onRenameRequest(async (data) => {
   // Confirm that data is a valid identifier
   const idTest = new RegExp(`^${basicLexing.identifier.match.source}$`);
   if (!idTest.test(data.newName) || basicLexing.identifier.keywords.keyword.includes(data.newName)) {
-    return new ResponseError<void>(0, "Invalid keyword.");
+    return new ResponseError<void>(0, "Invalid identifier.");
   }
 
   const genv = openFiles.get(data.textDocument.uri);
