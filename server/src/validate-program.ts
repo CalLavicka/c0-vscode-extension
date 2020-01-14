@@ -41,7 +41,7 @@ type FileCache = {
 };
 
 /**
- * Cached files for internal usage. Maps files to a map of earlier dependencies to state
+ * Cached files for internal usage.
  */
 const cachedFiles = new Map<string, FileCache>();
 
