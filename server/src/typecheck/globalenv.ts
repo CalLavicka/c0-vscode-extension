@@ -75,7 +75,7 @@ export function cloneGenv(genv: GlobalEnv): GlobalEnv {
         libsLoaded: new Set(genv.libsLoaded),
         filesLoaded: new Set(genv.filesLoaded),
         decls: [...genv.decls]
-    }
+    };
 }
 
 /**

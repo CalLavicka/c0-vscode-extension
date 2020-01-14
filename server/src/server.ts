@@ -627,9 +627,11 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       return toLocationLink(definition.position);
     }
     case "FoundField": {
-      const { field } = searchResult.data;
+      const { field, struct } = searchResult.data;
 
       if (field.id.loc === undefined) return null;
+      // Source is only present on upper-most declarations
+      field.id.loc.source = struct.loc?.source;
       return toLocationLink(field.id.loc);
     }
   }

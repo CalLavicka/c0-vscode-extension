@@ -24,25 +24,26 @@ export const openFiles: Map<string, GlobalEnv> = new Map();
 
 /**
  * A cached file, with the environment at the time.
- * Also store all dependants so we can invalidate them
  */
-type FileCache = {
+type CachedEnv = {
   genv: GlobalEnv,
   decls: ast.Declaration[],
-  typeIds: Set<string>,
-  dependants: Set<string>,
-  fullCache: true
-};
-
-type DependencyList = {
-  dependants: Set<string>,
-  fullCache: false
+  typeIds: Set<string>
 };
 
 /**
- * Cached files for internal usage
+ * Each cache is defined by its various environments, based on earlier listings.
+ * Also store all dependants so we can invalidate them
  */
-const cachedFiles = new Map<string, FileCache | DependencyList>();
+type FileCache = {
+  cache?: Map<string, CachedEnv> | undefined
+  dependants: Set<string>
+};
+
+/**
+ * Cached files for internal usage. Maps files to a map of earlier dependencies to state
+ */
+const cachedFiles = new Map<string, FileCache>();
 
 /**
  * Invalidates a file in the cache
@@ -87,8 +88,9 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   // Find deepest cached dependency
   let i: number;
   for (i = dependencies.length - 1; i >= 0; i--) {
-    const cache = cachedFiles.get(dependencies[i]);
-    if (cache?.fullCache) {
+    const depKey = dependencies.slice(0, i).join('\n');
+    const cache = cachedFiles.get(dependencies[i])?.cache?.get(depKey);
+    if (cache) {
       genv = cloneGenv(cache.genv);
       decls.push(...cache.decls);
       typeIds = new Set(cache.typeIds);
@@ -97,6 +99,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   }
   for (i = i + 1; i < dependencies.length; i++) {
     const dep = dependencies[i];
+    const depKey = dependencies.slice(0, i).join('\n');
 
     if (genv.filesLoaded.has(dep)) {
       continue;
@@ -146,10 +149,25 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     }
 
     // Existing dependants (from earlier files which #use this one)
-    const dependants = cachedFiles.get(dep)?.dependants;
-
-    cachedFiles.set(dep, { genv: cloneGenv(genv), decls: [...decls], typeIds: new Set(typeIds),
-      dependants: new Set(dependants), fullCache: true});
+    const cachedFile = cachedFiles.get(dep);
+    const existingCache = cachedFile?.cache;
+    if (existingCache) {
+      existingCache.set(depKey, {
+        genv: cloneGenv(genv),
+        decls: [...decls],
+        typeIds: new Set(typeIds)
+      });
+    } else {
+      const dependants = cachedFile?.dependants;
+      cachedFiles.set(dep, {
+        cache: new Map([[depKey, {
+          genv: cloneGenv(genv),
+          decls: [...decls],
+          typeIds: new Set(typeIds)
+        }]]),
+        dependants: new Set(dependants)
+      });
+    }
 
     // Add as dependant to all files this one uses
     genv.filesLoaded.forEach((file) => {
@@ -159,7 +177,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         if (cache) {
           cache.dependants.add(dep);
         } else {
-          cachedFiles.set(file, { dependants: new Set([dep]), fullCache: false});
+          cachedFiles.set(file, { dependants: new Set([dep]) });
         }
       }
     });
