@@ -16,6 +16,16 @@ Thanks for contributing! Here are some tips on getting started with development
 debug configuration is set to "Launch Client". After that's launched you can switch
 the debug config to "Attach to Server" and start debugging that. 
 
+### Notes on parsing
+The parser is one of the more complex portions of this project. Here are some notes on how it works:
+
+The parsing pipeline goes line this: lex.ts produces tokens -> various \*.ne files parse them and send them to nearley-helper.ts for postprocessing, this produces the types from parse/parsedsyntax.ts.
+
+That whole thing is called by parse.ts. However we can't do it all at once - we have to stop every time we see a typedef to update the lexer with new typenames (so it can distinguish between a* b as a multiplication or a variable decl). So parse.ts splits on each semicolon.
+
+Finally, after the parsing is done, restrictsyntax.ts converts them into ast.ts types, which essentially "cleans it up" a bit, and does a little bit of validation (e.g. \length only appears in contracts).
+
+
 
 ## Structure
 
