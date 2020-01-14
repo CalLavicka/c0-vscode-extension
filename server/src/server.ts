@@ -890,7 +890,7 @@ connection.onRenameRequest(async (data) => {
       for (const file of files) {
         let fileGenv = openFiles.get(file);
         if (!fileGenv) {
-          await validateTextDocument(file);
+          await validateTextDocument(file, false);
           fileGenv = openFiles.get(file);
           if (!fileGenv) {
             // Give up with this file
