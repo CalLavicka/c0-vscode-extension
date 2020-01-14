@@ -394,6 +394,20 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
         }
 
         case "StructDeclaration":
+            if (isInside(pos, decl.id.loc)) {
+                return {
+                    environment: null,
+                    data: {
+                        tag: "FoundType",
+                        type: {
+                            tag: "StructType",
+                            id: decl.id,
+                            loc: decl.id.loc,
+                            range: decl.id.range
+                        }
+                    }
+                };
+            }
             if (decl.definitions === null) break;
             for (const field of decl.definitions) {
                 if (isInside(pos, field.kind.loc)) return findType(field.kind, null, info);
