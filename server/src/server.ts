@@ -424,9 +424,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           if (!inCurrentFile && decl.body) break;
                                               
           const requires = decl.preconditions.map(precond =>
-              `//@requires ${expressionToString(precond)}`);
+              `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
-              `//@ensures ${expressionToString(postcond)}`);
+              `//@ensures ${expressionToString(postcond)};`);
 
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
@@ -509,6 +509,13 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
   const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
 
+  // This assumes that .h0 always refers to a library in the "include path"
+  for (const completion of completions) {
+    if (completion.detail?.endsWith("h0")) {
+      completion.detail = `#use <${path.basename(completion.detail, ".h0")}>`;
+    }
+  }
+
   return completions;
 });
 
@@ -538,9 +545,9 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const decl = getFunctionDeclaration(genv, name);
         if (decl === null) return null; 
         const requires = decl.preconditions.map(precond =>
-          `//@requires ${expressionToString(precond)}`);
+          `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
-          `//@ensures ${expressionToString(postcond)}`);
+          `//@ensures ${expressionToString(postcond)};`);
 
         return {
           contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
@@ -579,8 +586,18 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
+    let targetUri: string;
+    if (loc.source?.endsWith(".h0")) {
+      // Make a copy of any header files so 
+      // users can't mess it up
+      targetUri = loc.source.replace(".h0", "-view.h0");
+      fs.copyFileSync(new URL(loc.source), new URL(targetUri));
+    }
+    else {
+      targetUri = loc.source || data.textDocument.uri;
+    }
     return [{
-      targetUri: loc.source || data.textDocument.uri,
+      targetUri,
       targetSelectionRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
@@ -647,9 +664,11 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       return toLocationLink(definition.position);
     }
     case "FoundField": {
-      const { field } = searchResult.data;
+      const { field, struct } = searchResult.data;
 
       if (field.id.loc === undefined) return null;
+      // Source is only present on upper-most declarations
+      field.id.loc.source = struct.loc?.source;
       return toLocationLink(field.id.loc);
     }
   }

@@ -327,16 +327,14 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         addDecl(false, genv, decl);
     }
 
-    functionsUsed.forEach(
-        (f): void => {
-            const def = getFunctionDeclaration(genv, f.name);
-            if (def === null) { console.error(`No definition for ${f.name}`); }
-            else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-                errors.add(new TypingError(f, `function ${f.name} is never defined`));
-                errors.add(new TypingError(def.id, `function ${f.name} is never defined`));
-            }
+    for (const f of functionsUsed) {
+        const def = getFunctionDeclaration(genv, f.name);
+        if (def === null) { console.error(`No definition for ${f.name}`); }
+        else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
+            errors.add(new TypingError(f, `function ${f.name} is never defined`));
+            errors.add(new TypingError(def.id, `function ${f.name} is never defined`));
         }
-    );
+    }
 
     return { errors, genv };
 }

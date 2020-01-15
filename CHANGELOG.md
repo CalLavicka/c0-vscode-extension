@@ -1,6 +1,16 @@
 # Change Log
 
+## [1.3.4]
+- Library headers are now copied when read, so any changes will not persist 
+- Fixed a bug regarding go-to definition of struct fields in different files
+- Fixed a bug regarding multiple compilation paths through a single file
+
+## [1.3.3]
+- Declarations from a library header now have their location reported as being from the library (e.g. `#use <string>` instead of `string.h0`) 
+
 ## [1.3.2]
+- Added semicolons to the end of contracts in hover and completion windows
+- Fixed a typo in the README
 - Fixed a bug where a diagnostic warning that no project file was found would appear for header files.
 
 ## [1.3.1]
