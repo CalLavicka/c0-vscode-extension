@@ -4,6 +4,7 @@
 - Library headers are now copied when read, so any changes will not persist 
 - Fixed a bug regarding go-to definition of struct fields in different files
 - Fixed a bug regarding multiple compilation paths through a single file
+- Fixed a bug with c0-light theme menu colors
 
 ## [1.3.3]
 - Declarations from a library header now have their location reported as being from the library (e.g. `#use <string>` instead of `string.h0`) 
