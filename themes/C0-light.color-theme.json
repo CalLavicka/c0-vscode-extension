@@ -5,21 +5,23 @@
 		"activityBarBadge.background": "#007acc",
 		"editor.background": "#ffffff",
 		"editor.foreground": "#1e1e1e",
-		"editor.inactiveSelectionBackground": "#3a3d41",
-		"editor.selectionHighlightBackground": "#add6ff26",
-		"editorIndentGuide.activeBackground": "#5a5a5a",
+		"editor.inactiveSelectionBackground": "#e5ebf1",
+		"editor.selectionHighlightBackground": "#add6ff80",
+		"editorIndentGuide.activeBackground": "#939393",
 		"editorIndentGuide.background": "#ebebeb",
 		"input.placeholderForeground": "#a6a6a6",
-		"list.dropBackground": "#383b3d",
-		"menu.background": "#727272",
-		"menu.foreground": "#777777",
-		"settings.numberInputBackground": "#292929",
-		"settings.textInputBackground": "#292929",
+		"list.dropBackground": "#ffffff",
+		"menu.background": "#fdfdfd",
+		"menu.foreground": "#3d3d3d",
 		"sideBarTitle.foreground": "#646464",
 		"statusBarItem.remoteBackground": "#16825d",
 		"statusBarItem.remoteForeground": "#ffffff",
-		"activityBar.background": "#d4d4d4",
-		"activityBar.foreground": "#4d4d4d"
+		"activityBar.background": "#e4e4e4",
+		"activityBar.foreground": "#4d4d4d",
+		"editorSuggestWidget.background": "#f3f3f3",
+		"list.hoverBackground": "#e8e8e8",
+		"settings.numberInputBorder": "#cecece",
+		"settings.textInputBorder": "#cecece"
 	},
 	"tokenColors": [
 		{
@@ -158,7 +160,7 @@
 				"punctuation.definition.comment"
 			],
 			"settings": {
-				"foreground": "#90c3e6"
+				"foreground": "#82bce2"
 			}
         },
 		{
