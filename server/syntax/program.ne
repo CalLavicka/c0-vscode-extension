@@ -11,6 +11,7 @@ Program     -> _GlobalDecl:* __ {% x => x[0] %}
 
 _GlobalDecl -> __ GlobalDecl {% x => x[1] %}
 GlobalDecl  -> %pragma {% util.PragmaDeclaration %}
+             | LineComment  {% id %}
              | MultiComment {% id %}
              | "struct" _ StructName _ ";" {% util.StructDeclaration %}
              | "struct" _ StructName _ "{" _ (Tp _ FieldName _ ";" _):* "}" _ ";"
