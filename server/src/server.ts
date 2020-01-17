@@ -550,7 +550,8 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
     let targetUri: string;
-    if (loc.source?.endsWith(".h0")) {
+    // Don't create another view file, 1 is enough 
+    if (loc.source?.endsWith(".h0") && !loc.source.endsWith("-view.h0")) {
       // Make a copy of any header files so 
       // users can't mess it up
       targetUri = loc.source.replace(".h0", "-view.h0");
