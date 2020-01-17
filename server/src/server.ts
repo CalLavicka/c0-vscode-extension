@@ -559,7 +559,8 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
     let targetUri: string;
-    if (loc.source?.endsWith(".h0")) {
+    // Don't create another view file, 1 is enough 
+    if (loc.source?.endsWith(".h0") && !loc.source.endsWith("-view.h0")) {
       // Make a copy of any header files so 
       // users can't mess it up
       targetUri = loc.source.replace(".h0", "-view.h0");
@@ -636,9 +637,11 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       return toLocationLink(definition.position);
     }
     case "FoundField": {
-      const { field } = searchResult.data;
+      const { field, struct } = searchResult.data;
 
       if (field.id.loc === undefined) return null;
+      // Source is only present on upper-most declarations
+      field.id.loc.source = struct.loc?.source;
       return toLocationLink(field.id.loc);
     }
   }
