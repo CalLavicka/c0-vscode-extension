@@ -20,7 +20,8 @@ import {
   SignatureInformation,
   WorkspaceFolder,
   DocumentFormattingParams,
-  TextEdit
+  TextEdit,
+  FormattingOptions
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -51,7 +52,7 @@ const documents: TextDocuments = new TextDocuments();
 
 let hasWorkspaceFolderCapability: boolean = false;
 
-connection.onInitialize((params: InitializeParams) => {  
+connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
 
   // Does the client support the `workspace/configuration` request?
@@ -106,9 +107,9 @@ export function openFile(uri: string): string {
 
 type Dependencies = {
   /** Path to project.txt */
-  uri: string, 
+  uri: string,
   /** List of files which should be loaded before this one */
-  dependencies: string[] 
+  dependencies: string[]
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
@@ -247,7 +248,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       `${dir}/README.txt`,
       `${dir}/../README.txt`, // Look one folder above
       `${dir}/project.txt`,
-      `${dir}/../project.txt`, 
+      `${dir}/../project.txt`,
       folders && folders.length ? `${folders[0].uri}/project.txt` : ""
     ].map(p => new URL(p)));
 
@@ -255,7 +256,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
         || change.document.uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
-        `No valid project.txt or README.txt found for the current document.\n` + 
+        `No valid project.txt or README.txt found for the current document.\n` +
         `Completions and other features may not work as expected`,
         DiagnosticSeverity.Warning,
         undefined,
@@ -384,16 +385,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         // if it is in the current file, or otherwise prefer to use it
         // from the prototype
         if (!functionDecls.has(decl.id.name) || (inCurrentFile && decl.body)
-                                             || (!inCurrentFile && !decl.body)) {
+          || (!inCurrentFile && !decl.body)) {
           // We will only show functions if they are either in the current file
           // or if they are a prototype from another file
           if (!inCurrentFile && decl.body) break;
-                                              
+
           const requires = decl.preconditions.map(precond =>
               `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
               `//@ensures ${expressionToString(postcond)};`);
-
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
             kind: CompletionItemKind.Function,
@@ -433,10 +433,10 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                     const struct = getStructDefinition(decls, structname);
                     if (struct && struct.definitions) {
                       return struct.definitions.map(field => ({
-                          label: field.id.name,
-                          kind: CompletionItemKind.Field,
-                          documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-                          detail: uriToWorkspace(field.loc?.source || undefined)
+                        label: field.id.name,
+                        kind: CompletionItemKind.Field,
+                        documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
+                        detail: uriToWorkspace(field.loc?.source || undefined)
                       }));
                     }
                   }
@@ -509,7 +509,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
       if (type.tag === "FunctionType") {
         // Also display contracts in hover result for a function 
         const decl = getFunctionDeclaration(genv, name);
-        if (decl === null) return null; 
+        if (decl === null) return null;
         const requires = decl.preconditions.map(precond =>
           `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
@@ -643,6 +643,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   return null;
 });
 
+/* TODO: UNCOMMENT THIS XXX FIXME
 connection.onSignatureHelp((data) => {
   const genv = openFiles.get(data.textDocument.uri);
   if (genv === undefined) { return null; }
@@ -692,38 +693,46 @@ connection.onSignatureHelp((data) => {
     };
   }
 });
+*/
 
 connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | null => {
+  function formatCode(code: ast.Declaration | ast.Expression | ast.Statement,
+                      options: FormattingOptions): TextEdit[] {
+    switch (code.tag) {
+      case "FunctionTypeDefinition":
+        return formatCode(code.definition, options);
+      case "FunctionDeclaration":
+        if (code.body !== null) {
+          return formatCode(code.body, options);
+        }
+        break;
+      case "BinaryExpression":
+      case "AssignmentStatement":
+        return [TextEdit.insert(
+          Position.create(0, 0),
+          `${code.right} ${code.operator} ${code.right}`
+        )];
+      case "BlockStatement":
+        const edits: TextEdit[] = [];
+        for (const stmt of code.body) {
+          edits.push(...formatCode(stmt, options));
+        }
+        return edits;
+      default:
+        break;
+    }
+    return [];
+  }
+
   const doc = documents.get(data.textDocument.uri);
   if (!doc) return null;
 
-  let indentLevel = 0;
-  let inMultilineComment = false;
-  const indentChar = data.options.insertSpaces ? ' '.repeat(data.options.tabSize) : '\t';
   const edits: TextEdit[] = [];
-  for (const [lineNum, line] of doc.getText().split("\n").entries()) {
-    const lineLen = line.length;
-    const trimmedLine = line.trim();
-    if (trimmedLine.startsWith("}")) {
-      --indentLevel;
-    }
-    edits.push({
-      range: { 
-        start: { line: lineNum, character: 0 }, 
-        end: { line: lineNum, character: lineLen }
-      },
-      newText: `${inMultilineComment ? ' ' : ''}${indentChar.repeat(indentLevel)}${trimmedLine}`
-    });
-    if (trimmedLine.endsWith("{")) {
-      ++indentLevel;
-    }
-    if (!(trimmedLine.startsWith("/*") && trimmedLine.endsWith("*/"))) {
-      if (trimmedLine.startsWith("/*")) {
-        inMultilineComment = true;
-      } else if (trimmedLine.endsWith("*/")) {
-        inMultilineComment = false;
-      }
-    }
+  // TODO: check if still valid
+  const syntaxTree: ast.Declaration[] | undefined = openFiles.get(data.textDocument.uri)?.decls;
+  if (!syntaxTree) return null;
+  for (const decl of syntaxTree) {
+    edits.push(...formatCode(decl, data.options));
   }
   return edits;
 });
