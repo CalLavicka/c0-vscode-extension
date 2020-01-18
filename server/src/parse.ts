@@ -143,18 +143,14 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
   const diagnostics = [];
 
   for (const error of errors) {
-    if (error.loc !== null && error.loc !== undefined) {
+    const loc = error?.loc || Position.create(0, 0);
+    
+    if (error.loc) {
       const diagnostic: Diagnostic = {
         severity: DiagnosticSeverity.Error,
         range: {
-          start: Position.create(
-            error.loc.start.line - 1,
-            error.loc.start.column - 1
-          ),
-          end: Position.create(
-            error.loc.end.line - 1,
-            error.loc.end.column - 1
-          )
+          start: ast.toVscodePosition(error.loc.start),
+          end: ast.toVscodePosition(error.loc.end)
         },
         message: error.message,
         source: "c0-language"
@@ -239,11 +235,11 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       if (libdecls === undefined) {
         // process.argv[0] is the path to nodejs 
         // process.argv[1] is the path to server.js (the main script for the server)
-        const libURI = (<any>url).pathToFileURL(`${path.dirname(process.argv[1])}/c0lib/${libname}.h0`).toString();
+        const libURI = url.pathToFileURL(`${path.dirname(process.argv[1])}/c0lib/${libname}.h0`).toString();
 
         // We need to do the round trip conversion
         // to accout for Windows specific business 
-        if (!fs.existsSync((<any>url).fileURLToPath(libURI))) {
+        if (!fs.existsSync(url.fileURLToPath(libURI))) {
           addError(i, 0, `library '${libname}' not found`, DiagnosticSeverity.Error);
           continue;
         }
@@ -294,8 +290,9 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
     // tslint:disable-next-line: no-conditional-assignment
     else if ((match = line.match(matchFile)) !== null) {
       const usedName = match[1];
-      const usedPath = path.resolve((<any>url).fileURLToPath(path.dirname(fileName)), usedName);
-      const usedURI = (<any>url).pathToFileURL(usedPath).toString();
+      const usedPath = path.resolve(url.fileURLToPath(path.dirname(fileName)), usedName);
+      // Convert /C:/ to C%3A/ to be compatible with how VSCode sends URIs
+      const usedURI = url.pathToFileURL(usedPath).toString().replace(/\/(.):/, (_: string, driveName: string) => `/${driveName}%3A`);
 
       if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent

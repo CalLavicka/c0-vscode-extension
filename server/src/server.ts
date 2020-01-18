@@ -125,20 +125,20 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
       // This is a string in URI format
       const base: string = path.dirname(configPath.toString());
       // path will add platform-specific separators, which is not what we want
-      const fname: string = path.relative(base, name).replace(path.sep, "/");
+      const fname: string = path.posix.relative(base, name);
 
       // Try parsing it as a README.txt file
       for (const line of fileLines) {
         // The OS-specific path to the directory of the file
-        const cwd = path.dirname((<any>url).fileURLToPath(configPath));
+        const cwd = path.dirname(url.fileURLToPath(configPath));
         const dependencies: string[] = [];
 
         if (/^\s*%\s*cc0/.test(line)) {
-          const args = line.split(" ");
+          const args = line.split(" ").filter(s => s !== "");
+
           for (let i = 0; i < args.length; i++) {
             const arg = args[i];
             switch (arg) {
-              case "":
               case "%":
               case "cc0":
               // Skip argument
@@ -146,11 +146,17 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
               default:
                 // Skip any other option (we will assume they are nullary)
                 if (arg[0] === '-') continue;
-                // Expand any possible globs
-                const files = glob.sync(arg, { cwd });
-                for (const globbedFile of files) {
-                  if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
-                  else dependencies.push(`${base}/${globbedFile}`);
+                // Expand any possible globs, but only if a glob is in there 
+                if (glob.hasMagic(arg)) {
+                  const files = glob.sync(arg, { cwd });
+                  for (const globbedFile of files) {
+                    if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
+                    else dependencies.push(`${base}/${globbedFile}`);
+                  }
+                }
+                else {
+                  if (arg === fname) return Just({ uri: configPath.toString(), dependencies });
+                  else dependencies.push(`${base}/${arg}`);
                 }
             }
           }
@@ -245,7 +251,8 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       folders && folders.length ? `${folders[0].uri}/project.txt` : ""
     ].map(p => new URL(p)));
 
-    if (!maybeDependencies.hasValue) {
+    if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
+        || change.document.uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
         `No valid project.txt or README.txt found for the current document.\n` + 
@@ -255,8 +262,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
         change.document.uri));
 
       dependencies = [];
-    }
-    else {
+    } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
       cachedProjects.set(change.document.uri, maybeDependencies.value);
     }
@@ -384,9 +390,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           if (!inCurrentFile && decl.body) break;
                                               
           const requires = decl.preconditions.map(precond =>
-              `//@requires ${expressionToString(precond)}`);
+              `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
-              `//@ensures ${expressionToString(postcond)}`);
+              `//@ensures ${expressionToString(postcond)};`);
 
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
@@ -469,6 +475,13 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
   const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
 
+  // This assumes that .h0 always refers to a library in the "include path"
+  for (const completion of completions) {
+    if (completion.detail?.endsWith("h0")) {
+      completion.detail = `#use <${path.basename(completion.detail, ".h0")}>`;
+    }
+  }
+
   return completions;
 });
 
@@ -498,9 +511,9 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const decl = getFunctionDeclaration(genv, name);
         if (decl === null) return null; 
         const requires = decl.preconditions.map(precond =>
-          `//@requires ${expressionToString(precond)}`);
+          `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
-          `//@ensures ${expressionToString(postcond)}`);
+          `//@ensures ${expressionToString(postcond)};`);
 
         return {
           contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
@@ -539,8 +552,19 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
+    let targetUri: string;
+    // Don't create another view file, 1 is enough 
+    if (loc.source?.endsWith(".h0") && !loc.source.endsWith("-view.h0")) {
+      // Make a copy of any header files so 
+      // users can't mess it up
+      targetUri = loc.source.replace(".h0", "-view.h0");
+      fs.copyFileSync(new URL(loc.source), new URL(targetUri));
+    }
+    else {
+      targetUri = loc.source || data.textDocument.uri;
+    }
     return [{
-      targetUri: loc.source || data.textDocument.uri,
+      targetUri,
       targetSelectionRange: {
         start: ast.toVscodePosition(loc.start),
         end: ast.toVscodePosition(loc.end)
@@ -607,9 +631,11 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       return toLocationLink(definition.position);
     }
     case "FoundField": {
-      const { field } = searchResult.data;
+      const { field, struct } = searchResult.data;
 
       if (field.id.loc === undefined) return null;
+      // Source is only present on upper-most declarations
+      field.id.loc.source = struct.loc?.source;
       return toLocationLink(field.id.loc);
     }
   }

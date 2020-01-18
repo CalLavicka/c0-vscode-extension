@@ -1,7 +1,31 @@
 # Change Log
 
-## [1.2.3]
+## [1.3.5]
+- Reverted incorrectly published code 
+
+## [1.3.4]
+- Library headers are now copied when read, so any changes will not persist 
+- Fixed a bug regarding go-to definition of struct fields in different files
+- Fixed a bug regarding multiple compilation paths through a single file
+- Fixed a bug with c0-light theme menu colors
+
+## [1.3.3]
+- Declarations from a library header now have their location reported as being from the library (e.g. `#use <string>` instead of `string.h0`) 
+
+## [1.3.2]
+- Added semicolons to the end of contracts in hover and completion windows
+- Fixed a typo in the README
+- Fixed a bug where a diagnostic warning that no project file was found would appear for header files.
+
+## [1.3.1]
+- Fixed a bug involving character literals '"' and '\\'
+- Fixed a bug involving files not found while expanding a glob in README.txt 
+- Fixed an issue involving highlighting multiline contract blocks 
+- Added squiggles for all exceptions raised during typechecking and parsing - including `ImpossibleErrors` as these help in tracking down bugs 
+
+## [1.3.0]
 - The extension will now attempt to get dependencies off `README.txt` instead of `project.txt` when available
+- Code completion will only suggest functions from other files if they have a separate prototype declared, to prevent implementation details from leaking 
 
 ## [1.2.2]
 

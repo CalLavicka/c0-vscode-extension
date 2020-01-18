@@ -112,12 +112,8 @@ export function restrictExpression(lang: Lang, syn: syn.Expression): ast.Express
         case "CharLiteral": {
             atleast(syn, lang, "C0", "character literals");
             if (syn.raw.length === 1) {
-                if (!syn.raw.match(/[ !#-~]/)) { throw new ParsingError(syn, `Invalid character '${syn.raw}'`); }
-            } else {
-                if (!syn.raw.match(/\\[ntvbrfa\\'"0]/)) {
-                    throw new ParsingError(syn, `Invalid escape character '${syn.raw}'`);
-                }
-            }
+                if (!syn.raw.match(/[ -~]/)) { throw new ParsingError(syn, `Invalid character '${syn.raw}'`); }
+            } 
             let value = syn.raw[0];
             if (syn.raw[0] === "\\") {
                 switch (syn.raw[1]) {
@@ -148,8 +144,11 @@ export function restrictExpression(lang: Lang, syn: syn.Expression): ast.Express
                     case "0":
                         value = "\0";
                         break;
+                    case "\\":
+                        value = "\\";
+                        break;
                     default:
-                        throw new ImpossibleError(`Unexpected char '${syn.raw}'`);
+                        throw new ParsingError(syn, `Unexpected escape character '${syn.raw}'`);
                 }
             }
 
