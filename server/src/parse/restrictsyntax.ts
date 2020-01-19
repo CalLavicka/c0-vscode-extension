@@ -703,6 +703,7 @@ export function restrictParams(
 
 // Internal buffer of comment text
 let commentBuffer: string = "";
+let lastCommentType: syn.CommentType = syn.CommentType.Block;
 
 function trimComment(line: string): string {
     // Skip leading/trailing *'s and spaces
@@ -717,8 +718,18 @@ function trimComment(line: string): string {
 
 function parseCommentBuffer(): string {
     const lines = commentBuffer.split("\n").map(line => trimComment(line));
+
+    // This is to show "abstract typedefs"
+    // as code, not markdown 
+    // e.g. "// typedef _____ queue_t"
+    if (lines[0]?.startsWith("typedef")) {
+        lines[0] = `\`${lines[0]}\``;
+    }
+
     commentBuffer = "";
-    return lines.join("\n");
+    const joined = lines.join("\n");
+
+    return joined;
 }
 
 export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Declaration[] {
@@ -734,7 +745,13 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
             return [];
 
         case "CapturedComment":
-            commentBuffer += decl.text;
+            if (decl.type !== lastCommentType) {
+                commentBuffer = decl.text;
+                lastCommentType = decl.type;
+            }
+            else {
+                commentBuffer += decl.text;
+            }
             return [];
 
         case "FunctionDeclaration": {

@@ -346,7 +346,10 @@ export interface PragmaUnknown extends Syn {
     readonly text: string;
 }
 
+export const enum CommentType { Line, Block }
+
 export interface CapturedComment extends Syn {
     readonly tag: "CapturedComment";
+    readonly type: CommentType;
     readonly text: string;
 }

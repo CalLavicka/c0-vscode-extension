@@ -520,6 +520,17 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   return Left(diagnostics);
 }
 
+/**
+ * Creates a C0 parser, which 
+ * uses the given type-ids to parse.
+ * 
+ * If filename is not provided, then 
+ * no filename is attached to any parsed decls
+ * 
+ * If language is not provided, then it will
+ * either be inferred from filename, or 
+ * will default to C1 
+ */
 export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
   if (!language && filename) {
     const inferredLang = lang.parse(path.extname(filename).substr(1));

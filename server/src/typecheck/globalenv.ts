@@ -131,13 +131,24 @@ export function isLibraryStruct(genv: GlobalEnv, t: string): boolean {
  * Given an ostensible function name, get the relevant function definition (if one exists), or the
  * latest function declaration (if no definition exists). No declaration may exist; the function will
  * then return 'null'.
+ * 
+ * If filename is provided, then the behavior is slightly modified:
+ * If the function's implementation is found in a different file, then
+ * we return the declaration. Otherwise, we return the body 
  */
-export function getFunctionDeclaration(genv: GlobalEnv, t: string): ast.FunctionDeclaration | null {
+export function getFunctionDeclaration(genv: GlobalEnv, t: string, filename?: string): ast.FunctionDeclaration | null {
     let result: ast.FunctionDeclaration | null = null;
     for (const decl of genv.decls) {
         if (decl.tag === "FunctionDeclaration" && decl.id.name === t) {
-            if (result === null) { result = decl; }
-            if (decl.body !== null) { return decl; }
+            if (filename) { 
+                if (decl.loc?.source === filename && decl.body) return decl;
+                if (decl.loc?.source && decl.loc.source !== filename && !decl.body) return decl;
+                if (result === null) result = decl;
+            }
+            else {
+                if (result === null) { result = decl; }
+                if (decl.body !== null) { return decl; }
+            }
         }
     }
     return result;

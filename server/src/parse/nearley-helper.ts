@@ -939,6 +939,7 @@ export function LineComment([start, text, end]: [Token, Token[], Token]) {
             start: tokloc(start).start,
             end: tokloc(end).end
         },
+        type: syn.CommentType.Line,
         text: text.map(x => x.value).join("")
     }
 }
@@ -950,6 +951,7 @@ export function MultiComment([start, text, end]: [Token, Token[][], Token]): syn
             start: tokloc(start).start,
             end: tokloc(end).end
         },
+        type: syn.CommentType.Block,
         text: text.map(x => x[0].value).join("")
     }
 }
