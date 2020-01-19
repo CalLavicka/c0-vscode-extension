@@ -18,14 +18,17 @@ import {
   TextDocumentChangeEvent,
   ParameterInformation,
   SignatureInformation,
-  WorkspaceFolder
+  TextEdit,
+  ResponseError,
+  WorkspaceFolder,
+  TextDocument
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement, findGenv, comparePositions } from "./ast-search";
+import { isInside, findStatement, findGenv, comparePositions, FindUsesParam, findUses } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -65,7 +68,10 @@ connection.onInitialize((params: InitializeParams) => {
       },
       hoverProvider: true,
       definitionProvider: true,
-      signatureHelpProvider: { triggerCharacters: ["(", ","] }
+      signatureHelpProvider: { triggerCharacters: ["(", ","] },
+      renameProvider: {
+        prepareProvider: true
+      }
     }
   };
 });
@@ -108,81 +114,118 @@ type Dependencies = {
   dependencies: string[] 
 };
 
-function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
+/**
+ * Parses a single project.txt file or README into a list of lists of compilation orders.
+ * @param file The project.txt or README file to parse
+ */
+function parseFileListing(file: URL): string[][] {
   /** Takes a line from project.txt and removes comments and leading/trailing whitespace */
   function parseLine(line: string): string {
     const index = line.indexOf("//");
     return (index === - 1 ? line : line.substr(0, index)).trim();
   }
 
-  for (const configPath of configPaths) {
-    if (fs.existsSync(configPath)) {
-      const fileLines = fs.readFileSync(configPath, { encoding: "utf-8" }).split("\n");
-      // Filenames should be relative to the config file's location
-      // This is a string in URI format
-      const base: string = path.dirname(configPath.toString());
-      // path will add platform-specific separators, which is not what we want
-      const fname: string = path.posix.relative(base, name);
+  const groups: string[][] = [];
 
-      // Try parsing it as a README.txt file
-      for (const line of fileLines) {
-        // The OS-specific path to the directory of the file
-        const cwd = path.dirname(url.fileURLToPath(configPath));
-        const dependencies: string[] = [];
+  if (fs.existsSync(file)) {
+    const fileLines = fs.readFileSync(file, { encoding: "utf-8" }).split("\n");
+    const base: string = path.dirname(file.toString());
 
-        if (/^\s*%\s*cc0/.test(line)) {
-          const args = line.split(" ").filter(s => s !== "");
+    // Try parsing it as a README.txt file
+    for (const line of fileLines) {
+      // The OS-specific path to the directory of the file
+      const cwd = path.dirname(url.fileURLToPath(file));
+      const dependencies: string[] = [];
 
-          for (let i = 0; i < args.length; i++) {
-            const arg = args[i];
-            switch (arg) {
-              case "%":
-              case "cc0":
-              // Skip argument
-              case "-o": i++; continue;
-              default:
-                // Skip any other option (we will assume they are nullary)
-                if (arg[0] === '-') continue;
-                // Expand any possible globs, but only if a glob is in there 
-                if (glob.hasMagic(arg)) {
-                  const files = glob.sync(arg, { cwd });
-                  for (const globbedFile of files) {
-                    if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
-                    else dependencies.push(`${base}/${globbedFile}`);
-                  }
+      if (/^\s*%\s*cc0/.test(line)) {
+        const args = line.split(" ").filter(s => s !== "");
+
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i];
+          switch (arg) {
+            case "%":
+            case "cc0":
+            // Skip argument
+            case "-o": i++; continue;
+            default:
+              // Skip any other option (we will assume they are nullary)
+              if (arg[0] === '-') continue;
+              // Expand any possible globs, but only if a glob is in there 
+              if (glob.hasMagic(arg)) {
+                const files = glob.sync(arg, { cwd });
+                for (const globbedFile of files) {
+                  dependencies.push(`${base}/${globbedFile}`);
                 }
-                else {
-                  if (arg === fname) return Just({ uri: configPath.toString(), dependencies });
-                  else dependencies.push(`${base}/${arg}`);
-                }
-            }
+              }
+              else {
+                dependencies.push(`${base}/${arg}`);
+              }
           }
         }
+        groups.push(dependencies);
       }
-
+    }
+    if (groups.length === 0) {
       // Try parsing it as a project.txt file
       const lines: string[][] = fileLines
-        .map(line => parseLine(line).split(" ").map(file => file.trim()));
+        .map(line => parseLine(line).split(" ").map(f => f.trim()));
 
       for (const files of lines) {
         const dependencies = [];
-        for (const file of files) {
+        for (const f of files) {
           // Lines will be blank if they are all whitespace
           // or all comments 
-          if (file === '') continue;
-
-          if (file === fname) {
-            return Just({ uri: configPath.toString(), dependencies });
-          }
+          if (f === '') continue;
 
           // Note that URIs always use /
           // (even on Windows)
-          dependencies.push(`${base}/${file}`);
+          dependencies.push(`${base}/${f}`);
         }
+        groups.push(dependencies);
+      }
+    }
+  }
+  return groups;
+}
+
+function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
+  for (const configPath of configPaths) {
+    const group = parseFileListing(configPath);
+    for (const files of group) {
+      const dependencies: string[] = [];
+      for (const file of files) {
+        if (file === name) {
+          return Just({ uri: configPath.toString(), dependencies });
+        }
+        dependencies.push(file);
       }
     }
   }
   return Nothing;
+}
+
+function getAllFiles(name: string, configPaths: URL[]): Set<string> {
+  const files = new Set<string>();
+  for (const configPath of configPaths) {
+    const group = parseFileListing(configPath);
+    for (const dependencies of group) {
+      if (dependencies.includes(name)) {
+        dependencies.forEach((file) => files.add(file));
+      }
+    }
+  }
+  files.add(name);
+  return files;
+}
+
+function getConfigPaths(dir: string, folders: WorkspaceFolder[] | null): URL[] {
+  return [
+    `${dir}/README.txt`,
+    `${dir}/../README.txt`, // Look one folder above
+    `${dir}/project.txt`,
+    `${dir}/../project.txt`, 
+    folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+  ].map(p => new URL(p));
 }
 
 /**
@@ -212,62 +255,56 @@ connection.onDidChangeWatchedFiles(async params => {
 
       // Reload diagnostics for all documents 
       for (const document of documents.all()) {
-        await validateTextDocument({ document });
+        await validateTextDocument(document);
       }
     }
   }
 });
 
-documents.onDidOpen(validateTextDocument);
+documents.onDidOpen((change) => {
+  validateTextDocument(change.document);
+});
 documents.onDidChangeContent(async (change) => {
   invalidate(change.document.uri);
-  await validateTextDocument(change);
+  await validateTextDocument(change.document);
 });
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
-async function validateTextDocument(change: TextDocumentChangeEvent) {
+async function validateTextDocument(document: string | TextDocument, sendDiagnostics: boolean = true) {
   let dependencies: string[] = [];
   const diagnostics: Diagnostic[] = [];
+  const uri = typeof document === 'string' ? document : document.uri;
 
-  const project = cachedProjects.get(change.document.uri);
+  const project = cachedProjects.get(uri);
   if (project) {
     dependencies = project.dependencies;
   } else {
     // Look for a config file
-    const dir = path.dirname(change.document.uri);
+    const dir = path.dirname(uri);
 
     // maybe just use a VSCode config file...
     const folders = await connection.workspace.getWorkspaceFolders();
 
-    const maybeDependencies = getDependencies(change.document.uri, [
-      `${dir}/README.txt`,
-      `${dir}/../README.txt`, // Look one folder above
-      `${dir}/project.txt`,
-      `${dir}/../project.txt`, 
-      folders && folders.length ? `${folders[0].uri}/project.txt` : ""
-    ].map(p => new URL(p)));
+    const maybeDependencies = getDependencies(uri, getConfigPaths(dir, folders));
 
-    if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
-        || change.document.uri.endsWith("h1"))) {
+    if (!maybeDependencies.hasValue && !(uri.endsWith("h0") || uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
         `No valid project.txt or README.txt found for the current document.\n` + 
         `Completions and other features may not work as expected`,
-        DiagnosticSeverity.Warning,
-        undefined,
-        change.document.uri));
+        DiagnosticSeverity.Warning, undefined, uri));
 
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
-      cachedProjects.set(change.document.uri, maybeDependencies.value);
+      cachedProjects.set(uri, maybeDependencies.value);
     }
   }
 
-  const parseErrors = await parseTextDocument(dependencies, change.document);
-
-  connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
+  const parseErrors = await parseTextDocument(dependencies, document);
+  if (sendDiagnostics)
+    connection.sendDiagnostics({ uri: uri, diagnostics: [...diagnostics, ...parseErrors] });
 }
 
 /**
@@ -710,6 +747,211 @@ connection.onSignatureHelp((data) => {
       activeParameter: context.argumentNumber
     };
   }
+});
+
+connection.onPrepareRename((data) => {
+  const genv = openFiles.get(data.textDocument.uri);
+  // Indicates no successful parse so far
+  if (genv === undefined) { return null; }
+
+  const pos: ast.Position = ast.fromVscodePosition(data.position);
+  const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
+
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier
+  if (searchResult === null || searchResult.data === null)
+    return new ResponseError<void>(0, "Can't rename that.");
+
+  switch (searchResult.data.tag) {
+    case "FoundType": {
+      const { type } = searchResult.data;
+
+      switch (type.tag) {
+        case "Identifier":
+          // Find a typedef with this tag
+          const typedef = getTypedefDefinition(genv, type.name);
+          if (typedef?.loc?.source?.endsWith('.h0') || typedef?.loc?.source?.endsWith('.h1')) {
+            return new ResponseError<void>(0, "Can't rename that type: It's defined in a library.");
+          }
+          if (type.loc) {
+            return ast.locToRange(type.loc);
+          }
+          break;
+
+        case "StructType":
+          const struct = getStructDefinition(genv, type.id.name);
+          if (struct?.loc?.source?.endsWith('.h0') || struct?.loc?.source?.endsWith('.h1')) {
+            return new ResponseError<void>(0, "Can't rename that struct: It's defined in a library.");
+          }
+          if (type.id.loc) {
+            return ast.locToRange(type.id.loc);
+          }
+          break;
+      }
+      break;
+    }
+
+    case "FoundIdent": {
+      const { name, type, id } = searchResult.data;
+
+      if (type.tag === "FunctionType") {
+        // Look up function
+        const func = getFunctionDeclaration(genv, name);
+        if (func?.loc?.source?.endsWith('.h0') || func?.loc?.source?.endsWith('.h1')) {
+          return new ResponseError<void>(0, "Can't rename that function: It's defined in a library.");
+        }
+        if (id.loc) {
+          return ast.locToRange(id.loc);
+        }
+      }
+      const definition: EnvEntry | undefined = searchResult.environment?.get(name);
+
+      if (definition === undefined || definition.position === undefined) return new ResponseError<void>(0, "Can't rename that.");
+      if (id.loc) return ast.locToRange(id.loc);
+      break;
+    }
+
+    case "FoundField": {
+      const { struct, id } = searchResult.data;
+      if (struct.loc?.source?.endsWith('.h0') || struct.loc?.source?.endsWith('.h1')) {
+        return new ResponseError<void>(0, "Can't rename that field: It's defined in a library.");
+      }
+      if (id.loc) return ast.locToRange(id.loc);
+      break;
+    }
+  }
+
+  // Generic invalid rename
+  return new ResponseError<void>(0, "Can't rename that.");
+});
+
+connection.onRenameRequest(async (data) => {
+  // Confirm that data is a valid identifier
+  const idTest = new RegExp(`^${basicLexing.identifier.match.source}$`);
+  if (!idTest.test(data.newName) || basicLexing.identifier.keywords.keyword.includes(data.newName)) {
+    return new ResponseError<void>(0, "Invalid identifier.");
+  }
+
+  const genv = openFiles.get(data.textDocument.uri);
+  // Indicates no successful parse so far
+  if (genv === undefined) { return null; }
+
+  const pos: ast.Position = ast.fromVscodePosition(data.position);
+  const searchResult = findGenv({ pos, genv }, data.textDocument.uri);
+
+  // This indicates that the user hovered over something that
+  // wasn't an indentifier
+  if (searchResult === null || searchResult.data === null) return null;
+
+  let toFind: FindUsesParam | null = null;
+
+  // The source of the identifier, to see which files rely on this definition.
+  // If null, local to this file only.
+  let source: string | null = null;
+
+  switch (searchResult.data.tag) {
+    case "FoundType": {
+      const { type } = searchResult.data;
+
+      switch (type.tag) {
+        case "Identifier":
+          // Find a typedef with this tag
+          const typedef = getTypedefDefinition(genv, type.name);
+          if (typedef?.loc?.source === null || typedef?.loc?.source === undefined) break;
+          source = typedef.loc.source;
+          toFind = {
+            tag: 'FindType',
+            name: type.name
+          };
+          break;
+
+        case "StructType":
+          const struct = getStructDefinition(genv, type.id.name);
+          if (struct?.loc?.source === null || struct?.loc?.source === undefined) break;
+          source = struct.loc.source;
+          toFind = {
+            tag: 'FindStruct',
+            name: type.id.name
+          };
+          break;
+      }
+      break;
+    }
+    case "FoundIdent": {
+      const { name, type } = searchResult.data;
+
+      if (type.tag === "FunctionType") {
+        // Look up function
+        const func = getFunctionDeclaration(genv, name);
+        if (func?.loc?.source === null || func?.loc?.source === undefined) break;
+        source = func.loc.source;
+        toFind = {
+          tag: 'FindFunction',
+          name: name
+        };
+        break;
+      } else {
+        const definition: EnvEntry | undefined = searchResult.environment?.get(name);
+  
+        if (definition !== undefined && definition.position !== undefined) {
+          toFind = {
+            tag: 'FindVar',
+            entry: definition
+          };
+        }
+      }
+      break;
+    }
+    case "FoundField": {
+      const { struct, field } = searchResult.data;
+      if (struct?.loc?.source === null || struct?.loc?.source === undefined) break;
+      source = struct.loc.source;
+      
+      toFind = {
+        tag: 'FindField',
+        struct: struct.id.name,
+        field: field.id.name
+      };
+      break;
+    }
+  }
+  if (toFind) {
+    // Get all files which could use the source file
+    let files: Set<string>;
+    if (source) {
+      const dir = path.dirname(source);
+      const folders = await connection.workspace.getWorkspaceFolders();
+      files = getAllFiles(source, getConfigPaths(dir, folders));
+    } else {
+      files = new Set([data.textDocument.uri]);
+    }
+    try {
+      const changes: {
+        [uri: string]: TextEdit[]
+      } = { };
+      for (const file of files) {
+        let fileGenv = openFiles.get(file);
+        if (!fileGenv) {
+          await validateTextDocument(file, false);
+          fileGenv = openFiles.get(file);
+          if (!fileGenv) {
+            // Give up with this file
+            continue;
+          }
+        }
+        changes[file] = findUses(fileGenv, file, toFind).map((loc) => {
+          return TextEdit.replace(ast.locToRange(loc), data.newName);
+        });
+      }
+      return { changes };
+    } catch (err) {
+      // Can't edit header file functions!
+      return null;
+    }
+    
+  }
+
+  return null;
 });
 
 // Make the text document manager listen on the connection

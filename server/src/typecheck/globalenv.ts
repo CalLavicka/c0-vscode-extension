@@ -157,9 +157,9 @@ export function getStructDefinition(genv: GlobalEnv, t: string): ast.StructDecla
     return result;
 }
 
-export function getTypedefDefinition(genv: GlobalEnv, t: string): ast.TypeDefinition | null {
+export function getTypedefDefinition(genv: GlobalEnv, t: string): ast.TypeDefinition | ast.FunctionTypeDefinition | null {
     for (const decl of genv.decls) {
-        if (decl.tag === "TypeDefinition" && decl.definition.id.name === t) {
+        if ((decl.tag === "TypeDefinition" || decl.tag === "FunctionTypeDefinition") && decl.definition.id.name === t) {
             return decl;
         }
     }
