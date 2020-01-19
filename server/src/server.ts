@@ -698,6 +698,19 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
                       options: FormattingOptions,
                       position: Position): TextEdit[] {
     switch (code.tag) {
+      case "PragmaUseLib":
+        return [TextEdit.insert(position, `#use <${code.name}>\n`)];
+      case "AssignmentStatement":
+        return [...formatCode(code.left, options, position),
+        TextEdit.insert(position, ` ${code.operator} `),
+        ...formatCode(code.right, options, position),
+      ];
+      case "UpdateStatement":
+        return [...formatCode(code.argument, options, position),
+           TextEdit.insert(position, code.operator),
+          ];
+      case "ExpressionStatement":
+        return formatCode(code.expression, options, position);
       case "IntLiteral":
         return [TextEdit.insert(
           position,
@@ -748,17 +761,49 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
           ...formatCode(code.id, options, position)];
         }
       case "BinaryExpression":
-      case "AssignmentStatement":
         return [...formatCode(code.left, options, position),
           TextEdit.insert(position, ` ${code.operator} `),
           ...formatCode(code.right, options, position),
         ];
+      case "AssignmentStatement":
+        return [...formatCode(code.left, options, position),
+          TextEdit.insert(position, ` ${code.operator} `),
+          ...formatCode(code.right, options, position),
+          TextEdit.insert(position, ";"),
+        ];
       case "BlockStatement":
+        if (code.loc === undefined) { return []; }
         const edits: TextEdit[] = [];
         for (const stmt of code.body) {
           edits.push(...formatCode(stmt, options, position));
         }
         return edits;
+      case "ReturnStatement":
+        if (code.argument) {
+        return [TextEdit.insert(position, "return "),
+          ...formatCode(code.argument, options, position),
+          TextEdit.insert(position, ";"),
+        ];
+      } else {
+        return [TextEdit.insert(position, "return;")];
+      }
+      case "IfStatement":
+        if (code.alternate) {
+          return [TextEdit.insert(position, "if ("),
+          ...formatCode(code.test, options, position),
+          TextEdit.insert(position, ") {"),
+          ...formatCode(code.consequent, options, position),
+          TextEdit.insert(position, "} else "),
+          ...formatCode(code.alternate, options, position)
+        ];
+        } else {
+          return [TextEdit.insert(position, "if ("),
+          ...formatCode(code.test, options, position),
+          TextEdit.insert(position, ") {"),
+          ...formatCode(code.consequent, options, position),
+          TextEdit.insert(position, "}"),
+        ];
+        }
       default:
         break;
     }
@@ -777,6 +822,10 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
     // TODO: change position to position of decl
     edits.push(...formatCode(decl, data.options, Position.create(0, 0)));
   }
+  edits.push(TextEdit.del(Range.create(
+    Position.create(0, 0),
+    Position.create(document.lineCount, 80)
+  )))
   return edits;
 });
 
