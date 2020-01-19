@@ -1,5 +1,11 @@
 # Change Log
 
+## [2.0.0]
+- *New major feature*: Documentation hints. Documentation will now be displayed for structs, 
+functions, and typedefs in the code completion/hover information window.
+- *New major feature*: Indentor. "Format document" will now properly indent the document
+- Added `assert()` and `error()` to code completion items 
+
 ## [1.3.5]
 - Reverted incorrectly published code 
 
