@@ -253,7 +253,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     ].map(p => new URL(p)));
 
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
-        || change.document.uri.endsWith("h1"))) {
+      || change.document.uri.endsWith("h1"))) {
       diagnostics.push(Diagnostic.create(
         Range.create(Position.create(0, 0), Position.create(0, 0)),
         `No valid project.txt or README.txt found for the current document.\n` +
@@ -391,9 +391,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           if (!inCurrentFile && decl.body) break;
 
           const requires = decl.preconditions.map(precond =>
-              `//@requires ${expressionToString(precond)};`);
+            `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
-              `//@ensures ${expressionToString(postcond)};`);
+            `//@ensures ${expressionToString(postcond)};`);
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
             kind: CompletionItemKind.Function,
@@ -643,7 +643,6 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
   return null;
 });
 
-/* TODO: UNCOMMENT THIS XXX FIXME
 connection.onSignatureHelp((data) => {
   const genv = openFiles.get(data.textDocument.uri);
   if (genv === undefined) { return null; }
@@ -681,7 +680,7 @@ connection.onSignatureHelp((data) => {
         signatureLength += 2;
       }
     }
-    
+
     signature += ")";
 
     const sig = SignatureInformation.create(signature, undefined, ...paramInfo);
@@ -693,29 +692,71 @@ connection.onSignatureHelp((data) => {
     };
   }
 });
-*/
 
 connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | null => {
-  function formatCode(code: ast.Declaration | ast.Expression | ast.Statement,
-                      options: FormattingOptions): TextEdit[] {
+  function formatCode(code: ast.Declaration | ast.Expression | ast.Statement | ast.ValueType,
+                      options: FormattingOptions,
+                      position: Position): TextEdit[] {
     switch (code.tag) {
+      case "IntLiteral":
+        return [TextEdit.insert(
+          position,
+          code.raw,
+        )];
+      case "Identifier":
+        return [TextEdit.insert(
+          position,
+          code.name,
+        )];
+      case "IntType":
+        return [TextEdit.insert(
+          position,
+          "int",
+        )];
+      case "BoolType":
+        return [TextEdit.insert(
+          position,
+          "bool",
+        )];
+      case "StringType":
+        return [TextEdit.insert(
+          position,
+          "string",
+        )];
+      case "CharType":
+        return [TextEdit.insert(
+          position,
+          "char",
+        )];
       case "FunctionTypeDefinition":
-        return formatCode(code.definition, options);
+        return formatCode(code.definition, options, position);
       case "FunctionDeclaration":
         if (code.body !== null) {
-          return formatCode(code.body, options);
+          return formatCode(code.body, options, position);
         }
         break;
+      case "VariableDeclaration":
+        if (code.init) {
+          return [...formatCode(code.kind, options, position),
+          TextEdit.insert(position, " "),
+          ...formatCode(code.id, options, position),
+          TextEdit.insert(position, " = "),
+          ...formatCode(code.init, options, position)];
+        } else {
+          return [...formatCode(code.kind, options, position),
+            TextEdit.insert(position, " "),
+          ...formatCode(code.id, options, position)];
+        }
       case "BinaryExpression":
       case "AssignmentStatement":
-        return [TextEdit.insert(
-          Position.create(0, 0),
-          `${code.right} ${code.operator} ${code.right}`
-        )];
+        return [...formatCode(code.left, options, position),
+          TextEdit.insert(position, ` ${code.operator} `),
+          ...formatCode(code.right, options, position),
+        ];
       case "BlockStatement":
         const edits: TextEdit[] = [];
         for (const stmt of code.body) {
-          edits.push(...formatCode(stmt, options));
+          edits.push(...formatCode(stmt, options, position));
         }
         return edits;
       default:
@@ -724,15 +765,17 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
     return [];
   }
 
-  const doc = documents.get(data.textDocument.uri);
-  if (!doc) return null;
+  const document = documents.get(data.textDocument.uri);
+  if (!document) return null;
 
   const edits: TextEdit[] = [];
   // TODO: check if still valid
   const syntaxTree: ast.Declaration[] | undefined = openFiles.get(data.textDocument.uri)?.decls;
+
   if (!syntaxTree) return null;
   for (const decl of syntaxTree) {
-    edits.push(...formatCode(decl, data.options));
+    // TODO: change position to position of decl
+    edits.push(...formatCode(decl, data.options, Position.create(0, 0)));
   }
   return edits;
 });
