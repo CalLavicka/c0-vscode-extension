@@ -470,7 +470,27 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
   // to the end of the completion list. But we then
   // have to implement sortText for everything it seems
 
-  const completions = [...locals, ...functionDecls.values(), ...typedefs, ...fieldNames];
+  const builtins: CompletionItem[] = [
+    {
+      label: "assert",
+      kind: CompletionItemKind.Function,
+      documentation: mkMarkdownCode(`void assert(bool condition)`),
+      detail: "<C0 built-in assert>"
+    },
+    {
+      label: "error",
+      kind: CompletionItemKind.Function,
+      documentation: mkMarkdownCode(`void error(string message)`),
+      detail: "<C0 built-in error>"
+    }
+  ];
+
+  const completions = [
+    ...locals, 
+    ...functionDecls.values(), 
+    ...typedefs, 
+    ...fieldNames,
+    ...builtins];
 
   // This assumes that .h0 always refers to a library in the "include path"
   for (const completion of completions) {
@@ -655,6 +675,8 @@ connection.onSignatureHelp((data) => {
     doc.offsetAt(data.position) - 1);
 
   if (context && context.tag === CompletionContextKind.FunctionCall) {
+    // TODO: add signature help for built-in assert() and error() 
+
     const functionDecl = getFunctionDeclaration(genv, context.name);
     if (!functionDecl) return null;
 
