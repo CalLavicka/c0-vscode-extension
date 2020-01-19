@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.3.5]
+- Reverted incorrectly published code 
+
 ## [1.3.4]
 - Library headers are now copied when read, so any changes will not persist 
 - Fixed a bug regarding go-to definition of struct fields in different files
