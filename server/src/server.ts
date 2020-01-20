@@ -31,7 +31,7 @@ import { typeToString, expressionToString } from './print';
 import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
-import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
+import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition, isLibraryFunction } from './typecheck/globalenv';
 import { Maybe, Just, Nothing, getLibpath } from './util';
 import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
@@ -303,8 +303,8 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
 
   const pos = ast.fromVscodePosition(completionInfo.position);
 
-  const decls = openFiles.get(completionInfo.textDocument.uri);
-  if (decls === undefined) return keywords;
+  const genv = openFiles.get(completionInfo.textDocument.uri);
+  if (genv === undefined) return keywords;
 
   // Add all gdecl names
   const functionDecls: Map<string, CompletionItem> = new Map();
@@ -338,7 +338,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
   }
 
   // TODO: only show decls up to this point
-  for (const decl of decls.decls) {
+  for (const decl of genv.decls) {
     const inCurrentFile = decl.loc && decl.loc.source === completionInfo.textDocument.uri;
     // Stop once we get to a decl after the curser position
     // in the current file
@@ -391,11 +391,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           const ensures = decl.postconditions.map(postcond =>
               `//@ensures ${expressionToString(postcond)};`);
 
+          const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
+
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
             kind: CompletionItemKind.Function,
-            documentation: mkMarkdownCode(
-              `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`),
+            documentation: {
+              kind: "markdown",
+              value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
+            },
             detail: uriToWorkspace(decl.loc?.source || undefined)
           });
         }
@@ -403,7 +407,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           // Look in the function body for local variables
           if (!isInside(pos, decl.body.loc)) break;
 
-          const searchResult = findStatement(decl.body, null, { pos, genv: decls });
+          const searchResult = findStatement(decl.body, null, { pos, genv: genv });
           if (searchResult === null || searchResult.environment === null) break;
 
           const doc = documents.get(completionInfo.textDocument.uri);
@@ -417,17 +421,17 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                 case CompletionContextKind.StructAccess:
                   try {
                     // Type safety? :D 
-                    const type = <ast.Type>synthExpression(decls, searchResult.environment, null, <ast.Expression>context.expr);
+                    const type = <ast.Type>synthExpression(genv, searchResult.environment, null, <ast.Expression>context.expr);
                     let actual;
                     if (context.derefenced && type.tag === "PointerType") {
-                      actual = actualType(decls, type.argument);
+                      actual = actualType(genv, type.argument);
                     }
                     else {
-                      actual = actualType(decls, type);
+                      actual = actualType(genv, type);
                     }
                     const structname = (<ast.StructType>actual).id?.name || "";
 
-                    const struct = getStructDefinition(decls, structname);
+                    const struct = getStructDefinition(genv, structname);
                     if (struct && struct.definitions) {
                       return struct.definitions.map(field => ({
                           label: field.id.name,
@@ -525,15 +529,20 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
       const { name, type } = searchResult.data;
       if (type.tag === "FunctionType") {
         // Also display contracts in hover result for a function 
-        const decl = getFunctionDeclaration(genv, name);
+        const decl = getFunctionDeclaration(genv, name, data.textDocument.uri);
         if (decl === null) return null; 
         const requires = decl.preconditions.map(precond =>
           `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
           `//@ensures ${expressionToString(postcond)};`);
 
+        const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
+
         return {
-          contents: mkMarkdownCode(`${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`)
+          contents: {
+            kind: "markdown",
+            value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
+          }
         };
       }
       else {
@@ -548,8 +557,10 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
       // Display as typedef if custom type
       if (type.tag === "Identifier") {
+        const decl = getTypedefDefinition(genv, type.name);
+
         return {
-          contents: mkMarkdownCode(`typedef ${typeToString(realType)} ${type.name}`)
+          contents: decl?.doc ? decl.doc : mkMarkdownCode(`typedef ${typeToString(realType)} ${type.name}`)
         };
       }
 
@@ -636,7 +647,7 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       if (type.tag === "FunctionType") {
         // Look up function
         // TODO: suggest both the function declaration and the function definition
-        const func = getFunctionDeclaration(genv, name);
+        const func = getFunctionDeclaration(genv, name, data.textDocument.uri);
         if (func && func.loc) {
           return toLocationLink(func.loc);
         }

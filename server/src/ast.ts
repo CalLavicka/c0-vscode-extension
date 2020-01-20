@@ -486,6 +486,7 @@ export interface StructDeclaration extends Syn {
     readonly tag: "StructDeclaration";
     readonly id: Identifier;
     readonly definitions: null | VariableDeclarationOnly[];
+    readonly doc: string;
 }
 
 export interface VariableDeclarationOnly extends Syn {
@@ -502,11 +503,13 @@ export interface FunctionDeclaration extends Syn {
     readonly preconditions: Expression[];
     readonly postconditions: Expression[];
     readonly body: null | BlockStatement;
+    readonly doc: string;
 }
 
 export interface TypeDefinition extends Syn {
     readonly tag: "TypeDefinition";
     readonly definition: VariableDeclarationOnly;
+    readonly doc: string;
 }
 
 export interface FunctionTypeDefinition extends Syn {

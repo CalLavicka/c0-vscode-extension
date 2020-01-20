@@ -9,7 +9,7 @@ import { Lang } from "../lang";
 import { ParsingError, ImpossibleError } from "../error";
 
 function standard(syn: syn.Syn, lang: Lang, allowed: Lang[], msg: string) {
-    for (let ok of allowed) { if (lang === ok) { return; } }
+    for (const ok of allowed) { if (lang === ok) { return; } }
     throw new ParsingError(syn, `${msg} not a part of the language '${lang}'`);
 }
 
@@ -701,13 +701,57 @@ export function restrictParams(
     }));
 }
 
+// Internal buffer of comment text
+let commentBuffer: string = "";
+let lastCommentType: syn.CommentType = syn.CommentType.Block;
+
+function trimComment(line: string): string {
+    // Skip leading/trailing *'s and spaces
+    let start = 0;
+    while (start < line.length && (line[start] === ' ' || line[start] === '*')) start++;
+
+    let end = line.length;
+    while (end >= start && (line[end] === '\n' || line[end] === ' ' || line[end] === '*')) end--;
+
+    return line.substring(start, end);
+}
+
+function parseCommentBuffer(): string {
+    const lines = commentBuffer.split("\n").map(line => trimComment(line));
+
+    // This is to show "abstract typedefs"
+    // as code, not markdown 
+    // e.g. "// typedef _____ queue_t"
+    if (lines[0]?.startsWith("typedef")) {
+        lines[0] = `\`${lines[0]}\``;
+    }
+
+    commentBuffer = "";
+    const joined = lines.join("\n");
+
+    return joined;
+}
+
 export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Declaration[] {
     switch (decl.tag) {
         case "PragmaUseFile":
         case "PragmaUseLib": 
+            commentBuffer = "";
             return [decl];
+            
         // Throw away unknown pragmas. 
         case "PragmaUnknown": 
+            commentBuffer = "";
+            return [];
+
+        case "CapturedComment":
+            if (decl.type !== lastCommentType) {
+                commentBuffer = decl.text;
+                lastCommentType = decl.type;
+            }
+            else {
+                commentBuffer += decl.text;
+            }
             return [];
 
         case "FunctionDeclaration": {
@@ -723,6 +767,7 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                 preconditions: annos.pre,
                 postconditions: annos.post,
                 loc: decl.loc,
+                doc: parseCommentBuffer(),
                 body:
                     decl.body === null
                         ? null
@@ -747,7 +792,8 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                     preconditions: annos.pre,
                     postconditions: annos.post,
                     body: null,
-                    loc: decl.definition.loc
+                    loc: decl.definition.loc,
+                    doc: parseCommentBuffer()
                 },
                 loc: decl.loc
             }];
@@ -758,7 +804,8 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                 tag: "StructDeclaration",
                 id: decl.id,
                 definitions: decl.definitions === null ? null : restrictParams(lang, decl.definitions),
-                loc: decl.loc
+                loc: decl.loc,
+                doc: parseCommentBuffer()
             }];
         }
         case "TypeDefinition": {
@@ -771,7 +818,8 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                     kind: restrictValueType(lang, decl.definition.kind),
                     loc: decl.definition.loc
                 },
-                loc: decl.loc
+                loc: decl.loc,
+                doc: parseCommentBuffer()
             }];
         }
         default:

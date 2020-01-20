@@ -7,10 +7,12 @@
 @include "./expression.ne"
 @include "./statement.ne"
 
-Program     -> _GlobalDecl:* _ {% x => x[0] %}
+Program     -> _GlobalDecl:* __ {% x => x[0] %}
 
-_GlobalDecl -> _ GlobalDecl {% x => x[1] %}
+_GlobalDecl -> __ GlobalDecl {% x => x[1] %}
 GlobalDecl  -> %pragma {% util.PragmaDeclaration %}
+             | LineComment  {% id %}
+             | MultiComment {% id %}
              | "struct" _ StructName _ ";" {% util.StructDeclaration %}
              | "struct" _ StructName _ "{" _ (Tp _ FieldName _ ";" _):* "}" _ ";"
                                            {% util.StructDefinition %}
