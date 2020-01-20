@@ -703,7 +703,7 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
   for (const [lineNum, line] of doc.getText().split("\n").entries()) {
     const lineLen = line.length;
     const closes = (line.match(/(\)|})/g) || []).length;
-    const opens = (line.match(/(\)|{)/g) || []).length;
+    const opens = (line.match(/(\(|{)/g) || []).length;
     let closesBeforeFirstOpen = 0;
     for (let i = 0;
       i < line.length && line.charAt(i) !== '(' && line.charAt(i) !== '{';
