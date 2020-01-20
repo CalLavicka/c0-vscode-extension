@@ -694,138 +694,35 @@ connection.onSignatureHelp((data) => {
 });
 
 connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | null => {
-  function formatCode(code: ast.Declaration | ast.Expression | ast.Statement | ast.ValueType,
-                      options: FormattingOptions,
-                      position: Position): TextEdit[] {
-    switch (code.tag) {
-      case "PragmaUseLib":
-        return [TextEdit.insert(position, `#use <${code.name}>\n`)];
-      case "AssignmentStatement":
-        return [...formatCode(code.left, options, position),
-        TextEdit.insert(position, ` ${code.operator} `),
-        ...formatCode(code.right, options, position),
-      ];
-      case "UpdateStatement":
-        return [...formatCode(code.argument, options, position),
-           TextEdit.insert(position, code.operator),
-          ];
-      case "ExpressionStatement":
-        return formatCode(code.expression, options, position);
-      case "IntLiteral":
-        return [TextEdit.insert(
-          position,
-          code.raw,
-        )];
-      case "Identifier":
-        return [TextEdit.insert(
-          position,
-          code.name,
-        )];
-      case "IntType":
-        return [TextEdit.insert(
-          position,
-          "int",
-        )];
-      case "BoolType":
-        return [TextEdit.insert(
-          position,
-          "bool",
-        )];
-      case "StringType":
-        return [TextEdit.insert(
-          position,
-          "string",
-        )];
-      case "CharType":
-        return [TextEdit.insert(
-          position,
-          "char",
-        )];
-      case "FunctionTypeDefinition":
-        return formatCode(code.definition, options, position);
-      case "FunctionDeclaration":
-        if (code.body !== null) {
-          return formatCode(code.body, options, position);
-        }
-        break;
-      case "VariableDeclaration":
-        if (code.init) {
-          return [...formatCode(code.kind, options, position),
-          TextEdit.insert(position, " "),
-          ...formatCode(code.id, options, position),
-          TextEdit.insert(position, " = "),
-          ...formatCode(code.init, options, position)];
-        } else {
-          return [...formatCode(code.kind, options, position),
-            TextEdit.insert(position, " "),
-          ...formatCode(code.id, options, position)];
-        }
-      case "BinaryExpression":
-        return [...formatCode(code.left, options, position),
-          TextEdit.insert(position, ` ${code.operator} `),
-          ...formatCode(code.right, options, position),
-        ];
-      case "AssignmentStatement":
-        return [...formatCode(code.left, options, position),
-          TextEdit.insert(position, ` ${code.operator} `),
-          ...formatCode(code.right, options, position),
-          TextEdit.insert(position, ";"),
-        ];
-      case "BlockStatement":
-        if (code.loc === undefined) { return []; }
-        const edits: TextEdit[] = [];
-        for (const stmt of code.body) {
-          edits.push(...formatCode(stmt, options, position));
-        }
-        return edits;
-      case "ReturnStatement":
-        if (code.argument) {
-        return [TextEdit.insert(position, "return "),
-          ...formatCode(code.argument, options, position),
-          TextEdit.insert(position, ";"),
-        ];
-      } else {
-        return [TextEdit.insert(position, "return;")];
-      }
-      case "IfStatement":
-        if (code.alternate) {
-          return [TextEdit.insert(position, "if ("),
-          ...formatCode(code.test, options, position),
-          TextEdit.insert(position, ") {"),
-          ...formatCode(code.consequent, options, position),
-          TextEdit.insert(position, "} else "),
-          ...formatCode(code.alternate, options, position)
-        ];
-        } else {
-          return [TextEdit.insert(position, "if ("),
-          ...formatCode(code.test, options, position),
-          TextEdit.insert(position, ") {"),
-          ...formatCode(code.consequent, options, position),
-          TextEdit.insert(position, "}"),
-        ];
-        }
-      default:
-        break;
-    }
-    return [];
-  }
+  const doc = documents.get(data.textDocument.uri);
+  if (!doc) return null;
 
-  const document = documents.get(data.textDocument.uri);
-  if (!document) return null;
-
+  let indentLevel = 0;
+  const indentChar = data.options.insertSpaces ? ' '.repeat(data.options.tabSize) : '\t';
   const edits: TextEdit[] = [];
-  // TODO: check if still valid
-  const syntaxTree: ast.Declaration[] | undefined = openFiles.get(data.textDocument.uri)?.decls;
-
-  if (!syntaxTree) return null;
-  for (const decl of syntaxTree) {
-    // TODO: change position to position of decl
-    edits.push(...formatCode(decl, data.options, Position.create(0, 0)));
+  for (const [lineNum, line] of doc.getText().split("\n").entries()) {
+    const lineLen = line.length;
+    const closes = (line.match(/(\)|})/g) || []).length;
+    const opens = (line.match(/(\)|{)/g) || []).length;
+    let closesBeforeFirstOpen = 0;
+    for (let i = 0;
+      i < line.length && line.charAt(i) !== '(' && line.charAt(i) !== '{';
+      ++i) {
+      const char = line.charAt(i);
+      if (char === ')' || char === '}') {
+        ++closesBeforeFirstOpen;
+      }
+    }
+    indentLevel -= closesBeforeFirstOpen;
+    edits.push(TextEdit.replace(
+      Range.create(
+        Position.create(lineNum, 0),
+        Position.create(lineNum, lineLen)
+      ),
+      `${indentChar.repeat(indentLevel < 0 ? 0 : indentLevel)}${line.trim()}`,
+    ));
+    indentLevel += opens - closes + closesBeforeFirstOpen;
   }
-  edits.push(TextEdit.del(Range.create(
-    Position.create(0, 0),
-    Position.create(document.lineCount, 80)
-  )))
   return edits;
 });
 
