@@ -1,5 +1,11 @@
 # Change Log
 
+## [2.0.0]
+- *New major feature*: Documentation hints. Documentation will now be displayed for structs, 
+functions, and typedefs in the code completion/hover information window.
+- *New major feature*: Indentor. "Format document" will now properly indent the document
+- Added `assert()` and `error()` to code completion items 
+
 ## [1.3.5]
 - Reverted incorrectly published code 
 
@@ -18,7 +24,7 @@
 - Fixed a bug where a diagnostic warning that no project file was found would appear for header files.
 
 ## [1.3.1]
-- Fixed a bug involving character literals '"' and '\\'
+- Fixed a bug involving character literals `'"'` and `'\\'`
 - Fixed a bug involving files not found while expanding a glob in README.txt 
 - Fixed an issue involving highlighting multiline contract blocks 
 - Added squiggles for all exceptions raised during typechecking and parsing - including `ImpossibleErrors` as these help in tracking down bugs 
