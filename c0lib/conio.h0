@@ -1,14 +1,23 @@
 /* Library conio */
 /* Functions for basic console input and output */
 
-void print(string s);       /* print s to standard output */
-void println(string s);     /* print s with trailing newline */
-void printint(int i);       /* print i to standard output */
-void printbool(bool b);     /* print b to standard output */
-void printchar(char c);     /* print c to standard output */
-void flush();               /* flush standard output */
+/* print s to standard output */
+void print(string s);       
+/* print s with trailing newline */
+void println(string s);     
+/* print i to standard output */
+void printint(int i);       
+/* print b to standard output */
+void printbool(bool b);     
+/* print c to standard output */
+void printchar(char c);     
+/* flush standard output */
+void flush();               
 
-bool eof();                 /* test end-of-file on standard input  */
+/* test end-of-file on standard input  */
+bool eof();                 
 
-string readline()           /* read a line from standard input */
-  /*@requires !eof(); @*/ ; /* do not include the trailing newline */
+/* read a line from standard input, */
+/* does not include the trailing newline */
+string readline()           
+  /*@requires !eof(); @*/ ; 

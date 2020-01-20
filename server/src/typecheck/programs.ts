@@ -264,7 +264,8 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     // or it will confuse ast search code
                     // (By adding genv.decls.pop() this shouldn't matter anymore)
                     loc: undefined, 
-                    body: null
+                    body: null,
+                    doc: ""
                 });
 
                 try {

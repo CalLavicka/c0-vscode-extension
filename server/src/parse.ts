@@ -520,9 +520,20 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   return Left(diagnostics);
 }
 
+/**
+ * Creates a C0 parser, which 
+ * uses the given type-ids to parse.
+ * 
+ * If filename is not provided, then 
+ * no filename is attached to any parsed decls
+ * 
+ * If language is not provided, then it will
+ * either be inferred from filename, or 
+ * will default to C1 
+ */
 export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
-  if (!language && filename) {
-    const inferredLang = lang.parse(path.extname(filename).substr(1));
+  if (!language) {
+    const inferredLang = filename && lang.parse(path.extname(filename).substr(1));
     language = inferredLang || "C1";
   }
 
@@ -535,7 +546,7 @@ export function mkParser(typeIds: Set<string>, filename?: string, language?: Lan
   // C0/C1 use the same lexer, so no point changing it here
   // We could maybe add a property to the lexer
   // with the currently open path 
-  parser.lexer = new TypeLexer(<Lang>language, typeIds, filename);
+  parser.lexer = new TypeLexer(language, typeIds, filename);
 
   return parser;
 }
