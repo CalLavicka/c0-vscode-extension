@@ -393,6 +393,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           const requires = decl.preconditions.map(precond =>
             `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
+            `//@ensures ${expressionToString(postcond)};`);
           const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
           functionDecls.set(decl.id.name, {
             label: decl.id.name,
@@ -491,9 +492,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
   ];
 
   const completions = [
-    ...locals, 
-    ...functionDecls.values(), 
-    ...typedefs, 
+    ...locals,
+    ...functionDecls.values(),
+    ...typedefs,
     ...fieldNames,
     ...builtins];
 
@@ -531,7 +532,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
       if (type.tag === "FunctionType") {
         // Also display contracts in hover result for a function 
         const decl = getFunctionDeclaration(genv, name, data.textDocument.uri);
-        if (decl === null) return null; 
+        if (decl === null) return null;
         const requires = decl.preconditions.map(precond =>
           `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
@@ -729,6 +730,7 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
   if (!doc) return null;
 
   let indentLevel = 0;
+  let inComment = false;
   const indentChar = data.options.insertSpaces ? ' '.repeat(data.options.tabSize) : '\t';
   const edits: TextEdit[] = [];
   for (const [lineNum, line] of doc.getText().split("\n").entries()) {
@@ -736,21 +738,44 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
     const closes = (line.match(/(\)|})/g) || []).length;
     const opens = (line.match(/(\(|{)/g) || []).length;
     let closesBeforeFirstOpen = 0;
-    for (let i = 0;
-      i < line.length && line.charAt(i) !== '(' && line.charAt(i) !== '{';
-      ++i) {
+    let inString = false;
+    let inCharLit = false;
+    for (let i = 0; i < line.length; ++i) {
       const char = line.charAt(i);
-      if (char === ')' || char === '}') {
+
+      if (char === '"' && (i === 0 || line.charAt(i - 1) !== '\'')) {
+        inString = !inString;
+      }
+
+      if (char === '\'' && (i === 0 || line.charAt(i - 1) !== '\'')) {
+        inCharLit = !inCharLit;
+      }
+
+      if (inString || inCharLit) {
+        continue;
+      }
+
+      if (char === '(' || char === '{') {
+        break;
+      }
+      else if (char === ')' || char === '}') {
         ++closesBeforeFirstOpen;
       }
     }
     indentLevel -= closesBeforeFirstOpen;
+
+    if (line.includes("/*") && !line.includes("*/")) {
+      inComment = true;
+    } else if (line.includes("*/")) {
+      inComment = false;
+    }
+
     edits.push(TextEdit.replace(
       Range.create(
         Position.create(lineNum, 0),
         Position.create(lineNum, lineLen)
       ),
-      `${indentChar.repeat(indentLevel < 0 ? 0 : indentLevel)}${line.trim()}`,
+      `${inComment ? ' ' : ''}${indentChar.repeat(indentLevel < 0 ? 0 : indentLevel)}${line.trim()}`,
     ));
     indentLevel += opens - closes + closesBeforeFirstOpen;
   }
