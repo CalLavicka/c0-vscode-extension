@@ -34,14 +34,29 @@ function scanExpression(source: string, index: number) {
   for (pos = index; pos >= 0; pos--) {
     const c = source[pos];
 
+    // Special case
+    if (source[pos - 1] === "-" && c === ">") {
+      pos--; continue;
+    }
+
     if (c === ")") parenStack++;
     if (c === "(") {
       if (parenStack === 0) break; else parenStack--;
     }
-    if (c === "=") break;
-    if (c === ";") break;
-    if (c === ",") break;
-    if (c === "{") break;
+    if (parenStack === 0) {
+      if (c === "(") break;
+      if (c === ";") break;
+      if (c === ",") break;
+      if (c === "{") break;
+      // break on any operator 
+      if ("!~-*+/%><&^|?:".includes(c)) {
+        break;
+      }
+    }
+    else {
+      if (c === "(") parenStack--;
+    }
+
     // Technically it's valid to break a field access over a newline
     // but whatever
     if (c === "\n") break; 
@@ -52,7 +67,7 @@ function scanExpression(source: string, index: number) {
 
     if (source.startsWith("return", pos - 6)) break;
   }
-  return pos < 0 ? "" : source.slice(pos + 1, index).trim();
+  return pos < 0 ? "" : source.slice(pos + 1, index + 1).trim();
 }
 
 function scanFunctionName(source: string, index: number) {
@@ -86,12 +101,12 @@ export function getCompletionContext(source: string, index: number): CompletionR
     // Scan backwards for as much expression as we can get, either
     // to a left paren (function call), left bracket (array index),
     // comma (function argument), or equals sign (assignment)
-    const expressionText = scanExpression(source, pos - (derefenced ? 2 : 1));
+    const expressionText = scanExpression(source, pos - (derefenced ? 3 : 2));
 
     try {
       parser.feed(expressionText);
       const results = parser.finish();
-      console.assert(results && results.length === 1);
+      if (!(results && results.length === 1)) return null;
 
       return {
         tag: CompletionContextKind.StructAccess,
