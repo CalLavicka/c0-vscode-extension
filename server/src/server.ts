@@ -743,33 +743,39 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
     let seenFirstOpen = false;
     inString = false;
     inCharLit = false;
-    for (let i = 0; i < line.length; ++i) {
-      const char = line.charAt(i);
+    const ignoreLine = line.trimLeft().startsWith("//") || inComment;
+    if (!ignoreLine) {
+      for (let i = 0; i < line.length; ++i) {
+        const char = line.charAt(i);
+        if (char === "/" && i < line.length - 1 && line.charAt(i + 1) === "/") {
+          break;
+        }
 
-      if (char === '"' && (i === 0 || line.charAt(i - 1) !== '\'')) {
-        inString = !inString;
-      }
+        if (char === '"' && (i === 0 || line.charAt(i - 1) !== '\'')) {
+          inString = !inString;
+        }
 
-      if (char === '\'' && (i === 0 || line.charAt(i - 1) !== '\'')) {
-        inCharLit = !inCharLit;
-      }
+        if (char === '\'' && (i === 0 || line.charAt(i - 1) !== '\'')) {
+          inCharLit = !inCharLit;
+        }
 
-      if (inString || inCharLit) {
-        continue;
-      }
+        if (inString || inCharLit) {
+          continue;
+        }
 
-      if (char === '(' || char === '{') {
-        seenFirstOpen = true;
-        ++opens;
-      }
-      else if ((char === ')' || char === '}')) {
-        ++closes;
-        if (!seenFirstOpen) {
-          ++closesBeforeFirstOpen;
+        if (char === '(' || char === '{') {
+          seenFirstOpen = true;
+          ++opens;
+        }
+        else if ((char === ')' || char === '}')) {
+          ++closes;
+          if (!seenFirstOpen) {
+            ++closesBeforeFirstOpen;
+          }
         }
       }
+      indentLevel -= closesBeforeFirstOpen;
     }
-    indentLevel -= closesBeforeFirstOpen;
 
     edits.push(TextEdit.replace(
       Range.create(
@@ -778,7 +784,9 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
       ),
       `${inComment ? ' ' : ''}${indentChar.repeat(indentLevel < 0 ? 0 : indentLevel)}${line.trim()}`,
     ));
-    indentLevel += opens - closes + closesBeforeFirstOpen;
+    if (!ignoreLine) {
+      indentLevel += opens - closes + closesBeforeFirstOpen;
+    }
 
     if (line.includes("/*") && !line.includes("*/")) {
       inComment = true;
