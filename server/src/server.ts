@@ -18,7 +18,8 @@ import {
   TextDocumentChangeEvent,
   ParameterInformation,
   SignatureInformation,
-  WorkspaceFolder
+  WorkspaceFolder,
+  MarkupKind
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -284,7 +285,7 @@ function mkCodeString(s: string): string {
  */
 function mkMarkdownCode(s: string): MarkupContent {
   return {
-    kind: "markdown",
+    kind: MarkupKind.Markdown,
     value: mkCodeString(s)
   };
 }
@@ -405,7 +406,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
             label: decl.id.name,
             kind: CompletionItemKind.Function,
             documentation: {
-              kind: "markdown",
+              kind: MarkupKind.Markdown,
               value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
             },
             detail: uriToWorkspace(decl.loc?.source || undefined)
@@ -539,7 +540,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
         return {
           contents: {
-            kind: "markdown",
+            kind: MarkupKind.Markdown,
             value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
           }
         };
@@ -687,7 +688,7 @@ connection.onSignatureHelp((data) => {
   if (context && context.tag === CompletionContextKind.FunctionCall) {
     // TODO: add signature help for built-in assert() and error() 
 
-    const functionDecl = getFunctionDeclaration(genv, context.name);
+    const functionDecl = getFunctionDeclaration(genv, context.name, data.textDocument.uri);
     if (!functionDecl) return null;
 
     let signature = `${typeToString(functionDecl.returns)} ${functionDecl.id.name}(`;
@@ -712,7 +713,14 @@ connection.onSignatureHelp((data) => {
     
     signature += ")";
 
-    const sig = SignatureInformation.create(signature, undefined, ...paramInfo);
+    const sig = {
+      label: signature,
+      parameters: paramInfo,
+      documentation: {
+        kind: MarkupKind.Markdown,
+        value: functionDecl.doc
+      }
+    };
 
     return {
       signatures: [sig], // Functions only have one signature ever in C0
