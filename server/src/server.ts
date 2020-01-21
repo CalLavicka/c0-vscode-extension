@@ -743,14 +743,18 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
     let seenFirstOpen = false;
     inString = false;
     inCharLit = false;
-    const ignoreLine = line.trimLeft().startsWith("//") || inComment;
-    if (!ignoreLine) {
-      for (let i = 0; i < line.length; ++i) {
-        const char = line.charAt(i);
-        if (char === "/" && i < line.length - 1 && line.charAt(i + 1) === "/") {
-          break;
-        }
+    let ignoreChars;
+    for (let i = 0; i < line.length; ++i) {
+      const char = line.charAt(i);
+      if (char === "/" && i < line.length - 1 && line.charAt(i + 1) === "/") {
+        break;
+      } else if (char === "/" && i < line.length - 1 && line.charAt(i + 1) === "*") {
+        ignoreChars = true;
+      } else if (char === "*" && i < line.length - 1 && line.charAt(i + 1) === "/") {
+        ignoreChars = false;
+      }
 
+      if (!ignoreChars) {
         if (char === '"' && (i === 0 || line.charAt(i - 1) !== '\'')) {
           inString = !inString;
         }
@@ -774,8 +778,8 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
           }
         }
       }
-      indentLevel -= closesBeforeFirstOpen;
     }
+    indentLevel -= closesBeforeFirstOpen;
 
     edits.push(TextEdit.replace(
       Range.create(
@@ -784,9 +788,7 @@ connection.onDocumentFormatting((data: DocumentFormattingParams): TextEdit[] | n
       ),
       `${inComment ? ' ' : ''}${indentChar.repeat(indentLevel < 0 ? 0 : indentLevel)}${line.trim()}`,
     ));
-    if (!ignoreLine) {
-      indentLevel += opens - closes + closesBeforeFirstOpen;
-    }
+    indentLevel += opens - closes + closesBeforeFirstOpen;
 
     if (line.includes("/*") && !line.includes("*/")) {
       inComment = true;
