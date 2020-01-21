@@ -495,7 +495,11 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
     {
       label: "alloc_array",
       kind: CompletionItemKind.Function,
+<<<<<<< HEAD
       detail: "<C0 built-in alloc_array>"
+=======
+      detail: "<C0 built-in, alloc_array>"
+>>>>>>> 3e2c7dd56c6570099f0a3a1a00463481591f6eba
     }
   ];
 
