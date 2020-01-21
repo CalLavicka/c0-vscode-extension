@@ -60,7 +60,7 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: documents.syncKind,
       completionProvider: {
-        triggerCharacters: [".", ">"], // ">" is for ->
+        triggerCharacters: [".", ">", "@"], // ">" is for ->, @ is for contracts
         resolveProvider: false
       },
       hoverProvider: true,
@@ -332,9 +332,17 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
       }
     }
 
-    // TODO: Check if it is in the include directory (library directory)
-
     return path.parse(uri).base;
+  }
+
+  const doc = documents.get(completionInfo.textDocument.uri);
+  const context = doc && getCompletionContext(
+    doc.getText(),
+    doc.offsetAt(completionInfo.position));
+
+  if (context?.tag === CompletionContextKind.ContractDecl) {
+    return ["assert", "loop_invariant", "requires", "ensures"]
+      .map(label => ({ label, kind: CompletionItemKind.Keyword }));
   }
 
   // TODO: only show decls up to this point
@@ -410,48 +418,39 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           const searchResult = findStatement(decl.body, null, { pos, genv: genv });
           if (searchResult === null || searchResult.environment === null) break;
 
-          const doc = documents.get(completionInfo.textDocument.uri);
-          if (doc) {
-            const context = getCompletionContext(
-              doc.getText(),
-              doc.offsetAt(completionInfo.position));
+          switch (context?.tag) {
+            case CompletionContextKind.StructAccess:
+              try {
+                // Type safety? :D 
+                const type = <ast.Type>synthExpression(genv, searchResult.environment, null, <ast.Expression>context.expr);
+                let actual;
+                if (context.derefenced && type.tag === "PointerType") {
+                  actual = actualType(genv, type.argument);
+                }
+                else {
+                  actual = actualType(genv, type);
+                }
+                const structname = (<ast.StructType>actual).id?.name || "";
 
-            if (context) {
-              switch (context.tag) {
-                case CompletionContextKind.StructAccess:
-                  try {
-                    // Type safety? :D 
-                    const type = <ast.Type>synthExpression(genv, searchResult.environment, null, <ast.Expression>context.expr);
-                    let actual;
-                    if (context.derefenced && type.tag === "PointerType") {
-                      actual = actualType(genv, type.argument);
-                    }
-                    else {
-                      actual = actualType(genv, type);
-                    }
-                    const structname = (<ast.StructType>actual).id?.name || "";
-
-                    const struct = getStructDefinition(genv, structname);
-                    if (struct && struct.definitions) {
-                      return struct.definitions.map(field => ({
-                          label: field.id.name,
-                          kind: CompletionItemKind.Field,
-                          documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-                          detail: uriToWorkspace(field.loc?.source || undefined)
-                      }));
-                    }
-                  }
-                  catch (e) { /* pass */ }
-                  break;
-                case CompletionContextKind.FunctionCall: {
-                  // TODO: Promote functions with a return-type
-                  // of our current function argument
-                  // and local variables with either the correct type
-                  // or are pointers to structs 
-                  // (otherwise we have to do a search and deal with cycles)
-                  break;
+                const struct = getStructDefinition(genv, structname);
+                if (struct && struct.definitions) {
+                  return struct.definitions.map(field => ({
+                      label: field.id.name,
+                      kind: CompletionItemKind.Field,
+                      documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
+                      detail: uriToWorkspace(field.loc?.source || undefined)
+                  }));
                 }
               }
+              catch (e) { /* pass */ }
+              break;
+            case CompletionContextKind.FunctionCall: {
+              // TODO: Promote functions with a return-type
+              // of our current function argument
+              // and local variables with either the correct type
+              // or are pointers to structs 
+              // (otherwise we have to do a search and deal with cycles)
+              break;
             }
           }
 

@@ -6,12 +6,14 @@ import * as parsed from "./parse/parsedsyntax";
 
 export const enum CompletionContextKind {
   StructAccess,
-  FunctionCall
+  FunctionCall,
+  ContractDecl
 }
 
 export type CompletionResult =
   | StructAccess
   | FunctionCall
+  | ContractDecl
   | null;
 
 export interface StructAccess {
@@ -24,6 +26,10 @@ export interface FunctionCall {
   tag: CompletionContextKind.FunctionCall;
   name: string;
   argumentNumber: number;
+}
+
+export interface ContractDecl {
+  tag: CompletionContextKind.ContractDecl;
 }
 
 function scanExpression(source: string, index: number) {
@@ -93,6 +99,12 @@ export function getCompletionContext(source: string, index: number): CompletionR
   let pos = index;
   // Skip whitespace
   while (source[pos] === " ") pos--;
+
+  if (source.startsWith("//@", pos - 3) || 
+      source.startsWith("/*@", pos - 3)) 
+  {
+    return { tag: CompletionContextKind.ContractDecl };
+  }
 
   // Struct access must be at the cursor (barring whitespace)
   if (source.startsWith("->", pos - 2) || source[pos - 1] === ".") {

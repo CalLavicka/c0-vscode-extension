@@ -6,6 +6,7 @@ functions, and typedefs in the code completion/hover information window.
 - *New major feature*: Indentor. "Format document" will now properly indent the document
 - Added `assert()` and `error()` to code completion items 
 - Increased the situations in which struct field name autocompletion would work 
+- Added autocompletion for contract types
 
 ## [1.3.5]
 - Reverted incorrectly published code 
