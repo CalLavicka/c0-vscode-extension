@@ -704,6 +704,7 @@ export function restrictParams(
 // Internal buffer of comment text
 let commentBuffer: string = "";
 let lastCommentType: syn.CommentType = syn.CommentType.Block;
+let lastCommentLine: number = -1;
 
 function trimComment(line: string): string {
     // Skip leading/trailing *'s and spaces
@@ -748,9 +749,21 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
             if (decl.type !== lastCommentType) {
                 commentBuffer = decl.text;
                 lastCommentType = decl.type;
+
+                if (decl.type === syn.CommentType.Line) {
+                    lastCommentLine = decl.loc.start.line;
+                }
             }
             else {
-                commentBuffer += decl.text;
+                // Make sure line comments are consecutive
+                if (decl.type === syn.CommentType.Line && decl.loc.start.line !== lastCommentLine + 1) {
+                    commentBuffer = decl.text;
+                }
+                else {
+                    commentBuffer += decl.text;
+                }
+
+                lastCommentLine = decl.loc.start.line;
             }
             return [];
 
