@@ -486,6 +486,16 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
       kind: CompletionItemKind.Function,
       documentation: mkMarkdownCode(`void error(string message)`),
       detail: "<C0 built-in error>"
+    },
+    {
+      label: "alloc",
+      kind: CompletionItemKind.Function,
+      detail: "<C0 built-in alloc>"
+    },
+    {
+      label: "alloc_array",
+      kind: CompletionItemKind.Function,
+      detail: "<C0 built-in alloc_array>"
     }
   ];
 
@@ -560,7 +570,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         const decl = getTypedefDefinition(genv, type.name);
 
         return {
-          contents: decl?.doc ? decl.doc : mkMarkdownCode(`typedef ${typeToString(realType)} ${type.name}`)
+          contents: decl?.doc || mkMarkdownCode(`typedef ${typeToString(realType)} ${type.name}`)
         };
       }
 

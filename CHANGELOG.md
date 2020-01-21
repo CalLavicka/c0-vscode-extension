@@ -4,7 +4,7 @@
 - *New major feature*: Documentation hints. Documentation will now be displayed for structs, 
 functions, and typedefs in the code completion/hover information window.
 - *New major feature*: Indentor. "Format document" will now properly indent the document
-- Added `assert()` and `error()` to code completion items 
+- Added `assert()`, `error()`, `alloc`, `alloc_array` to code completion items 
 - Increased the situations in which struct field name autocompletion would work 
 - Added autocompletion for contract types
 
