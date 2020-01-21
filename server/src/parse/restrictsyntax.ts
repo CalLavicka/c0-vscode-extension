@@ -755,8 +755,8 @@ export function restrictDeclaration(lang: Lang, decl: syn.Declaration): ast.Decl
                 }
             }
             else {
-                // Make sure line comments are consecutive
-                if (decl.type === syn.CommentType.Line && decl.loc.start.line !== lastCommentLine + 1) {
+                // Make sure comments are consecutive
+                if (decl.loc.start.line !== lastCommentLine + 1) {
                     commentBuffer = decl.text;
                 }
                 else {
