@@ -423,7 +423,14 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
             case CompletionContextKind.StructAccess:
               try {
                 // Type safety? :D 
-                const type = <ast.Type>synthExpression(genv, searchResult.environment, null, <ast.Expression>context.expr);
+                const type = actualType(
+                  genv, 
+                  <ast.Type>synthExpression(
+                    genv, 
+                    searchResult.environment, 
+                    null, 
+                    <ast.Expression>context.expr));
+                    
                 let actual;
                 if (context.derefenced && type.tag === "PointerType") {
                   actual = actualType(genv, type.argument);
@@ -495,11 +502,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
     {
       label: "alloc_array",
       kind: CompletionItemKind.Function,
-<<<<<<< HEAD
       detail: "<C0 built-in alloc_array>"
-=======
-      detail: "<C0 built-in, alloc_array>"
->>>>>>> 3e2c7dd56c6570099f0a3a1a00463481591f6eba
     }
   ];
 
