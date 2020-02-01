@@ -26,7 +26,7 @@ import { basicLexing } from './lex';
 import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
-import { isInside, findStatement, findGenv, comparePositions } from "./ast-search";
+import { isInside, findDecl, findGenv, comparePositions } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
 import * as path from "path";
@@ -246,7 +246,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       `${dir}/../README.txt`, // Look one folder above
       `${dir}/project.txt`,
       `${dir}/../project.txt`, 
-      folders && folders.length ? `${folders[0].uri}/project.txt` : ""
+      folders?.length ? `${folders[0].uri}/project.txt` : ""
     ].map(p => new URL(p)));
 
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
@@ -412,11 +412,10 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
             detail: uriToWorkspace(decl.loc?.source || undefined)
           });
         }
-        if (decl.body) {
-          // Look in the function body for local variables
-          if (!isInside(pos, decl.body.loc)) break;
 
-          const searchResult = findStatement(decl.body, null, { pos, genv: genv });
+        // // Look in the function body for local variables
+        if (isInside(pos, decl.loc)) {
+          const searchResult = findDecl(decl, { pos, genv });
           if (searchResult === null || searchResult.environment === null) break;
 
           switch (context?.tag) {

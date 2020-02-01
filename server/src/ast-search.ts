@@ -294,7 +294,7 @@ export function findStatement(s: Statement, currentEnv: Env | null, info: Search
     return { environment: currentEnv, data: null };
 }
 
-function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
+export function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
     const { pos } = info;
     switch (decl.tag) {
         case "FunctionDeclaration":
@@ -330,7 +330,10 @@ function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
             }
 
             if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);
-            break;
+            return {
+                environment: env,
+                data: null
+            };
 
         case "TypeDefinition":
             if (isInside(pos, decl.definition.kind.loc)) return findType(decl.definition.kind, null, info);
