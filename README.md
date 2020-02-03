@@ -1,5 +1,8 @@
 # C0 extension for VSCode
 
+![Published version number](http://vsmarketplacebadge.apphb.com/version/15122staff.c0-lsp.svg) ![Number of unique installs](http://vsmarketplacebadge.apphb.com/installs/15122staff.c0-lsp.svg)
+
+
 This provides IDE features for C0, such as code completion, parse errors/typechecking errors, go-to-definition, etc. A local installation of C0 is not necessary 
 
 ## Installation
