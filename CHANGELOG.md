@@ -9,10 +9,11 @@
 - *New major feature*: Documentation hints. Documentation will now be displayed for structs, 
 functions, and typedefs in the code completion/hover information window.
 - Added `assert()`, `error()`, `alloc`, `alloc_array` to code completion items 
-- Increased the situations in which struct field name autocompletion would work 
 - Added autocompletion for contract types
 - Added autocompletion for variables in contracts 
+- Increased the situations in which struct field name autocompletion would work 
 - Fixed syntax highlighting issue involving "disabled" contracts (e.g. `// @`)
+- Fixed bug where the extension would not detect newly created C0 files
 
 ## [1.3.5]
 - Reverted incorrectly published code 

@@ -193,12 +193,23 @@ const cachedProjects = new Map<string, Dependencies>();
 
 connection.onDidChangeWatchedFiles(async params => {
   for (const change of params.changes) {
+    // This file may be required by a README.txt, 
+    // and may have caused compilation to fail somewhere else
+    // TODO: Technically, we should only invalidate the cache
+    // for files which depend on this. 
+    if (change.type === FileChangeType.Created || change.type === FileChangeType.Deleted) {
+      invalidateAll();
+      // Use pArallelIsm to reload diagnostics
+      // for all documents 
+      await Promise.all(documents.all().map(document => validateTextDocument({ document })));
+    }
+
     invalidate(change.uri);
 
     if (change.uri.endsWith('/project.txt')) {
       if (change.type === FileChangeType.Created) {
-        // Invalidate all project.txt caches, since this may be a new project file
-        cachedProjects.clear();
+        // Invalidate all project.txt/README caches, since this may be a new project file
+        invalidateAll();
       } else {
         // Invalidate all references to this project.txt
         cachedProjects.forEach((value, key) => {
@@ -212,9 +223,7 @@ connection.onDidChangeWatchedFiles(async params => {
       invalidateAll();
 
       // Reload diagnostics for all documents 
-      for (const document of documents.all()) {
-        await validateTextDocument({ document });
-      }
+      await Promise.all(documents.all().map(document => validateTextDocument({ document })));
     }
   }
 });
@@ -496,12 +505,14 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
     {
       label: "alloc",
       kind: CompletionItemKind.Function,
-      detail: "<C0 built-in alloc>"
+      detail: "<C0 built-in alloc>",
+      documentation: mkMarkdownCode(`t* alloc(t)`)
     },
     {
       label: "alloc_array",
       kind: CompletionItemKind.Function,
-      detail: "<C0 built-in alloc_array>"
+      detail: "<C0 built-in alloc_array>",
+      documentation: mkMarkdownCode(`t[] alloc_array(t, int count)`)
     }
   ];
 
@@ -704,9 +715,36 @@ connection.onSignatureHelp((data) => {
   if (context && context.tag === CompletionContextKind.FunctionCall) {
     // TODO: add signature help for built-in assert() and error() 
 
-    const functionDecl = getFunctionDeclaration(genv, context.name, data.textDocument.uri);
-    if (!functionDecl) return null;
+    let functionDecl: null | {
+      readonly returns: ast.Type,
+      readonly id: { name: string },
+      readonly params: Array<{ kind: ast.ValueType, id: { name: string }}>,
+      readonly doc: string
+    } = getFunctionDeclaration(genv, context.name, data.textDocument.uri);
 
+    if (!functionDecl) {
+      // See if it's a built in "function" 
+      switch (context.name) {
+        case "assert":
+          functionDecl = {
+            returns: { tag: "VoidType" },
+            id: { name: "assert" },
+            params: [{ id: { name: "condition"}, kind: { tag: "BoolType" } }],
+            doc: "Aborts execution if the condition given is false"
+          };
+          break;
+        case "error":
+          functionDecl = {
+            returns: { tag: "VoidType" },
+            id: { name: "error" },
+            params: [{ id: { name: "message"}, kind: { tag: "StringType" } }],
+            doc: "Prints the given message and aborts execution"
+          };
+          break;
+
+        default: return null;
+      }
+    }
     let signature = `${typeToString(functionDecl.returns)} ${functionDecl.id.name}(`;
     let signatureLength = signature.length;
 
