@@ -124,6 +124,10 @@
       "include": "#line_continuation_character"
     },
     {
+      "name": "storage.modifier.array.bracket.square",
+      "match": "\\[[ ]*\\]"
+    },
+    {
       "name": "meta.bracket.square.access",
       "begin": "([a-zA-Z_][a-zA-Z_0-9]*|(?<=[\\]\\)]))?(\\[)(?!\\])",
       "beginCaptures": {
@@ -145,10 +149,6 @@
           "include": "#function-call-innards"
         }
       ]
-    },
-    {
-      "name": "storage.modifier.array.bracket.square",
-      "match": "\\[\\s*\\]"
     },
     {
       "match": ";",
