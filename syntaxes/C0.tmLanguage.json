@@ -37,7 +37,7 @@
       "name":"comment.block.contract"
     },
     {
-      "begin":"([ \t]*\/\/[ ]*@[ ]*(ensures|requires|loop_invariant|assert))",
+      "begin":"([ \t]*\/\/@[ ]*(ensures|requires|loop_invariant|assert))",
       "beginCaptures":{"0": {"name":"comment.line"},
         "1": {"name":"comment.line.contract"},
         "2": {"name":"keyword.control.contract"}},
