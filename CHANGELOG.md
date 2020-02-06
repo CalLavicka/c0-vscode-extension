@@ -8,6 +8,7 @@ functions, and typedefs in the code completion/hover information window.
 - Increased the situations in which struct field name autocompletion would work 
 - Added autocompletion for contract types
 - Added autocompletion for variables in contracts 
+- Fix bug on syntax highlighting contracts
 
 ## [1.3.5]
 - Reverted incorrectly published code 
