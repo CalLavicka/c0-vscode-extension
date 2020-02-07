@@ -11,6 +11,20 @@ Simply click "install" on the [VSCode Marketplace](https://marketplace.visualstu
 
 For more information on getting started with this extension at CMU for 15-122, see [this presentation](https://docs.google.com/presentation/d/1Y3T15cJWumS-a0lOQwwyOhLMF6Yz7YBsbGfrZ0EmaZM/edit?usp=sharing)
 
+## Screenshots
+
+Documentation hints, function signature help
+
+![Documentation hints](readme-images/doc.png)
+
+Errors
+
+![Errors](readme-images/error.png)
+
+Code completions
+
+![Function completions](readme-images/completion.png) 
+
 ## Issues
 
 If you run into any problems with the extension, have a feature request, or have any other feedback, please let us know on our [issues page](https://github.com/CalLavicka/c0-vscode-extension/issues)
