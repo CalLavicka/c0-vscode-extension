@@ -26,6 +26,7 @@ Code completions are invoked using CTRL-SPACE (not command)
 
 ![Function completions](readme-images/completion.png) 
 ![Struct field completions](readme-images/struct.png) 
+![Documentation in completion](readme-images/completion-doc.png) 
 
 Go-to definition/declaration (CMD/CTRL + click) 
 
