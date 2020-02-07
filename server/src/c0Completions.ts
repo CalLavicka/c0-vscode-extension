@@ -55,7 +55,7 @@ function scanExpression(source: string, index: number) {
       if (c === ",") break;
       if (c === "{") break;
       // break on any operator 
-      if ("!~-*+/%><&^|?:".includes(c)) {
+      if ("!~-*+/%><&^|?:=".includes(c)) {
         break;
       }
     }

@@ -24,6 +24,11 @@ Errors
 Code completions
 
 ![Function completions](readme-images/completion.png) 
+![Struct field completions](readme-images/struct.png) 
+
+Go-to definition/declaration
+
+![Go-to definition](readme-images/goto.png) 
 
 ## Issues
 

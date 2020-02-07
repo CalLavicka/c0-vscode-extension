@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.0.1]
+- Added images to README
+- Fixed bug involving struct accesses immediately after an assignment
+
 ## [2.0.0]
 - *New major feature*: Documentation hints. Documentation will now be displayed for structs, 
 functions, and typedefs in the code completion/hover information window.
