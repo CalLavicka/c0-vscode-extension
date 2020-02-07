@@ -13,7 +13,10 @@ functions, and typedefs in the code completion/hover information window.
 - Added autocompletion for variables in contracts 
 - Increased the situations in which struct field name autocompletion would work 
 - Fixed syntax highlighting issue involving "disabled" contracts (e.g. `// @`)
+- Fixed syntax highlighting issue involving spaces between brackets when declaring a variable with an array type (e.g. `int[  ] A;`)
 - Fixed bug where the extension would not detect newly created C0 files
+- Corrected a small typo in `parse.h0` 
+
 
 ## [1.3.5]
 - Reverted incorrectly published code 

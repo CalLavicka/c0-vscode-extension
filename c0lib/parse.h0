@@ -1,7 +1,7 @@
 /* Library parse */
 /* Functions for parsing basic data values from strings */
 
-/* Attempt to parse "true" or "false from s and return a pointer to
+/* Attempt to parse "true" or "false" from s and return a pointer to
  * the result or NULL if not of that form. */
 bool* parse_bool(string s);
 
