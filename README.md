@@ -13,20 +13,21 @@ For more information on getting started with this extension at CMU for 15-122, s
 
 ## Screenshots
 
-Documentation hints, function signature help
+View documentation hints, function signature help. It will automatically appear when calling a function,
+as well as when you hover over a function name or view it in the code completion window.
 
 ![Documentation hints](readme-images/doc.png)
 
-Errors
+Errors are automatically displayed
 
 ![Errors](readme-images/error.png)
 
-Code completions
+Code completions are invoked using CTRL-SPACE (not command)
 
 ![Function completions](readme-images/completion.png) 
 ![Struct field completions](readme-images/struct.png) 
 
-Go-to definition/declaration
+Go-to definition/declaration (CMD/CTRL + click) 
 
 ![Go-to definition](readme-images/goto.png) 
 
