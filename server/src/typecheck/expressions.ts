@@ -558,6 +558,8 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     "use only in annotations"
                 );
             }
+
+            // Validate tag
             const kind = actualType(genv, exp.kind);
             if (kind.tag !== "PointerType") {
                 throw new TypingError(
@@ -567,6 +569,9 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 );
             }
             if (kind.argument.tag === "VoidType") { throw new TypingError(exp, "tag cannot be 'void*'"); }
+
+            // Validate expression
+            checkExpression(genv, env, mode, exp.argument, { tag: "PointerType", argument: { tag: "VoidType" } });
             return { tag: "BoolType" };
         }
         default:
