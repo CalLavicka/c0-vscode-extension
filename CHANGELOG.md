@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.0.2]
+- Fixed bug involving editing a file when not in a workspace
+- Fixed object of hastag not getting typechecked
+
 ## [2.0.1]
 - Added images to README
 - Fixed bug involving struct accesses immediately after an assignment
