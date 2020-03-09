@@ -10,6 +10,8 @@ import {
   Position,
 } from "vscode-languageserver";
 
+import * as vscodeUri from "vscode-uri";
+
 import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
 import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
