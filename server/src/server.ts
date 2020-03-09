@@ -256,7 +256,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       `${dir}/project.txt`,
       `${dir}/../project.txt`, 
       folders?.length ? `${folders[0].uri}/project.txt` : ""
-    ].map(p => new URL(p)));
+    ].filter(s => s !== "").map(p => new URL(p)));
 
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
         || change.document.uri.endsWith("h1"))) {
