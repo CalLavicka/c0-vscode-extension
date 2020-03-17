@@ -17,8 +17,6 @@ import {
   FileChangeType,
   TextDocumentChangeEvent,
   ParameterInformation,
-  SignatureInformation,
-  WorkspaceFolder,
   MarkupKind
 } from 'vscode-languageserver';
 
@@ -33,7 +31,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
 import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition, isLibraryFunction } from './typecheck/globalenv';
-import { Maybe, Just, Nothing, getLibpath } from './util';
+import { Maybe, Just, Nothing } from './util';
 import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
 import { synthExpression } from './typecheck/expressions';
@@ -602,6 +600,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
         contents: mkMarkdownCode(`${typeToString(field.kind)} ${expression}`)
       };
     }
+    default: return null;
   }
 });
 
@@ -692,6 +691,12 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       // Source is only present on upper-most declarations
       field.id.loc.source = struct.loc?.source;
       return toLocationLink(field.id.loc);
+    }
+    case "FoundLink": {
+      return toLocationLink({ 
+        source: searchResult.data.path,
+        start: { line: 1, column: 1 }, end: { line: 1, column: 1}
+      });
     }
   }
 

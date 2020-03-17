@@ -5,6 +5,9 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.0.3]
+- Added go-to-definition for `#use`'d libraries/files
+
 ## [2.0.2]
 - Fixed bug involving editing a file when not in a workspace
 - Fixed object of hastag not getting typechecked
