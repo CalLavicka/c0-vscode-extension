@@ -18,7 +18,9 @@ import { GlobalEnv, getFunctionDeclaration, getStructDefinition } from "./typech
 import { expressionToString } from "./print";
 import { Env } from "./typecheck/types";
 import { getEnvironmentFromParams } from "./typecheck/programs";
-import { Ordering } from "./util";
+import { Ordering, getLibpath } from "./util";
+import * as path from "path";
+import * as vscodeUri from "vscode-uri";
 
 export function comparePositions(a: Position, b: Position): Ordering {
     if (a.line < b.line) return Ordering.Less;
@@ -45,7 +47,7 @@ export type SearchInfo = {
 
 export interface AstSearchResult {
     environment: Env | null;
-    data: FoundIdent | FoundType | FoundField | null;
+    data: FoundIdent | FoundType | FoundField | FoundUseLink | null;
 }
 
 export interface FoundIdent {
@@ -64,6 +66,11 @@ export interface FoundField {
     struct: StructDeclaration;
     field: VariableDeclarationOnly;
     expression: string;
+}
+
+export interface FoundUseLink {
+    tag: "FoundLink";
+    path: string;
 }
 
 function findType(e: Type, currentEnv: Env | null, info: SearchInfo): AstSearchResult {
@@ -352,6 +359,27 @@ export function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
                 if (isInside(pos, field.kind.loc)) return findType(field.kind, null, info);
             }
             break;
+
+        case "PragmaUseLib":
+            return {
+                environment: null,
+                data: {
+                    tag: "FoundLink",
+                    path: vscodeUri.URI.file(path.join(getLibpath(), decl.name + ".h0")).toString()
+                }
+            };
+        case "PragmaUseFile":
+            // The current document must have a source 
+            // so we can get the absolute path to the #use'd file
+            if (!decl.loc?.source) break;
+
+            return {
+                environment: null,
+                data: {
+                    tag: "FoundLink",
+                    path: path.join(path.dirname(decl.loc.source), decl.path)
+                }
+            };
     }
 
     return { environment: null, data: null };

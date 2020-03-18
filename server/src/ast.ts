@@ -542,6 +542,10 @@ export type ConcreteType =
     | { tag: "PointerType" }
     | { tag: "TaggedPointerType" };
 
+/**
+ * Converts a 0-indexed position to a 1-indexed position
+ * @param pos 
+ */
 export function fromVscodePosition(pos: vscode.Position): Position {
     return {
         column: pos.character + 1,
@@ -549,6 +553,10 @@ export function fromVscodePosition(pos: vscode.Position): Position {
     };
 }
 
+/**
+ * Converts a 1-indexed position to a 0-indexed position
+ * @param pos 
+ */
 export function toVscodePosition(pos: Position): vscode.Position {
     return {
         character: pos.column - 1,
