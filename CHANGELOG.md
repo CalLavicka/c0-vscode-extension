@@ -7,6 +7,7 @@
 
 ## [2.0.3]
 - Added go-to-definition for `#use`'d libraries/files
+- Fixed parsing failures when the path to the open file contains parens or other funny characters ([issue #40](https://github.com/CalLavicka/c0-vscode-extension/issues/40))
 
 ## [2.0.2]
 - Fixed bug involving editing a file when not in a workspace

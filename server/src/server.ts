@@ -46,15 +46,7 @@ const connection = createConnection(ProposedFeatures.all);
 // supports full document sync only
 const documents: TextDocuments = new TextDocuments();
 
-let hasWorkspaceFolderCapability: boolean = false;
-
 connection.onInitialize((params: InitializeParams) => {  
-  const capabilities = params.capabilities;
-
-  // Does the client support the `workspace/configuration` request?
-  // If not, we will fall back using global settings
-  hasWorkspaceFolderCapability = Boolean(capabilities.workspace!.workspaceFolders);
-
   return {
     capabilities: {
       textDocumentSync: documents.syncKind,
@@ -67,21 +59,6 @@ connection.onInitialize((params: InitializeParams) => {
       signatureHelpProvider: { triggerCharacters: ["(", ","] }
     }
   };
-});
-
-connection.onInitialized(() => {
-  if (hasWorkspaceFolderCapability) {
-    connection.workspace.onDidChangeWorkspaceFolders(event => {
-      connection.console.log('Workspace folder change event received.');
-    });
-  }
-
-  // Commented out since making them read-only causes issues with 
-  // updating the plugin
-  // // Change header files to be read-only so they aren't accidentally editted
-  // fs.readdirSync(path.join(path.dirname(process.argv[1]), 'c0lib')).forEach((file) => {
-  //   fs.chmodSync(path.join(path.dirname(process.argv[1]), 'c0lib', file), '444');
-  // });
 });
 
 /**
