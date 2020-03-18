@@ -17,6 +17,7 @@ import * as ast from "./ast";
 import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
+import { FileSet } from "./util";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -39,7 +40,7 @@ type CachedEnv = {
  */
 type FileCache = {
   cache?: Map<string, CachedEnv> | undefined
-  dependants: Set<string>
+  dependants: FileSet
 };
 
 /**
@@ -167,7 +168,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
           decls: [...decls],
           typeIds: new Set(typeIds)
         }]]),
-        dependants: new Set(dependants)
+        dependants: new FileSet(dependants)
       });
     }
 
@@ -179,7 +180,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         if (cache) {
           cache.dependants.add(dep);
         } else {
-          cachedFiles.set(file, { dependants: new Set([dep]) });
+          cachedFiles.set(file, { dependants: new FileSet([dep]) });
         }
       }
     });

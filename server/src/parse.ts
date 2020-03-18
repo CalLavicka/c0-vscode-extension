@@ -15,6 +15,7 @@ import { GlobalEnv } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
 import { openFile } from "./server";
+import { URI } from "vscode-uri";
 
 /** 
  * Splits exclusively on semicolons,
@@ -292,7 +293,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       const usedName = match[1];
       const usedPath = path.resolve(url.fileURLToPath(path.dirname(fileName)), usedName);
       // Convert /C:/ to C%3A/ to be compatible with how VSCode sends URIs
-      const usedURI = url.pathToFileURL(usedPath).toString().replace(/\/(.):/, (_: string, driveName: string) => `/${driveName}%3A`);
+      const usedURI = URI.file(usedPath).toString();
 
       if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent
