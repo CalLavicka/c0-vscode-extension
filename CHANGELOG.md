@@ -6,7 +6,7 @@
 -->
 
 ## [2.1.0] - March 18, 2020
-- Added go-to-definition for `#use`'d libraries/files
+- Added go-to-definition for `#use`'d libraries/files  ([issue #20](https://github.com/CalLavicka/c0-vscode-extension/issues/20))
 - Added completion for struct names (`struct foo`) and documentation 
 - Fixed parsing failures when the path to the open file contains parens or other funny characters ([issue #40](https://github.com/CalLavicka/c0-vscode-extension/issues/40))
 - Fixed local variable completions not working properly when they were declared in the topmost scope of a function
