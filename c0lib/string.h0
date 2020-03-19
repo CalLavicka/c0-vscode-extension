@@ -31,8 +31,10 @@ string string_sub(string a, int start, int end)
   /*@requires 0 <= start && start <= end && end <= string_length(a); @*/
   /*@ensures string_length(\result) == end - start; @*/ ;
 
-/* Compare strings lexicographically */
+/* Compare strings lexicographically for equality */
 bool string_equal(string a, string b);
+/* Compare strings lexicographically. 
+ * Returns -1 if a < b, 0 if a = b, 1 if a > b */
 int string_compare(string a, string b)
   /*@ensures -1 <= \result && \result <= 1; @*/ ;
 
