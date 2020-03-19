@@ -295,7 +295,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
   const functionDecls: Map<string, CompletionItem> = new Map();
   const typedefs: CompletionItem[] = [];
   const locals: CompletionItem[] = [];
-  const fieldNames: CompletionItem[] = [];
+  const structNames: CompletionItem[] = [];
 
   const folders = await connection.workspace.getWorkspaceFolders();
 
@@ -343,7 +343,12 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         typedefs.push({
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
-          documentation: mkMarkdownCode(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`),
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: 
+              mkCodeString(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`)
+              + "\n" + decl.doc,
+          },
           detail: uriToWorkspace(decl.loc?.source || undefined)
         });
         break;
@@ -358,15 +363,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         break;
 
       case "StructDeclaration":
-        if (decl.definitions === null) break;
-        for (const field of decl.definitions) {
-          fieldNames.push({
-            label: field.id.name,
-            kind: CompletionItemKind.Field,
-            documentation: mkMarkdownCode(`struct ${decl.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-            detail: uriToWorkspace(decl.loc?.source || undefined)
-          });
-        }
+        structNames.push({
+          label: `struct ${decl.id.name}`,
+          kind: CompletionItemKind.Struct,
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: mkCodeString(`struct ${decl.id.name}`) + "\n" + decl.doc
+          },
+          detail: uriToWorkspace(decl.loc?.source || undefined)
+        });
         break;
 
       case "FunctionDeclaration": {
@@ -398,7 +403,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         }
 
         // // Look in the function body for local variables
-        if (isInside(pos, decl.loc)) {
+        if (inCurrentFile && isInside(pos, decl.loc)) {
           const searchResult = findDecl(decl, { pos, genv });
           if (searchResult === null || searchResult.environment === null) break;
 
@@ -495,7 +500,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
     ...locals, 
     ...functionDecls.values(), 
     ...typedefs, 
-    ...fieldNames,
+    ...structNames,
     ...builtins];
 
   // This assumes that .h0 always refers to a library in the "include path"

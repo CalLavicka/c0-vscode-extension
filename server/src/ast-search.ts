@@ -336,7 +336,7 @@ export function findDecl(decl: Declaration, info: SearchInfo): AstSearchResult {
                 if (isInside(pos, contract.loc)) return findExpression(contract, env, info);
             }
 
-            if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, null, info);
+            if (decl.body && isInside(pos, decl.body.loc)) return findStatement(decl.body, env, info);
             return {
                 environment: env,
                 data: null
