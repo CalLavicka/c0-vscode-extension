@@ -5,9 +5,12 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
-## [2.0.3]
+## [2.1.0]
 - Added go-to-definition for `#use`'d libraries/files
+- Added completion for struct names (`struct foo`) and documentation 
 - Fixed parsing failures when the path to the open file contains parens or other funny characters ([issue #40](https://github.com/CalLavicka/c0-vscode-extension/issues/40))
+- Fixed local variable completions not working properly when they were declared in the topmost scope of a function
+- Fixed documentation hints not appearing for typedefs 
 
 ## [2.0.2]
 - Fixed bug involving editing a file when not in a workspace
