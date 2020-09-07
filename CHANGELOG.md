@@ -5,6 +5,9 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.0] - September 7, 2020
+- Added typechecking, completions, and signature info for `printf` and `format`
+
 ## [2.1.0] - March 18, 2020
 - Added go-to-definition for `#use`'d libraries/files  ([issue #20](https://github.com/CalLavicka/c0-vscode-extension/issues/20))
 - Added completion for struct names (`struct foo`) and documentation 

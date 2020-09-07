@@ -7,3 +7,4 @@ node_modules
 server/src/expression-rules.ts
 server/src/program-rules.ts
 server/src/statement-rules.ts
+server/src/ignore.txt

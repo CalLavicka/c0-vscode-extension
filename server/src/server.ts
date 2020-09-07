@@ -405,6 +405,8 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         // // Look in the function body for local variables
         if (inCurrentFile && isInside(pos, decl.loc)) {
           const searchResult = findDecl(decl, { pos, genv });
+          // We cannot provide accurate completions unless we know 
+          // what variables are in scope
           if (searchResult === null || searchResult.environment === null) break;
 
           switch (context?.tag) {
@@ -417,7 +419,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                     genv, 
                     searchResult.environment, 
                     null, 
-                    <ast.Expression>context.expr));
+                    <ast.Expression>context.expr
+                  )
+                );
                     
                 let actual;
                 if (context.derefenced && type.tag === "PointerType") {
@@ -495,6 +499,36 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
       documentation: mkMarkdownCode(`t[] alloc_array(t, int count)`)
     }
   ];
+
+  if (genv.libsLoaded.has("conio")) {
+    builtins.push(
+      {
+        label: "printf",
+        kind: CompletionItemKind.Function,
+        detail: "<conio>",
+        documentation: {
+          kind: MarkupKind.Markdown,
+          value: mkCodeString("void printf(string msg, ...args)") + "\n"
+                 + "Prints the message and argument"
+        }        
+      }  
+    );
+  }
+
+  if (genv.libsLoaded.has("string")) {
+    builtins.push(
+      {
+        label: "format",
+        kind: CompletionItemKind.Function,
+        detail: "<string>",
+        documentation: {
+            kind: MarkupKind.Markdown,
+            value: mkCodeString("string format(string msg, ...args)") + "\n"
+                   + "Returns the message and arguments formatted as a string."
+        }        
+      }
+    );
+  }
 
   const completions = [
     ...locals, 
@@ -726,6 +760,42 @@ connection.onSignatureHelp((data) => {
             id: { name: "error" },
             params: [{ id: { name: "message"}, kind: { tag: "StringType" } }],
             doc: "Prints the given message and aborts execution"
+          };
+          break;
+
+        case "format":
+          functionDecl = {
+            returns: { tag: "StringType" },
+            id: { name: "format" },
+            params: [{ id: { name: "msg" }, kind: { tag: "StringType" }}],
+            doc: 
+              "Returns `msg` but replacing each _format specifier_ with an argument.\n" + 
+              "The number and type of format specifiers must match the arguments provided.\n" + 
+              "Available format specifiers:\n" + 
+              "```\n" +
+              "  %s -> string\n" + 
+              "  %d -> int\n" + 
+              "  %c -> char\n" +
+              "  %% -> literal percent sign\n" +
+              "```"
+          };
+          break;
+          
+        case "printf":
+          functionDecl = {
+            returns: { tag: "VoidType" },
+            id: { name: "printf" },
+            params: [{ id: { name: "msg" }, kind: { tag: "StringType" }}],
+            doc: 
+              "Prints `msg`, replacing each _format specifier_ with an argument.\n" + 
+              "The number and type of format specifiers must match the arguments provided.\n" + 
+              "Available format specifiers:\n" + 
+              "```\n" +
+              "  %s -> string\n" + 
+              "  %d -> int\n" + 
+              "  %c -> char\n" +
+              "  %% -> literal percent sign\n" +
+              "```"
           };
           break;
 

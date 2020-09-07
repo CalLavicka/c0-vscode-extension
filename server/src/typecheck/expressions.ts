@@ -204,11 +204,30 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
             const isPrintfLike = 
                  (genv.libsLoaded.has("conio") && fname === "printf")
               || (genv.libsLoaded.has("string") && fname === "format");
+
             if (isPrintfLike) {
-                // Validate printf here 
                 if (exp.arguments.length === 0) { throw new TypingError(exp, `${fname} requires at least 1 argument`); }
                 if (exp.arguments[0].tag !== "StringLiteral") { 
                     throw new TypingError(exp.arguments[0], "argument must be a string constant");
+                }
+                
+                const formatArguments = exp.arguments.slice(1);
+                const formatSpecifiers = exp.arguments[0].value.split(' ').filter(s => s !== "%%" && s.startsWith("%"));
+
+                if (formatArguments.length !== formatSpecifiers.length) {
+                    throw new TypingError(exp, `number of format specifiers does not match the number of arguments`);
+                }
+
+                for (let i = 0; i < formatArguments.length; i++) {
+                    const arg = formatArguments[i];
+                    const specifier = formatSpecifiers[i];
+
+                    switch (specifier) {
+                        case '%d': checkExpression(genv, env, mode, arg, { tag: "IntType" }); break;
+                        case '%s': checkExpression(genv, env, mode, arg, { tag: "StringType" }); break;
+                        case '%c': checkExpression(genv, env, mode, arg, { tag: "CharType" }); break;
+                        default: throw new TypingError(exp.arguments[0], `invalid format specifier '${specifier}'. options are %d, %s, %c, or %% for a literal % sign`);
+                    }
                 }
 
                 return { tag: fname === "printf" ? "VoidType" : "StringType" };
