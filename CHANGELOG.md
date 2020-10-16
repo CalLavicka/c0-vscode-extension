@@ -5,6 +5,14 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.1] - October 15, 2020
+- Fixed a problem which happened when a function declared (and not defined) in file A
+  was used in file B. This would cause the usage to be a problem since the function 
+  was never defined. However, it would also try to generate a diagnostic for the 
+  declaration in file A, which is impossible because our older version of the LSP
+  protocol does not support it. Therefore this would create strange squiggles which
+  didn't match up with the source
+
 ## [2.2.0] - September 7, 2020
 - Added typechecking, completions, and signature info for `printf` and `format`
 
