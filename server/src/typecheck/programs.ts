@@ -332,7 +332,9 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
         const def = getFunctionDeclaration(genv, f.name);
         if (def === null) { console.error(`No definition for ${f.name}`); }
         else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
-            errors.add(new TypingError(f, `function ${f.name} is never defined`));
+            const msg = `function ${f.name} was declared but never defined`;
+
+            errors.add(new TypingError(f, msg));
 
             // The version of the LSP library we are using does not support
             // returning diagnostics for multiple files. This is an issue if
@@ -341,7 +343,7 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
             // and in file B for the usage, but that's not possible. So we don't
             // want to generate a diagnostic for the declaration if it's in a different file
             if (f.loc?.source === def.loc?.source) {
-                errors.add(new TypingError(def.id, `function ${f.name} is never defined`));
+                errors.add(new TypingError(def.id, msg));
             }
         }
     }

@@ -397,10 +397,25 @@ export function restrictLValue(lang: Lang, syn: syn.Expression): ast.LValue {
                 throw new ParsingError(syn, `Unary ${syn.operator} operator not valid in lvalues`);
             }
             atleast(syn, lang, "L4", "pointer dereference");
+
+            let argument: ast.LValue;
+            // Peek at the argument, if it's a cast we allow it here
+            if (syn.argument.tag === "CastExpression") {
+                argument = {
+                    tag: "CastExpression",
+                    argument: restrictLValue(lang, syn.argument.argument),
+                    kind: restrictValueType(lang, syn.argument.kind),
+                    loc: syn.argument.loc
+                };
+            }
+            else {
+                argument = restrictLValue(lang, syn.argument);
+            }
+
             return {
                 tag: "UnaryExpression",
                 operator: "*",
-                argument: restrictLValue(lang, syn.argument),
+                argument,
                 loc: syn.loc
             };
         }
@@ -414,6 +429,10 @@ export function restrictLValue(lang: Lang, syn: syn.Expression): ast.LValue {
             };
         }
 
+        // Casts are only allowed as *(t*)p (e.g. just (t*)p is not okay)
+        case "CastExpression": 
+            throw new ParsingError(syn, `Casts on the left-side of an assignment must be of the form *(t*)e`);
+        
         case "IntLiteral":
         case "StringLiteral":
         case "CharLiteral":
@@ -421,7 +440,6 @@ export function restrictLValue(lang: Lang, syn: syn.Expression): ast.LValue {
         case "NullLiteral":
         case "CallExpression":
         case "IndirectCallExpression":
-        case "CastExpression":
         case "BinaryExpression":
         case "LogicalExpression":
         case "ConditionalExpression":

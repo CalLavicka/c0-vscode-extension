@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.2] - November 7, 2020
+- Fixed the typechecker rejecting casts of the form `*(t*)e` in lvalues, since those are now
+  legal in C1
+
 ## [2.2.1] - October 15, 2020
 - Fixed a problem which happened when a function declared (and not defined) in file A
   was used in file B. This would cause the usage to be a problem since the function 

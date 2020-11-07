@@ -359,7 +359,12 @@ export interface HasTagExpression extends Syn {
 /**
  * LValues are a refinement of Expressions
  */
-export type LValue = Identifier | StructMemberLValue | DereferenceLValue | ArrayMemberLValue;
+export type LValue = 
+    | Identifier 
+    | StructMemberLValue 
+    | DereferenceLValue 
+    | ArrayMemberLValue 
+    | CastExpressionLValue;
 
 export interface StructMemberLValue extends StructMemberExpression {
     readonly object: LValue;
@@ -372,6 +377,10 @@ export interface DereferenceLValue extends UnaryExpression {
 
 export interface ArrayMemberLValue extends ArrayMemberExpression {
     readonly object: LValue;
+}
+
+export interface CastExpressionLValue extends CastExpression {
+    readonly argument: LValue;
 }
 
 export type SimpleStatement = AssignmentStatement | UpdateStatement | ExpressionStatement;
