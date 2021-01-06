@@ -211,11 +211,43 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     throw new TypingError(exp.arguments[0], "argument must be a string constant");
                 }
                 
+                function parseFormatString(format: string): string[] {
+                    const n = format.length;
+                    const specifiers = [];
+                    for (let i = 0; i < n; i++) {
+                        const c = format[i];
+                        if (c == '%') {
+                            // Check next character
+                            if (i + 1 == n) {
+                                // Unmatched '%'
+                                throw new TypingError(
+                                    (<ast.CallExpression>exp).arguments[0], 
+                                    "'%' must be followed by a format specifier.\nTry '%%' to print a percent sign");
+                            }
+
+                            const c2 = format[i + 1];
+                            if (c2 != '%') {
+                                // push specifier including the %
+                                specifiers.push(`%${c2}`);
+                            }
+
+                            // Skip char following 'c'
+                            // Otherwise %% would raise an error
+                            i++;
+                        }
+                    }
+
+                    return specifiers;
+                }
+
+                const formatString = exp.arguments[0].value;
                 const formatArguments = exp.arguments.slice(1);
-                const formatSpecifiers = exp.arguments[0].value.split(' ').filter(s => s !== "%%" && s.startsWith("%"));
+                const formatSpecifiers = parseFormatString(formatString);
 
                 if (formatArguments.length !== formatSpecifiers.length) {
-                    throw new TypingError(exp, `number of format specifiers does not match the number of arguments`);
+                    throw new TypingError(
+                        exp, 
+                        `found ${formatSpecifiers.length} format specifiers, but got ${formatArguments.length} arguments`);
                 }
 
                 for (let i = 0; i < formatArguments.length; i++) {

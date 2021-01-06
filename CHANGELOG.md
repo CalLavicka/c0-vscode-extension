@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.3] - January 5, 2021
+- Fixed format string parsing incorrectly rejecting format specifiers which 
+  didn't start after a space
+
 ## [2.2.2] - November 7, 2020
 - Fixed the typechecker rejecting casts of the form `*(t*)e` in lvalues, since those are now
   legal in C1
