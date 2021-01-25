@@ -51,6 +51,14 @@
                 {
                     "match": "#\\s(dup|pop|swap|iadd|iand|idiv|imul|ior|irem|ishl|ishr|isub|ixor|athrow|assert|aconst_null|nop|arraylength|aadds|cmload|cmstore|amload|amstore|imload|imstore|return)\\s",
                     "name": "comment.instruction.bc0"
+                },
+                {
+                    "match": "#\\s(addrof_static|addrof_native|addtag)\\s[0-9]+",
+                    "name": "comment.instruction.bc0"
+                },
+                {
+                    "match": "#\\s(invokedynamic|hastag|checktag)\\s",
+                    "name": "comment.instruction.bc0"
                 }
             ]
         }
