@@ -10,6 +10,7 @@ import { Env, Synthed, isSubtype, leastUpperBoundSynthedType, actualSynthed, Act
 import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";
 import { typeToString } from "../print";
+import * as util from "../util";
 
 export type mode =
     | null
@@ -266,7 +267,28 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
             }
             else {
                 const func = getFunctionDeclaration(genv, exp.callee.name);
-                if (func === null) { throw new TypingError(exp, `function ${exp.callee.name} not declared`); }
+                if (func === null) { 
+                    // Find similarly named functions
+                    const functions = <ast.FunctionDeclaration[]>genv.decls
+                        .filter(decl => decl.tag === "FunctionDeclaration");
+                    
+                    const functionNames = functions.map(func => func.id.name);
+                    const possibleAlternatives = util.bestMatches(exp.callee.name, functionNames);
+                    let hint = "perhaps you meant one of: ";
+                    hint += possibleAlternatives
+                        .map(str => `'${str}'`)
+                        .join(", ");
+
+                    if (possibleAlternatives.length === 0) {
+                        throw new TypingError(exp, `function ${exp.callee.name} not declared`); 
+                    }
+                    else {
+                        throw new TypingError(
+                            exp, 
+                            `function ${exp.callee.name} not declared`,
+                            hint);
+                    }
+                }
                 if (exp.arguments.length !== func.params.length) {
                     throw new TypingError(
                         exp,
