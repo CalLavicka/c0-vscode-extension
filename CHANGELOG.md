@@ -1,9 +1,13 @@
-# Change Log
+# Changelog
 
 <!--- 
 ## [2.1.0]
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
+
+## [2.2.4] - January 30, 2021
+- Added `.bc1` bytecode file extension
+- Added 'did-you-mean' support for when a function name is misspelled
 
 ## [2.2.3] - January 5, 2021
 - Fixed format string parsing incorrectly rejecting format specifiers which 
