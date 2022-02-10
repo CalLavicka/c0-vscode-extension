@@ -89,7 +89,9 @@ Tp             -> "int"                                               {% util.In
                 | "struct" _ StructName                               {% util.StructType %}
                 | TypeIdentifier                                      {% id %}
 
-StringLiteral  -> %string_delimiter (%special_character | %characters):* %string_delimiter
+# Note: this concatenates multiple string literals
+# e.g. "hello " "world" is the same as "hello world"
+StringLiteral  -> (%string_delimiter (%special_character | %characters):* %string_delimiter _):+
 CharLiteral    -> %char_delimiter (%special_character | %character) %char_delimiter
 
 # Regular whitespace, skips comments

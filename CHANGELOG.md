@@ -5,6 +5,15 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.5] - February 10, 2022
+- Added support for string literal concenation:
+```cpp
+println(
+  "Hello world\n"
+  "Some more text"
+);
+```
+
 ## [2.2.4] - January 30, 2021
 - Added `.bc1` bytecode file extension
 - Added 'did-you-mean' support for when a function name is misspelled

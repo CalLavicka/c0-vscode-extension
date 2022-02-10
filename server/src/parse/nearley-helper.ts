@@ -104,7 +104,17 @@ export function IntLiteral([tok]: Token[]): syn.IntLiteral {
     };
 }
 
-export function StringLiteral([[start, toks, end]]: [[Token, [Token][], Token]]): syn.StringLiteral {
+export function StringLiteral([literals]: [Array<[[Token, [Token][], Token]]>]): syn.StringLiteral {
+    console.assert(literals.length > 0);
+
+    // First opening quote position
+    const [start,,] = literals[0][0];
+    // Last closing quote position
+    const [,, end] = literals[literals.length - 1][0];
+
+    // Concatenate all the tokens into a single string
+    const toks = literals.map(([[, toks, _]]) => toks).flat();
+
     return {
         tag: "StringLiteral",
         raw: toks.map(x => x[0].value),
