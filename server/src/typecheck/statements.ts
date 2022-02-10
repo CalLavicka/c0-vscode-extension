@@ -49,7 +49,7 @@ export function checkStatement(
                     stm.size = { tag: "IntType" };
                 }
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }
@@ -57,7 +57,7 @@ export function checkStatement(
             try {
                 checkExpression(genv, env, null, stm.argument, { tag: "IntType" });
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }
@@ -77,7 +77,7 @@ export function checkStatement(
                     ));
                 }
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }
@@ -91,12 +91,12 @@ export function checkStatement(
                     try {
                         checkExpression(genv, env, null, stm.init, stm.kind);
                     } catch (err) {
-                        errors.add(err);
+                        errors.add(err as TypingError);
                     }
                 }
                 env.set(stm.id.name, { ...stm.kind, position: stm.id.loc });
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }
@@ -123,14 +123,14 @@ export function checkStatement(
             try {
                 checkExpression(genv, env0, null, stm.test, { tag: "BoolType" });
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             if (stm.update) { checkStatement(genv, env0, stm.update, null, false, errors); }
             stm.invariants.forEach(anno => {
                 try {
                     checkExpression(genv, env0, { tag: "@loop_invariant" }, anno, { tag: "BoolType" });
                 } catch (err) {
-                    errors.add(err);
+                    errors.add(err as TypingError);
                 }
             });
             checkStatement(genv, env0, stm.body, returning, true, errors);
@@ -153,7 +153,7 @@ export function checkStatement(
                     try {
                         checkExpression(genv, env, null, stm.argument, returning);
                     } catch (err) {
-                        errors.add(err);
+                        errors.add(err as TypingError);
                     }
                 }
                 return;
@@ -172,7 +172,7 @@ export function checkStatement(
                     tag: "BoolType"
                 });
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }
@@ -180,7 +180,7 @@ export function checkStatement(
             try {
                 checkExpression(genv, env, null, stm.argument, { tag: "StringType" });
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             return;
         }

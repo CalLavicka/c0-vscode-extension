@@ -36,6 +36,7 @@ import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
 import { synthExpression } from './typecheck/expressions';
 import * as glob from "glob";
+import { URL } from "url";
 import * as url from "url";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.

@@ -118,7 +118,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     try {
       parseResult = parseDocument(dep, parser, genv);
     }
-    catch (e) {
+    catch (e: any) {
       if (e?.code === "ENOENT") {
         return [{
           severity: DiagnosticSeverity.Error,

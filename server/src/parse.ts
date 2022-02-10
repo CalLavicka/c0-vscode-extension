@@ -450,7 +450,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       // Restore old state before the bad line
       parser.restore(parseState);
       for (const ch of segment.segment) {
@@ -502,7 +502,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         restrictedDecls = restrictedDecls.concat(restrictDeclaration(language, decl));
       } 
       catch (err) {
-        errors.add(err);
+        errors.add(err as TypingError);
       }
     }
 

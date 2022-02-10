@@ -14,7 +14,6 @@ import { checkExpression } from "./expressions";
 import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
 import { TypingError, ImpossibleError } from "../error";
-import { Either, Right, Left } from "../util";
 import { C0Parser } from "../parse";
 
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
@@ -154,7 +153,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 checkFunctionReturnType(genv, decl.definition.returns);
             } 
             catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
             try {
                 const env = getEnvironmentFromParams(genv, decl.definition.params);
@@ -176,7 +175,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 }
                 return functionsUsed;
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
                 return new Set();
             }
         }
@@ -186,7 +185,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 checkFunctionReturnType(genv, decl.returns);
             } 
             catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
 
             const functionsUsed = new Set<ast.Identifier>();
@@ -200,7 +199,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                             functionsUsed.add(x)
                         );
                     } catch (err) {
-                        errors.add(err);
+                        errors.add(err as TypingError);
                     }
                 }
                 for (const anno of decl.postconditions) {
@@ -212,7 +211,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                             functionsUsed.add(x)
                         );
                     } catch (err) {
-                        errors.add(err);
+                        errors.add(err as TypingError);
                     }
                 }
 
@@ -235,7 +234,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                         }
                     }
                 } catch (err) {
-                    errors.add(err);
+                    errors.add(err as TypingError);
                 }
                 
                 // Check body, if necessary
@@ -286,13 +285,13 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     }
                     functionAnalysis.functions.forEach(f => functionsUsed.add(f));
                 } catch (err) {
-                    errors.add(err);
+                    errors.add(err as TypingError);
                 }
 
                 // Delete the temp entry 
                 genv.decls.pop();
             } catch (err) {
-                errors.add(err);
+                errors.add(err as TypingError);
             }
 
             return functionsUsed;
