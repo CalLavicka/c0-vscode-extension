@@ -11,7 +11,7 @@ export type GlobalEnv = {
      * Corresponds to #use <foo>
      */
     readonly libsLoaded: Set<string>;
-    
+
     /**
      * Holds which files have already 
      * been loaded. Corresponds to 
@@ -128,6 +128,12 @@ export function isLibraryStruct(genv: GlobalEnv, t: string): boolean {
     return genv.libfuncs.has(t);
 }
 
+export function isPrintfLike(genv: GlobalEnv, fname: string): boolean {
+    return (genv.libsLoaded.has("conio") && fname === "printf")
+        || (genv.libsLoaded.has("string") && fname === "format");
+}
+
+
 /**
  * Given an ostensible function name, get the relevant function definition (if one exists), or the
  * latest function declaration (if no definition exists). No declaration may exist; the function will
@@ -141,7 +147,7 @@ export function getFunctionDeclaration(genv: GlobalEnv, t: string, filename?: st
     let result: ast.FunctionDeclaration | null = null;
     for (const decl of genv.decls) {
         if (decl.tag === "FunctionDeclaration" && decl.id.name === t) {
-            if (filename) { 
+            if (filename) {
                 if (decl.loc?.source === filename && decl.body) return decl;
                 if (decl.loc?.source && decl.loc.source !== filename && !decl.body) return decl;
                 if (result === null) result = decl;

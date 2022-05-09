@@ -4,7 +4,8 @@ import {
     getStructDefinition,
     actualType,
     concreteType,
-    fullTypeName
+    fullTypeName,
+    isPrintfLike
 } from "./globalenv";
 import { Env, Synthed, isSubtype, leastUpperBoundSynthedType, actualSynthed, ActualSynthed } from "./types";
 import * as ast from "../ast";
@@ -202,11 +203,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
 
             const fname = exp.callee.name;
 
-            const isPrintfLike = 
-                 (genv.libsLoaded.has("conio") && fname === "printf")
-              || (genv.libsLoaded.has("string") && fname === "format");
-
-            if (isPrintfLike) {
+            if (isPrintfLike(genv, fname)) {
                 if (exp.arguments.length === 0) { throw new TypingError(exp, `${fname} requires at least 1 argument`); }
                 if (exp.arguments[0].tag !== "StringLiteral") { 
                     throw new TypingError(exp.arguments[0], "argument must be a string constant");

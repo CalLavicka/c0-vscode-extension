@@ -367,10 +367,13 @@ export function parseDocument(text: C0SourceFile, oldParser: C0Parser, genv: Glo
       const parsedSegment = parser.finish();
 
       if (parsedSegment.length > 1) {
-        // Shouldn't happen
-        console.error("Parse ambiguous:", parsedSegment);
+        // Technically we have an ambiguous parse here
+        // but sometimes the parser produces two identical parses
+        // so we just take the first one
+        console.error("Ambiguous parse, please report this issue to the course staff if possible");
       }
-      else if (parsedSegment.length === 0) {
+
+      if (parsedSegment.length === 0) {
         if (segment.last) {
           addError(
             null,
@@ -384,7 +387,8 @@ export function parseDocument(text: C0SourceFile, oldParser: C0Parser, genv: Glo
         }
       }
       else {
-        // parsed.length === 1
+        // Ideally parsed.length === 1 but sometimes
+        // the parser generates two identical parses
         const parsedGlobalDecls = parsedSegment[0];
         for (let i = size; i < parsedGlobalDecls.length - 1; i++) {
           switch (parsedGlobalDecls[i].tag) {

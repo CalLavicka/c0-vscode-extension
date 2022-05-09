@@ -2,7 +2,6 @@ import {
   createConnection,
   TextDocuments,
   Diagnostic,
-  DiagnosticSeverity,
   ProposedFeatures,
   InitializeParams,
   CompletionItem,
@@ -12,13 +11,10 @@ import {
   MarkupContent,
   LocationLink,
   CompletionParams,
-  Range,
-  Position,
   FileChangeType,
   TextDocumentChangeEvent,
   ParameterInformation,
   MarkupKind,
-  DidChangeConfigurationNotification
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -34,7 +30,7 @@ import { typeToString, expressionToString } from './print';
 import * as path from "path";
 import * as fs from "fs";
 import { EnvEntry } from './typecheck/types';
-import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition, isLibraryFunction } from './typecheck/globalenv';
+import { getFunctionDeclaration, actualType, getTypedefDefinition, getStructDefinition } from './typecheck/globalenv';
 import { Maybe, Just, Nothing } from './util';
 import { Ordering } from './util';
 import { getCompletionContext, CompletionContextKind } from './c0Completions';
@@ -42,7 +38,6 @@ import { synthExpression } from './typecheck/expressions';
 import * as glob from "glob";
 import { URL } from "url";
 import * as url from "url";
-import * as tar from "tar";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -153,13 +148,17 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
 
               // Expand any possible globs, but only if a glob is in there 
               if (glob.hasMagic(arg)) {
-                const files = glob.sync(arg, { cwd });
+                // Sort to make sure we get the same order as POSIX. 
+                // The library doesn't seem to sort them properly so we do it ourselves
+                const files = glob.sync(arg, { cwd, nosort: true }).sort(); 
                 for (const globbedFile of files) {
-                  if (globbedFile === fname && lang.isC0File(arg)) {
+                  if (!lang.isC0File(globbedFile)) continue;
+                  if (globbedFile === fname) {
                     // The currently opened file might be inside of a glob
                     return Just({ uri: configPath.toString(), dependencies });
                   }
-                  else dependencies.push(`${base}/${globbedFile}`);
+                  
+                  dependencies.push(`${base}/${globbedFile}`);
                 }
               }
               else {
@@ -202,9 +201,9 @@ connection.onDidChangeWatchedFiles(async params => {
 
     invalidate(change.uri);
 
-    if (change.uri.endsWith('/project.txt')) {
+    if (change.uri.endsWith("/README.txt")) {
       if (change.type === FileChangeType.Created) {
-        // Invalidate all project.txt/README caches, since this may be a new project file
+        // Invalidate all README caches, since this may be a new project file
         invalidateAll();
       } else {
         // Invalidate all references to this project.txt

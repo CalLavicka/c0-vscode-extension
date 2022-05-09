@@ -139,11 +139,11 @@ export function readTarFile(file: string): Promise<Map<string, string>> {
   
   const onEntry = (entry: any) => {
     fileBuffers.set(entry.path, []);
-    entry.on('data', (c: Buffer) => fileBuffers.get(entry.path)!.push(c))
+    entry.on('data', (c: Buffer) => void fileBuffers.get(entry.path)!.push(c))
   };
   
   return new Promise((resolve, reject) => {
-    // @ts-ignore
+    // @ts-ignore // the tar library's type definitions are incorrect
     tar.t({ onentry: onEntry, file }, error => {
       if (error) {
         return reject(error);

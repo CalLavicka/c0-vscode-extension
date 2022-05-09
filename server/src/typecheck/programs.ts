@@ -8,6 +8,7 @@ import {
     isLibraryStruct,
     getStructDefinition,
     actualType,
+    isPrintfLike,
 } from "./globalenv";
 import { Env, equalFunctionTypes, checkTypeInDeclaration, checkFunctionReturnType, EnvEntry } from "./types";
 import { checkExpression } from "./expressions";
@@ -329,7 +330,15 @@ export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: 
 
     for (const f of functionsUsed) {
         const def = getFunctionDeclaration(genv, f.name);
-        if (def === null) { console.error(`No definition for ${f.name}`); }
+        if (def === null) {
+            // We should always be able to look up a declaration of a function.
+            // Otherwise, we would have already produced a diagnostic for it earlier
+            // The only exception is printf and format, which are magically declared
+            // by the compiler when the appropriate library is #use'd
+            if (!isPrintfLike(genv, f.name)) { 
+                console.error(`No declaration for ${f.name}`); 
+            }
+        }
         else if (def.body === null && !isLibraryFunction(genv, def.id.name)) {
             const msg = `function ${f.name} was declared but never defined`;
 
