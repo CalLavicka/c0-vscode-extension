@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.7] - May 9, 2022
+- In a `README.txt`, globbed files are now processed in alphabetical order. This matches what shells do
+- Allow ambiguous parses since the parser sometimes falsely claims a file has two parses, when they are really identical.
+
 ## [2.2.6] - May 9, 2022
 - Added support for the new `.o0/.o1` C0 library file formats, which are
   compressed bundles of source code, for the purpose of aiding encapsulation of implementation details.
