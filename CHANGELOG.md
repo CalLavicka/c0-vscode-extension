@@ -9,6 +9,8 @@
 - Added support for the new `.o0/.o1` C0 library file formats, which are
   compressed bundles of source code, for the purpose of aiding encapsulation of implementation details.
 - Fixed `alloc_array(t, e)` not reporting the position of `t` properly
+- If there is no `README.txt` available for the file, a message is shown, instead of a diagnostic.
+  Hopefully, this is much less annoying since it can be dismissed and is not persistent.
 
 ## [2.2.5] - February 10, 2022
 - Added support for string literal concenation:

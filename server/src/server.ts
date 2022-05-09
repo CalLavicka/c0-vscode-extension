@@ -257,7 +257,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
       || change.document.uri.endsWith("h1"))) {
       // TODO: whether this is displayed or not should be controlled via a diagnostic
-      connection.window.showInformationMessage("No README.txt found for the current file.\nRed squiggles and code completion might be incorrect");
+      connection.window.showInformationMessage(`No README.txt found for ${path.basename(change.document.uri)}.\nRed squiggles and code completion might be incorrect`);
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
