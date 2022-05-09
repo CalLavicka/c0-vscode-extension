@@ -129,7 +129,12 @@ export function bestMatches(target: string, possibleValues: string[], numMatches
     .map(v => v.str);
 }
 
+/**
+ * Reads a tar (or tar.gz) file and returns a mapping from file names to file contents
+ * @param file File path in OS path format (i.e. no URI file:// prefix)
+ */
 export function readTarFile(file: string): Promise<Map<string, string>> {
+  // https://gist.github.com/isaacs/1bc87e60ed1e578269ab5b76935c3217
   const fileBuffers = new Map<string, Buffer[]>();
   
   const onEntry = (entry: any) => {
