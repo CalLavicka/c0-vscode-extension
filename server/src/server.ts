@@ -17,13 +17,17 @@ import {
   FileChangeType,
   TextDocumentChangeEvent,
   ParameterInformation,
-  MarkupKind
+  MarkupKind,
+  DidChangeConfigurationNotification
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
 import { openFiles, parseTextDocument, invalidate, invalidateAll } from "./validate-program";
 
 import * as ast from "./ast";
+import * as lang from "./lang";
+import { C0DiskSourceFile, C0ObjectSourceFile, C0SourceFile } from "./c0file";
+import { readTarFile } from './util';
 import { isInside, findDecl, findGenv, comparePositions } from "./ast-search";
 import { typeToString, expressionToString } from './print';
 
@@ -38,6 +42,7 @@ import { synthExpression } from './typecheck/expressions';
 import * as glob from "glob";
 import { URL } from "url";
 import * as url from "url";
+import * as tar from "tar";
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -47,7 +52,15 @@ const connection = createConnection(ProposedFeatures.all);
 // supports full document sync only
 const documents: TextDocuments = new TextDocuments();
 
-connection.onInitialize((params: InitializeParams) => {  
+/** 
+ * Whether or not the language client
+ * can send us configuration information (e.g. VSCode's JSON settings)
+ */
+let hasConfigurationCapability: boolean = false;
+
+connection.onInitialize((params: InitializeParams) => {
+  hasConfigurationCapability = !!params.capabilities.workspace?.configuration;
+
   return {
     capabilities: {
       textDocumentSync: documents.syncKind,
@@ -62,15 +75,28 @@ connection.onInitialize((params: InitializeParams) => {
   };
 });
 
+// TODO: we will use this once we support the ability
+// to turn off notifications for files with no README.txt
+// connection.onInitialized(() => {
+//   if (hasConfigurationCapability) {
+//     connection.client.register(DidChangeConfigurationNotification.type, undefined);
+//   }
+// });
+
 /**
  * Returns the text of the given file, possibly using a file
- * open in the editor. 
+ * open in the editor. You should use this instead of
+ * fs.readFile because it will properly take into account
+ * unsaven contents in the editor.
+ * 
  * @param uri URI with file:// protocol
  */
 export function openFile(uri: string): string {
   // Check if the document is open, and use that instead
-  for (const document of documents.all()) {
-    if (document.uri === uri) return document.getText();
+  const document = documents.all().find(document => document.uri === uri)
+
+  if (document) {
+    return document.getText();
   }
 
   // Otherwise open the document, potentially
@@ -80,9 +106,9 @@ export function openFile(uri: string): string {
 
 type Dependencies = {
   /** Path to project.txt */
-  uri: string, 
-  /** List of files which should be loaded before this one */
-  dependencies: string[] 
+  uri: string,
+  /** List of files which should be loaded before this one, these are in URI format */
+  dependencies: string[]
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
@@ -107,54 +133,48 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
         const cwd = path.dirname(url.fileURLToPath(configPath));
         const dependencies: string[] = [];
 
-        if (/^\s*%\s*cc0/.test(line)) {
-          const args = line.split(" ").filter(s => s !== "");
+        if (!/^\s*%\s*cc0/.test(line)) continue;
+        const args = line.split(" ").map(s => s.trim()).filter(s => s !== "");
 
-          for (let i = 0; i < args.length; i++) {
-            const arg = args[i];
-            switch (arg) {
-              case "%":
-              case "cc0":
-              // Skip argument
-              case "-o": i++; continue;
-              default:
-                // Skip any other option (we will assume they are nullary)
-                if (arg[0] === '-') continue;
-                // Expand any possible globs, but only if a glob is in there 
-                if (glob.hasMagic(arg)) {
-                  const files = glob.sync(arg, { cwd });
-                  for (const globbedFile of files) {
-                    if (globbedFile === fname) return Just({ uri: configPath.toString(), dependencies });
-                    else dependencies.push(`${base}/${globbedFile}`);
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i];
+          switch (arg) {
+            case "%":
+            case "cc0":
+            // Skip argument of -o
+            case "-o": i++; continue;
+            default:
+              // Skip any other option (we will assume they are nullary even though this is really not true).
+              // The issue is some options can either have a space or not, for example
+              // 'cc0 -W all' and 'cc0 -Wall' are both valid. 
+              // We try to mitigate this by checking that files are C0 files 
+              // but that's not a perfect solution.
+              if (arg[0] === '-') continue;
+
+              // Expand any possible globs, but only if a glob is in there 
+              if (glob.hasMagic(arg)) {
+                const files = glob.sync(arg, { cwd });
+                for (const globbedFile of files) {
+                  if (globbedFile === fname && lang.isC0File(arg)) {
+                    // The currently opened file might be inside of a glob
+                    return Just({ uri: configPath.toString(), dependencies });
                   }
+                  else dependencies.push(`${base}/${globbedFile}`);
+                }
+              }
+              else {
+                // It's just a regular filename.
+                if (arg === fname) {
+                  // Stop once we find the currently open file,
+                  // as we do not need any files after that
+                  return Just({ uri: configPath.toString(), dependencies });
                 }
                 else {
-                  if (arg === fname) return Just({ uri: configPath.toString(), dependencies });
-                  else dependencies.push(`${base}/${arg}`);
+                  // Make sure the file is a c0/h0/o0/c1/h1/o1 file
+                  if (lang.isC0File(arg)) dependencies.push(`${base}/${arg}`);
                 }
-            }
+              }
           }
-        }
-      }
-
-      // Try parsing it as a project.txt file
-      const lines: string[][] = fileLines
-        .map(line => parseLine(line).split(" ").map(file => file.trim()));
-
-      for (const files of lines) {
-        const dependencies = [];
-        for (const file of files) {
-          // Lines will be blank if they are all whitespace
-          // or all comments 
-          if (file === '') continue;
-
-          if (file === fname) {
-            return Just({ uri: configPath.toString(), dependencies });
-          }
-
-          // Note that URIs always use /
-          // (even on Windows)
-          dependencies.push(`${base}/${file}`);
         }
       }
     }
@@ -230,20 +250,14 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       `${dir}/README.txt`,
       `${dir}/../README.txt`, // Look one folder above
       `${dir}/project.txt`,
-      `${dir}/../project.txt`, 
+      `${dir}/../project.txt`,
       folders?.length ? `${folders[0].uri}/project.txt` : ""
     ].filter(s => s !== "").map(p => new URL(p)));
 
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
-        || change.document.uri.endsWith("h1"))) {
-      diagnostics.push(Diagnostic.create(
-        Range.create(Position.create(0, 0), Position.create(0, 0)),
-        `No valid project.txt or README.txt found for the current document.\n` + 
-        `Completions and other features may not work as expected`,
-        DiagnosticSeverity.Warning,
-        undefined,
-        change.document.uri));
-
+      || change.document.uri.endsWith("h1"))) {
+      // TODO: whether this is displayed or not should be controlled via a diagnostic
+      connection.window.showInformationMessage("No README.txt found for the current file.\nRed squiggles and code completion might be incorrect");
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
@@ -251,7 +265,26 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     }
   }
 
-  const parseErrors = await parseTextDocument(dependencies, change.document);
+  // use the tar library to find a list of files in all the .o0 or .o1 files
+  // in each dependency. then unpack the files in memory
+  const processedDependencies: C0SourceFile[] = [];
+
+  for (const dependency of dependencies) {
+    if (lang.isC0ObjectFile(dependency)) {
+      const unpackedFiles = await readTarFile(new URL(dependency).pathname);
+
+      // Each object file turns into multiple
+      for (const [fileName, contents] of unpackedFiles) {
+        // The virtual name would be like some/path/compressedLib.o0/source.c0
+        const virtualFileName = `${dependency}/${fileName}`;
+        processedDependencies.push(new C0ObjectSourceFile(virtualFileName, contents, dependency));
+      }
+    } else {
+      processedDependencies.push(new C0DiskSourceFile(dependency));
+    }
+  }
+
+  const parseErrors = await parseTextDocument(processedDependencies, change.document);
 
   connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
 }
@@ -346,7 +379,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           kind: CompletionItemKind.Interface,
           documentation: {
             kind: MarkupKind.Markdown,
-            value: 
+            value:
               mkCodeString(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`)
               + "\n" + decl.doc,
           },
@@ -380,15 +413,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         // if it is in the current file, or otherwise prefer to use it
         // from the prototype
         if (!functionDecls.has(decl.id.name) || (inCurrentFile && decl.body)
-                                             || (!inCurrentFile && !decl.body)) {
+          || (!inCurrentFile && !decl.body)) {
           // We will only show functions if they are either in the current file
           // or if they are a prototype from another file
           if (!inCurrentFile && decl.body) break;
-                                              
+
           const requires = decl.preconditions.map(precond =>
-              `//@requires ${expressionToString(precond)};`);
+            `//@requires ${expressionToString(precond)};`);
           const ensures = decl.postconditions.map(postcond =>
-              `//@ensures ${expressionToString(postcond)};`);
+            `//@ensures ${expressionToString(postcond)};`);
 
           const proto = `${[typeToString({ tag: "FunctionType", definition: decl }), ...requires, ...ensures].join("\n")}`;
 
@@ -415,15 +448,15 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
               try {
                 // Type safety? :D 
                 const type = actualType(
-                  genv, 
+                  genv,
                   <ast.Type>synthExpression(
-                    genv, 
-                    searchResult.environment, 
-                    null, 
+                    genv,
+                    searchResult.environment,
+                    null,
                     <ast.Expression>context.expr
                   )
                 );
-                    
+
                 let actual;
                 if (context.derefenced && type.tag === "PointerType") {
                   actual = actualType(genv, type.argument);
@@ -436,10 +469,10 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                 const struct = getStructDefinition(genv, structname);
                 if (struct && struct.definitions) {
                   return struct.definitions.map(field => ({
-                      label: field.id.name,
-                      kind: CompletionItemKind.Field,
-                      documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-                      detail: uriToWorkspace(field.loc?.source || undefined)
+                    label: field.id.name,
+                    kind: CompletionItemKind.Field,
+                    documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
+                    detail: uriToWorkspace(field.loc?.source || undefined)
                   }));
                 }
               }
@@ -510,9 +543,9 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         documentation: {
           kind: MarkupKind.Markdown,
           value: mkCodeString("void printf(string msg, ...args)") + "\n"
-                 + "Prints the message and argument"
-        }        
-      }  
+            + "Prints the message and argument"
+        }
+      }
     );
   }
 
@@ -523,18 +556,18 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
         kind: CompletionItemKind.Function,
         detail: "<string>",
         documentation: {
-            kind: MarkupKind.Markdown,
-            value: mkCodeString("string format(string msg, ...args)") + "\n"
-                   + "Returns the message and arguments formatted as a string."
-        }        
+          kind: MarkupKind.Markdown,
+          value: mkCodeString("string format(string msg, ...args)") + "\n"
+            + "Returns the message and arguments formatted as a string."
+        }
       }
     );
   }
 
   const completions = [
-    ...locals, 
-    ...functionDecls.values(), 
-    ...typedefs, 
+    ...locals,
+    ...functionDecls.values(),
+    ...typedefs,
     ...structNames,
     ...builtins];
 
@@ -572,7 +605,7 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
       if (type.tag === "FunctionType") {
         // Also display contracts in hover result for a function 
         const decl = getFunctionDeclaration(genv, name, data.textDocument.uri);
-        if (decl === null) return null; 
+        if (decl === null) return null;
         const requires = decl.preconditions.map(precond =>
           `//@requires ${expressionToString(precond)};`);
         const ensures = decl.postconditions.map(postcond =>
@@ -623,6 +656,14 @@ connection.onHover((data: TextDocumentPositionParams): Hover | null => {
 
 connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | null => {
   function toLocationLink(loc: ast.SourceLocation, origin?: ast.SourceLocation | undefined): LocationLink[] | null {
+    if (loc.source && lang.isC0ObjectFile(loc.source)) {
+      // Currently we can't go-to-definition for something defined in a C0 object file
+      // because the file only exists in memory
+      // TODO: go to definition for functions defined in object files
+      // should show the interface
+      return null;
+    }
+
     let targetUri: string;
     // Don't create another view file, 1 is enough 
     if (loc.source?.endsWith(".h0") && !loc.source.endsWith("-view.h0")) {
@@ -632,6 +673,8 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       fs.copyFileSync(new URL(loc.source), new URL(targetUri));
     }
     else {
+      // FIXME: this doesn't seem right...if loc.source is null
+      // then why default to the current file?
       targetUri = loc.source || data.textDocument.uri;
     }
     return [{
@@ -710,9 +753,9 @@ connection.onDefinition((data: TextDocumentPositionParams): LocationLink[] | nul
       return toLocationLink(field.id.loc);
     }
     case "FoundLink": {
-      return toLocationLink({ 
+      return toLocationLink({
         source: searchResult.data.path,
-        start: { line: 1, column: 1 }, end: { line: 1, column: 1}
+        start: { line: 1, column: 1 }, end: { line: 1, column: 1 }
       });
     }
   }
@@ -740,7 +783,7 @@ connection.onSignatureHelp((data) => {
     let functionDecl: null | {
       readonly returns: ast.Type,
       readonly id: { name: string },
-      readonly params: Array<{ kind: ast.ValueType, id: { name: string }}>,
+      readonly params: Array<{ kind: ast.ValueType, id: { name: string } }>,
       readonly doc: string
     } = getFunctionDeclaration(genv, context.name, data.textDocument.uri);
 
@@ -751,7 +794,7 @@ connection.onSignatureHelp((data) => {
           functionDecl = {
             returns: { tag: "VoidType" },
             id: { name: "assert" },
-            params: [{ id: { name: "condition"}, kind: { tag: "BoolType" } }],
+            params: [{ id: { name: "condition" }, kind: { tag: "BoolType" } }],
             doc: "Aborts execution if the condition given is false"
           };
           break;
@@ -759,7 +802,7 @@ connection.onSignatureHelp((data) => {
           functionDecl = {
             returns: { tag: "VoidType" },
             id: { name: "error" },
-            params: [{ id: { name: "message"}, kind: { tag: "StringType" } }],
+            params: [{ id: { name: "message" }, kind: { tag: "StringType" } }],
             doc: "Prints the given message and aborts execution"
           };
           break;
@@ -768,32 +811,32 @@ connection.onSignatureHelp((data) => {
           functionDecl = {
             returns: { tag: "StringType" },
             id: { name: "format" },
-            params: [{ id: { name: "msg" }, kind: { tag: "StringType" }}],
-            doc: 
-              "Returns `msg` but replacing each _format specifier_ with an argument.\n" + 
-              "The number and type of format specifiers must match the arguments provided.\n" + 
-              "Available format specifiers:\n" + 
+            params: [{ id: { name: "msg" }, kind: { tag: "StringType" } }],
+            doc:
+              "Returns `msg` but replacing each _format specifier_ with an argument.\n" +
+              "The number and type of format specifiers must match the arguments provided.\n" +
+              "Available format specifiers:\n" +
               "```\n" +
-              "  %s -> string\n" + 
-              "  %d -> int\n" + 
+              "  %s -> string\n" +
+              "  %d -> int\n" +
               "  %c -> char\n" +
               "  %% -> literal percent sign\n" +
               "```"
           };
           break;
-          
+
         case "printf":
           functionDecl = {
             returns: { tag: "VoidType" },
             id: { name: "printf" },
-            params: [{ id: { name: "msg" }, kind: { tag: "StringType" }}],
-            doc: 
-              "Prints `msg`, replacing each _format specifier_ with an argument.\n" + 
-              "The number and type of format specifiers must match the arguments provided.\n" + 
-              "Available format specifiers:\n" + 
+            params: [{ id: { name: "msg" }, kind: { tag: "StringType" } }],
+            doc:
+              "Prints `msg`, replacing each _format specifier_ with an argument.\n" +
+              "The number and type of format specifiers must match the arguments provided.\n" +
+              "Available format specifiers:\n" +
               "```\n" +
-              "  %s -> string\n" + 
-              "  %d -> int\n" + 
+              "  %s -> string\n" +
+              "  %d -> int\n" +
               "  %c -> char\n" +
               "  %% -> literal percent sign\n" +
               "```"
@@ -822,7 +865,7 @@ connection.onSignatureHelp((data) => {
         signatureLength += 2;
       }
     }
-    
+
     signature += ")";
 
     const sig = {

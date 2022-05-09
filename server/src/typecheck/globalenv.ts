@@ -11,10 +11,11 @@ export type GlobalEnv = {
      * Corresponds to #use <foo>
      */
     readonly libsLoaded: Set<string>;
+    
     /**
      * Holds which files have already 
      * been loaded. Corresponds to 
-     * dependencies in project.txt
+     * dependencies in README.txt
      * and also #use "foo.c0" in source files
      */
     readonly filesLoaded: Set<string>;

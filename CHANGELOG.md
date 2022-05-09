@@ -5,6 +5,11 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.2.6] - May 9, 2022
+- Added support for the new `.o0/.o1` C0 library file formats, which are
+  compressed bundles of source code, for the purpose of aiding encapsulation of implementation details.
+- Fixed `alloc_array(t, e)` not reporting the position of `t` properly
+
 ## [2.2.5] - February 10, 2022
 - Added support for string literal concenation:
 ```cpp

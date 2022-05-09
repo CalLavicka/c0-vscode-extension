@@ -10,14 +10,13 @@ import {
   Position,
 } from "vscode-languageserver";
 
-import * as vscodeUri from "vscode-uri";
-
 import { checkProgram } from "./typecheck/programs";
 import * as ast from "./ast";
 import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 import { FileSet } from "./util";
+import { C0SourceFile, C0TextDocumentFile } from "./c0file";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -82,7 +81,7 @@ const MAX_LINE_LENGTH = 80;
  * @param textDocument 
  * VSCode document to parse. Errors will be reported only for this document
  */
-export async function parseTextDocument(dependencies: string[], textDocument: TextDocument): Promise<Diagnostic[]> {
+export async function parseTextDocument(dependencies: C0SourceFile[], textDocument: TextDocument): Promise<Diagnostic[]> {
   // The validator creates diagnostics for all uppercase words length 2 and more
   let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
@@ -92,7 +91,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   let i: number;
   for (i = dependencies.length - 1; i >= 0; i--) {
     const depKey = dependencies.slice(0, i).join('\n');
-    const cache = cachedFiles.get(dependencies[i])?.cache?.get(depKey);
+    const cache = cachedFiles.get(dependencies[i].key())?.cache?.get(depKey);
     if (cache) {
       genv = cloneGenv(cache.genv);
       decls.push(...cache.decls);
@@ -104,26 +103,28 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     const dep = dependencies[i];
     const depKey = dependencies.slice(0, i).join('\n');
 
-    if (genv.filesLoaded.has(dep)) {
+    if (genv.filesLoaded.has(dep.key())) {
       continue;
     }
 
     // Always add a file to the loaded set
     // before loading it, otherwise 
     // someone could introduce cycles 
-    genv.filesLoaded.add(dep);
+    genv.filesLoaded.add(dep.key());
 
-    const parser = mkParser(typeIds, dep);
+    const parser = mkParser(typeIds, dep.key());
     let parseResult: ParseResult;
     try {
       parseResult = parseDocument(dep, parser, genv);
     }
     catch (e: any) {
       if (e?.code === "ENOENT") {
+        // Should be impossible since we verify in getDependencies()
+        // that all files mentioned in `dependencies` exist.
         return [{
           severity: DiagnosticSeverity.Error,
-          message: `File '${decodeURIComponent(dep)}' not found. ` +
-                   `Code completion and other features will not be available`,
+          message: `File '${decodeURIComponent(dep.originalFileName())}' not found. ` +
+            `Code completion and other features will not be available`,
           range: {
             start: Position.create(0, 0),
             end: Position.create(0, 0)
@@ -138,13 +139,13 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
         // Give up if there's an error in another file
         return [{
           severity: DiagnosticSeverity.Error,
-          message: `Failed to parse '${dep}'. Code completion and other features will not be available`,
+          message: `Syntax errors found in '${dep.originalFileName()}'.\nCode completion and other features will not be available`,
           source: "c0-language",
           range: {
             start: Position.create(0, 0),
             end: Position.create(0, 0),
           }
-        }];  
+        }];
 
       case "right":
         decls.push(...parseResult.result);
@@ -152,7 +153,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     }
 
     // Existing dependants (from earlier files which #use this one)
-    const cachedFile = cachedFiles.get(dep);
+    const cachedFile = cachedFiles.get(dep.key());
     const existingCache = cachedFile?.cache;
     if (existingCache) {
       existingCache.set(depKey, {
@@ -162,7 +163,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
       });
     } else {
       const dependants = cachedFile?.dependants;
-      cachedFiles.set(dep, {
+      cachedFiles.set(dep.key(), {
         cache: new Map([[depKey, {
           genv: cloneGenv(genv),
           decls: [...decls],
@@ -173,24 +174,29 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
     }
 
     // Add as dependant to all files this one uses
-    genv.filesLoaded.forEach((file) => {
-      if (file !== dep) {
-        // Add this file as a dependant of that one
-        const cache = cachedFiles.get(file);
-        if (cache) {
-          cache.dependants.add(dep);
-        } else {
-          cachedFiles.set(file, { dependants: new FileSet([dep]) });
-        }
+    for (const file of genv.filesLoaded) {
+      if (file === dep.key()) continue;
+
+      // Add this file as a dependant of that one,
+      // creating a new cache if none exists
+      const cache = cachedFiles.get(file);
+      if (cache) {
+        cache.dependants.add(dep.key());
+      } else {
+        cachedFiles.set(file, { dependants: new FileSet([dep.key()]) });
       }
-    });
+    }
   }
+
+  // Now we have parsed all dependencies, we are ready to parse the open file.
+  // Note that o0 and o1 files should never appear here
+  console.assert(![".o0", ".o1"].includes(path.extname(textDocument.uri)));
 
   const parser = mkParser(typeIds, textDocument.uri);
   if (!genv.filesLoaded.has(textDocument.uri)) {
     genv.filesLoaded.add(textDocument.uri);
 
-    const parseResult = parseDocument(textDocument, parser, genv);
+    const parseResult = parseDocument(new C0TextDocumentFile(textDocument), parser, genv);
     switch (parseResult.tag) {
       case "left":
         return parseResult.error;
@@ -227,7 +233,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
   // If there are errors in a dependency,
   // then give up
   for (const error of typecheckResult.errors) {
-    if (error.loc?.source && error.loc.source !== textDocument.uri) {
+    if (error.loc?.source !== textDocument.uri) {
       return [{
         severity: DiagnosticSeverity.Error,
         message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
@@ -236,7 +242,7 @@ export async function parseTextDocument(dependencies: string[], textDocument: Te
           start: Position.create(0, 0),
           end: Position.create(0, 0),
         }
-      }];    
+      }];
     }
   }
 

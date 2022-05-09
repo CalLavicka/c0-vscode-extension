@@ -14,8 +14,8 @@ import * as process from "process";
 import { GlobalEnv } from "./typecheck/globalenv";
 import { Lang } from "./lang";
 import * as lang from "./lang";
-import { openFile } from "./server";
 import { URI } from "vscode-uri";
+import { C0DiskSourceFile, C0SourceFile, C0TextDocumentFile } from "./c0file";
 
 /** 
  * Splits exclusively on semicolons,
@@ -28,10 +28,10 @@ function* semicolonSplit(s: string) {
     Regular,
     LineComment,
     BlockComment,
-    String, 
+    String,
     Char
   }
-  
+
   // The main issue this tries to resolve is that 
   // we have to stop parsing when we encounter a typedef
   // in order to update the lexer 
@@ -51,7 +51,7 @@ function* semicolonSplit(s: string) {
           start = end;
         }
         if (s[end] === '{') {
-          yield { last: false, segment: s.slice(start, end), semicolon: false};
+          yield { last: false, segment: s.slice(start, end), semicolon: false };
           // Don't jump over this character, it needs to be fed
           // to the parser on the next iteration 
           start = end;
@@ -117,7 +117,7 @@ function* semicolonSplit(s: string) {
 }
 
 // Overwrite nearley's error reporting because it is broken
-function myReportError(parser: nearley.Parser, token: any) {
+function myReportError(parser: nearley.Parser, token: any): string {
   const lines: string[] = [];
   const tokenDisplay =
     (token.type ? token.type + " token: " : "") +
@@ -145,7 +145,7 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
 
   for (const error of errors) {
     const loc = error?.loc || Position.create(0, 0);
-    
+
     if (error.loc) {
       const diagnostic: Diagnostic = {
         severity: DiagnosticSeverity.Error,
@@ -162,7 +162,7 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
 
   return diagnostics;
 }
- 
+
 export type ParseResult = Either<Diagnostic[], ast.Declaration[]>;
 
 /**
@@ -178,7 +178,9 @@ const libcache: Map<string, ast.Declaration[]> = new Map();
  * any new libraries and loaded files. It will either return
  * an AST or a list of errors. 
  * 
- * @author Most of this was written by Rob Simmons 
+ * @author 
+ * This was originally written by Rob Simmons but has now been
+ * heavily extended to support multiple files, #use directives, libraries, etc.
  * 
  * @param text 
  * Either a file URI (for a file which is not the one being currently edited)
@@ -191,26 +193,27 @@ const libcache: Map<string, ast.Declaration[]> = new Map();
  * or a list of declarations encountered. Note that we do not typecheck
  * the returned declarations .
  */
-export function parseDocument(text: string | TextDocument, oldParser: C0Parser, genv: GlobalEnv): ParseResult {
+export function parseDocument(text: C0SourceFile, oldParser: C0Parser, genv: GlobalEnv): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
   let parseSuccessful = true;
   let decls: parsed.Declaration[] = [];
 
   let restrictedDecls = new Array<ast.Declaration>();
-  
-  const fileName = typeof text === "string" ? text : text.uri;
-  const language: Lang = lang.parse(path.extname(fileName).substr(1)) || "C1";
+
+  const fileName = text.key();
+  const language: Lang = lang.parse(path.extname(fileName)) || "C1";
 
   // Use a new parser so our old one doesn't get confused 
   const parser = mkParser(oldParser.lexer.getTypeIds(), fileName, language);
 
-  const fileText = typeof text === "string" 
-    ? openFile(text) 
-    : text.getText();
+  const fileText = text.contents();
 
   // Before we go through the file, look at each line for a #use 
   // This could actually be done in lex.ts, in Tok.next()
+  // FIXME: Technically, in C0 #use declarations can only be
+  // at the very top of a file (before any code). 
+  // However we don't enforce this.
   const lines = fileText.split("\n");
   for (let i = 0; i < lines.length; i++) { // Need index for error messages
     const line = lines[i];
@@ -245,7 +248,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
           continue;
         }
 
-        const parseResult = parseDocument(libURI, parser, genv);
+        const parseResult = parseDocument(new C0DiskSourceFile(libURI), parser, genv);
         if (parseResult.tag === "left") {
           // Indicates the library header got corrupted,
           // or some other major bug with our server has occured 
@@ -277,7 +280,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       genv.decls.push(...libdecls);
       // Mark these as library functions/structs so the 
       // typechecker knows not to look for a body 
-      libdecls.forEach(d => { 
+      libdecls.forEach(d => {
         switch (d.tag) {
           case "FunctionDeclaration":
             genv.libfuncs.add(d.id.name);
@@ -295,6 +298,9 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       // Convert /C:/ to C%3A/ to be compatible with how VSCode sends URIs
       const usedURI = URI.file(usedPath).toString();
 
+      // #use "foo.c0" declarations are deprecated, so we need to add a warning
+      addError(i, 0, `'#use "${usedName}"' syntax is deprecated and will be removed in the future`, DiagnosticSeverity.Warning);
+
       if (genv.filesLoaded.has(usedURI)) continue;
       // Add the file to the loaded set before we parse it to prevent
       // circularity 
@@ -305,31 +311,33 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
         continue;
       }
 
-      const parseResult = parseDocument(usedURI, parser, genv);
+      const parseResult = parseDocument(new C0DiskSourceFile(usedURI), parser, genv);
       if (parseResult.tag === "left") {
-        addError(i, 0, 
-          `failed to typecheck ${usedName}. Code completion and other features will not be available`, 
+        addError(i, 0,
+          `failed to typecheck ${usedName}. Code completion and other features will not be available`,
           DiagnosticSeverity.Error);
         continue;
       }
-      
+
       const usedDecls = parseResult.result;
       usedDecls.forEach(d => { if (d.loc) d.loc.source = usedURI; });
       restrictedDecls.push(...usedDecls);
     }
   }
 
+  // Now that we've handled all #use declarations we can parse the file
   const segments = semicolonSplit(fileText);
 
   // Function to add a diagnostic for a parse error,
   // as well as set "parsed" to false
   function addError(line: number | null, columnOrOffset: number, message: string, severity: DiagnosticSeverity) {
     const pos: Position =
-      typeof text === "string" 
-        ? Position.create(0, 0) 
-        : (line === null 
-            ? text.positionAt(columnOrOffset) 
-            : Position.create(line, columnOrOffset));
+      !(text instanceof C0TextDocumentFile)
+        // Only text document files have line/column information
+        ? Position.create(0, 0)
+        : (line === null
+          ? text.positionAt(columnOrOffset)
+          : Position.create(line, columnOrOffset));
 
     const diagnostic: Diagnostic = {
       severity,
@@ -361,7 +369,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
       if (parsedSegment.length > 1) {
         // Shouldn't happen
         console.error("Parse ambiguous:", parsedSegment);
-      } 
+      }
       else if (parsedSegment.length === 0) {
         if (segment.last) {
           addError(
@@ -370,11 +378,11 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
             "Incomplete parse at the end of the file",
             DiagnosticSeverity.Warning
           );
-        } 
+        }
         else if (segment.semicolon) {
           parser.feed(";");
         }
-      } 
+      }
       else {
         // parsed.length === 1
         const parsedGlobalDecls = parsedSegment[0];
@@ -383,7 +391,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
             case "TypeDefinition":
             case "FunctionTypeDefinition":
               addError(null, curOffset, `typedef is missing its trailing semicolon`, DiagnosticSeverity.Error);
-              break;            
+              break;
           }
         }
         if (segment.last) {
@@ -403,7 +411,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
             }
           }
           decls = decls.concat(parsedGlobalDecls);
-        } 
+        }
         else {
           if (parsedGlobalDecls.length === 0) {
             if (segment.semicolon) {
@@ -414,7 +422,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
                 DiagnosticSeverity.Error
               );
             }
-          } 
+          }
           else {
             const possibleTypedef: ast.Declaration =
               parsedGlobalDecls[parsedGlobalDecls.length - 1];
@@ -484,7 +492,11 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
   }
 
   // Add source file info for the decls
-  decls.forEach(d => { if (d.loc && !d.loc.source) d.loc.source = fileName; });
+  for (const decl of decls) {
+    if (decl.loc && !decl.loc.source) {
+      decl.loc.source = text.originalFileName();
+    }
+  }
 
   // By this point we have an AST - we didn't encounter
   // any syntax errors 
@@ -499,8 +511,8 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
 
         // restrictDeclaration() checks for language features allowed
         // (e.g. void*, function pointers, break, continue)
-        restrictedDecls = restrictedDecls.concat(restrictDeclaration(language, decl));
-      } 
+        restrictedDecls.push(...restrictDeclaration(language, decl));
+      }
       catch (err) {
         errors.add(err as TypingError);
       }
@@ -526,7 +538,7 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
  * uses the given type-ids to parse.
  * 
  * If filename is not provided, then 
- * no filename is attached to any parsed decls
+ * no filename is attached to any parsed decls.
  * 
  * If language is not provided, then it will
  * either be inferred from filename, or 
@@ -534,13 +546,13 @@ export function parseDocument(text: string | TextDocument, oldParser: C0Parser, 
  */
 export function mkParser(typeIds: Set<string>, filename?: string, language?: Lang): C0Parser {
   if (!language) {
-    const inferredLang = filename && lang.parse(path.extname(filename).substr(1));
+    const inferredLang = filename && lang.parse(path.extname(filename).substring(1));
     language = inferredLang || "C1";
   }
 
   const parser = <C0Parser>(new nearley.Parser(nearley.Grammar.fromCompiled(grammar)));
   // Overwrite the reportError function cause otherwise it loops :(
-  parser.reportError = function(token: any) {
+  parser.reportError = function (token: any) {
     return myReportError(this, token);
   };
 

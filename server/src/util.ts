@@ -1,4 +1,6 @@
 import * as path from "path";
+import * as tar from "tar";
+
 import { URI } from "vscode-uri";
 
 export type Left<T> = { tag: "left", error: T};
@@ -39,7 +41,7 @@ export function getLibpath(): string {
 export class FileSet {
   private files: Set<string> = new Set<string>();
 
-  constructor(source: undefined | FileSet | Iterable<string>) {
+  constructor(source: undefined | FileSet | Iterable<string> = undefined) {
     if (source === undefined) return;
 
     if (source instanceof FileSet) {
@@ -125,4 +127,30 @@ export function bestMatches(target: string, possibleValues: string[], numMatches
     .sort((a, b) => a.score - b.score)
     .slice(0, numMatches)
     .map(v => v.str);
+}
+
+export function readTarFile(file: string): Promise<Map<string, string>> {
+  const fileBuffers = new Map<string, Buffer[]>();
+  
+  const onEntry = (entry: any) => {
+    fileBuffers.set(entry.path, []);
+    entry.on('data', (c: Buffer) => fileBuffers.get(entry.path)!.push(c))
+  };
+  
+  return new Promise((resolve, reject) => {
+    // @ts-ignore
+    tar.t({ onentry: onEntry, file }, error => {
+      if (error) {
+        return reject(error);
+      }
+
+      const fileContents = new Map<string, string>();
+      for (const [path, buffers] of fileBuffers) {
+        const text = Buffer.concat(buffers);
+        fileContents.set(path, text.toString());
+      }
+
+      resolve(fileContents);
+    });
+  });
 }
