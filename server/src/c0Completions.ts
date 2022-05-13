@@ -1,5 +1,8 @@
-import * as vscode from "vscode-languageserver";
-import { fromVscodePosition, toVscodePosition } from "./ast";
+/**
+ * This is rather annoying code to compute code completions.
+ * It isn't perfect and is somewhat "heuristic-based" in that it
+ * tries to guess where expression boundaries are
+ */
 import * as nearley from "nearley";
 import * as exp from "./expression-rules";
 import * as parsed from "./parse/parsedsyntax";
@@ -87,6 +90,10 @@ function scanFunctionName(source: string, index: number) {
 }
 
 export function getCompletionContext(source: string, index: number): CompletionResult {
+  // We will try to grab the expression that the user is typing
+  // by scanning backwards from the cursor position. Then we can
+  // figure out what kind of expression it is, and return completions based on that. 
+
   const parser = new nearley.Parser(nearley.Grammar.fromCompiled(exp.default));
   // Ignore errors 
   (<any>parser).reportError = () => "";

@@ -1,3 +1,8 @@
+/**
+ * This file contains functions to deal with the complexities of C0's type system,
+ * such as dealing with subtyping relations with NULL, etc. 
+ */
+
 import { ActualType, actualType, GlobalEnv } from "./globalenv";
 import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";

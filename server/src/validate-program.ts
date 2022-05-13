@@ -87,7 +87,7 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
   const decls: ast.Declaration[] = [];
   let genv: GlobalEnv = initEmpty();
 
-  // Find deepest cached dependency
+  // Find deepest cached dependency, and start parsing from there
   let i: number;
   for (i = dependencies.length - 1; i >= 0; i--) {
     const depKey = dependencies.slice(0, i).join('\n');
@@ -99,6 +99,8 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
       break;
     }
   }
+
+  // Re-parse any dependency files which have been invalidated.
   for (i = i + 1; i < dependencies.length; i++) {
     const dep = dependencies[i];
     const depKey = dependencies.slice(0, i).join('\n');
@@ -224,11 +226,11 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
     }
   }
 
-  // At this point we have gathered all the declarations, 
+  // At this point we have parsed all the declarations, 
   // as well as loaded all libraries, so we
   // can run the typechecker
 
-  const typecheckResult = checkProgram(genv, decls, parser);
+  const typecheckResult = checkProgram(genv, decls);
 
   // If there are errors in a dependency,
   // then give up
@@ -246,7 +248,12 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
     }
   }
 
+  // Save the typechecking result for use in IDE features.
+  // Even if there is a type error, we may have partial
+  // information available.
   openFiles.set(textDocument.uri, typecheckResult.genv);
+
+  // Return any errors we encountered
   return typingErrorsToDiagnostics(typecheckResult.errors);
 
   // TODO: this would have to be moved somewhere else...perhaps in parseDocument

@@ -1,3 +1,7 @@
+/**
+ * This code abstracts all the different ways C0 source code can be stored
+ */
+
 import { Position, TextDocument } from "vscode-languageserver";
 import { openFile } from "./server";
 
@@ -71,6 +75,10 @@ export class C0TextDocumentFile extends C0SourceFile {
   }
 }
 
+/**
+ * This is the most basic C0 source file.
+ * It is just a plain file on the disk
+ */
 export class C0DiskSourceFile extends C0SourceFile {
   private readonly fileText: string;
 

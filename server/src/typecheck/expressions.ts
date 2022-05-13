@@ -1,3 +1,6 @@
+/**
+ * Code for typechecking expressions
+ */
 import {
     GlobalEnv,
     getFunctionDeclaration,

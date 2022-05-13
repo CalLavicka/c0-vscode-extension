@@ -21,7 +21,10 @@ import { C0DiskSourceFile, C0SourceFile, C0TextDocumentFile } from "./c0file";
  * Splits exclusively on semicolons,
  * treating contracts as comments to avoid
  * funky problems involving function pointer
- * typedefs  
+ * typedefs.
+ * 
+ * This function is necessary since we have to pause the parser after
+ * every declaration, so that if we find a typedef, we can add it to the lexer
  */
 function* semicolonSplit(s: string) {
   const enum SplitState {

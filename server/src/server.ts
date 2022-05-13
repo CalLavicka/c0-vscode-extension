@@ -1,3 +1,7 @@
+/**
+ * The main entry point to the language server and all its capabilities
+ */
+
 import {
   createConnection,
   TextDocuments,

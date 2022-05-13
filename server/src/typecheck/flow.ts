@@ -78,6 +78,12 @@ export function checkExpressionUsesGetFreeFunctions(
     return freeFunctions;
 }
 
+function add(s: Set<string>, x: string): Set<string> {
+    const sCopy = new Set<string>();
+    s.forEach(x => sCopy.add(x));
+    sCopy.add(x);
+    return sCopy;
+}
 /**
  *
  * @param locals All locals valid at this point in the program
@@ -87,15 +93,10 @@ export function checkExpressionUsesGetFreeFunctions(
  * @returns
  *   - locals: locals valid after running this statement (changes when the statement is a declaration)
  *   - defined: definitely-defined locals after running this statement
- *   - functions: free functions in this statement
+ *   - functions: free functions in this statement 
+ *                (used to keep track of which functions are used, and therefore require a definition)
  *   - returns: does
  */
-function add(s: Set<string>, x: string): Set<string> {
-    const sCopy = new Set<string>();
-    s.forEach(x => sCopy.add(x));
-    sCopy.add(x);
-    return sCopy;
-}
 export function checkStatementFlow(
     locals: Set<string>,
     constants: Set<string>,

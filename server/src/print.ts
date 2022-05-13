@@ -1,3 +1,7 @@
+/**
+ * Code for converting an AST to a nicely-formatted string, using parens only where necessary
+ */
+
 import * as ast from "./ast";
 import { Ordering } from "./util";
 

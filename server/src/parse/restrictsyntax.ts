@@ -1,6 +1,6 @@
 /**
  * Takes the overbroad syntax parsed by the Nearley parser (parsedsyntax.ts) and
- * restricts it to the actual grammar of C0.
+ * restricts it to the actual grammar of C0 (or other languages)
  */
 
 import * as syn from "./parsedsyntax";

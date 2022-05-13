@@ -1,3 +1,7 @@
+/**
+ * This file contains the code for typechecking top-level declarations.
+ */
+
 import * as ast from "../ast";
 import {
     GlobalEnv,
@@ -15,12 +19,12 @@ import { checkExpression } from "./expressions";
 import { checkStatement } from "./statements";
 import { expressionFreeVars, checkStatementFlow, checkExpressionUsesGetFreeFunctions } from "./flow";
 import { TypingError, ImpossibleError } from "../error";
-import { C0Parser } from "../parse";
 
+/**
+ * Simple function to transform 
+ */
 function getDefinedFromParams(params: ast.VariableDeclarationOnly[]): Set<string> {
-    const defined = new Set<string>();
-    for (const param of params) { defined.add(param.id.name); }
-    return defined;
+    return new Set<string>(params.map(p => p.id.name));
 }
 
 export function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDeclarationOnly[]): Env {
@@ -42,13 +46,12 @@ export function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDe
  * Typechecks the given gdecl and returns 
  * a set of all function names used
  * 
- * @param library Whether this function is a library - controls whether a function body is required
  * @param genv Global context so far
  * @param decl Declaration to check
  * @param errors Set to add typing errors to as they are encountered
  */
 // tslint:disable-next-line: max-line-length
-function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>, parser: C0Parser): Set<ast.Identifier> {
+function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<ast.Identifier> {
     switch (decl.tag) {
         // Libs and other files are loaded during parsing,
         // not typechecking, because otherwise the lexer
@@ -309,13 +312,13 @@ export interface TypecheckResult {
     genv: GlobalEnv;
 }
 
-export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[], parser: C0Parser): TypecheckResult {
+export function checkProgram(genv: GlobalEnv, decls: ast.Declaration[]): TypecheckResult {
     const functionsUsed = new Set<ast.Identifier>();
     const errors = new Set<TypingError>();
 
     for (const decl of decls) {
         const declErrors = new Set<TypingError>();
-        checkDeclaration(genv, decl, declErrors, parser).forEach(f => functionsUsed.add(f));
+        checkDeclaration(genv, decl, declErrors).forEach(f => functionsUsed.add(f));
 
         // Indicate where each error came from 
         for (const error of declErrors) {
