@@ -266,6 +266,16 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
   const processedDependencies: C0SourceFile[] = [];
 
   for (const dependency of dependencies) {
+    if (!fs.existsSync(dependency)) {
+      // If a dependency does not exist, we skip it.
+      // This is because there are "test files" which have test functions
+      // for multiple other files. 
+      // For example "images-test.c0" is a test file for "reflect.c0" and "blur.c0"
+      // But if "blur.c0" does not exist, we can still process "images-test.c0" with just "reflect.c0"
+      connection.window.showErrorMessage(`Dependency ${dependency} not found and will be ignored.\nRed squiggles and code completion might be incorrect`);
+      continue;
+    }
+
     if (lang.isC0ObjectFile(dependency)) {
       const unpackedFiles = await readTarFile(new URL(dependency).pathname);
 
