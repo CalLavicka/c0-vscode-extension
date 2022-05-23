@@ -17,6 +17,7 @@ import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 import { FileSet } from "./util";
 import { C0ObjectSourceFile, C0SourceFile, C0TextDocumentFile } from "./c0file";
+import { uriToWorkspace } from "./server";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -237,7 +238,7 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
     if (error.loc?.source !== textDocument.uri && error.severity === DiagnosticSeverity.Error) {
       return [{
         severity: DiagnosticSeverity.Error,
-        message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
+        message: `Failed to typecheck '${uriToWorkspace(error.loc?.source)}'. Please fix that file first before editing this one`,
         source: "c0-language",
         range: {
           start: Position.create(0, 0),

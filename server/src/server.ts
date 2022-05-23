@@ -256,7 +256,7 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
       || change.document.uri.endsWith("h1"))) {
       // TODO: whether this is displayed or not should be controlled via a diagnostic
-      connection.window.showInformationMessage(`No README.txt found for ${path.basename(change.document.uri)}.\nRed squiggles and code completion might be incorrect`);
+      connection.window.showInformationMessage(`No README.txt found for ${uriToWorkspace(change.document.uri)}.\nRed squiggles and code completion might be incorrect`);
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
@@ -269,18 +269,19 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
   const processedDependencies: C0SourceFile[] = [];
 
   for (const dependency of dependencies) {
-    if (!fs.existsSync(dependency)) {
+    const dependencyPath = url.fileURLToPath(new URL(dependency));
+    if (!fs.existsSync(dependencyPath)) {
       // If a dependency does not exist, we skip it.
       // This is because there are "test files" which have test functions
       // for multiple other files. 
       // For example "images-test.c0" is a test file for "reflect.c0" and "blur.c0"
       // But if "blur.c0" does not exist, we can still process "images-test.c0" with just "reflect.c0"
-      connection.window.showErrorMessage(`Dependency ${dependency} not found and will be ignored.\nRed squiggles and code completion might be incorrect`);
+      connection.window.showErrorMessage(`Dependency ${uriToWorkspace(dependency)} not found and will be ignored.\nRed squiggles and code completion might be incorrect`);
       continue;
     }
 
     if (lang.isC0ObjectFile(dependency)) {
-      const unpackedFiles = await readTarFile(new URL(dependency).pathname);
+      const unpackedFiles = await readTarFile(dependencyPath);
 
       // Each object file turns into multiple source files
       for (const [fileName, contents] of unpackedFiles) {
