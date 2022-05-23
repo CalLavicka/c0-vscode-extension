@@ -151,7 +151,7 @@ export function typingErrorsToDiagnostics(errors: Iterable<TypingError>): Diagno
 
     if (error.loc) {
       const diagnostic: Diagnostic = {
-        severity: DiagnosticSeverity.Error,
+        severity: error.severity,
         range: {
           start: ast.toVscodePosition(error.loc.start),
           end: ast.toVscodePosition(error.loc.end)

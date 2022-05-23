@@ -74,7 +74,11 @@ export interface Position {
 export interface SourceLocation {
     readonly start: Position;
     readonly end: Position;
-    source?: string | null;
+    
+    /**
+     * The filename this location is in
+     */
+    source?: string;
 }
 
 export interface Identifier extends Syn {
@@ -513,6 +517,17 @@ export interface FunctionDeclaration extends Syn {
     readonly postconditions: Expression[];
     readonly body: null | BlockStatement;
     readonly doc: string;
+
+    /**
+     * If this string is set, then this function
+     * is intended to only be used in the file
+     * with the given name.
+     * 
+     * This is used for library functions defined
+     * in .o0 files, so we can produce a warning
+     * for interface violations
+     */
+    isLocalTo?: string;
 }
 
 export interface TypeDefinition extends Syn {

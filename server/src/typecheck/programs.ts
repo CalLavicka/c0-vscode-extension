@@ -52,6 +52,8 @@ export function getEnvironmentFromParams(genv: GlobalEnv, params: ast.VariableDe
  */
 // tslint:disable-next-line: max-line-length
 function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<TypingError>): Set<ast.Identifier> {
+    const sourceFile = decl.loc?.source;
+
     switch (decl.tag) {
         // Libs and other files are loaded during parsing,
         // not typechecking, because otherwise the lexer
@@ -164,7 +166,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 const defined = getDefinedFromParams(decl.definition.params);
                 const functionsUsed = new Set<ast.Identifier>();
                 for (const anno of decl.definition.preconditions) {
-                    checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
+                    checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" }, sourceFile);
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                         functionsUsed.add(x)
                     );
@@ -172,7 +174,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 for (const anno of decl.definition.postconditions) {
                     checkExpression(genv, env, { tag: "@ensures", returns: decl.definition.returns }, anno, {
                         tag: "BoolType"
-                    });
+                    }, sourceFile);
                     checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                         functionsUsed.add(x)
                     );
@@ -198,7 +200,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 const defined = getDefinedFromParams(decl.params);
                 for (const anno of decl.preconditions) {
                     try {
-                        checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" });
+                        checkExpression(genv, env, { tag: "@requires" }, anno, { tag: "BoolType" }, sourceFile);
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
@@ -210,7 +212,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                     try {
                         checkExpression(genv, env, { tag: "@ensures", returns: decl.returns }, anno, {
                             tag: "BoolType"
-                        });
+                        }, sourceFile);
                         checkExpressionUsesGetFreeFunctions(defined, defined, anno).forEach(x =>
                             functionsUsed.add(x)
                         );
@@ -272,7 +274,7 @@ function checkDeclaration(genv: GlobalEnv, decl: ast.Declaration, errors: Set<Ty
                 });
 
                 try {
-                    checkStatement(genv, env, decl.body, decl.returns, false, errors);
+                    checkStatement(genv, env, decl.body, decl.returns, false, errors, sourceFile);
                     const constants: Set<string> = new Set();
                     decl.postconditions.forEach(anno => {
                         expressionFreeVars(anno).forEach(x => {
