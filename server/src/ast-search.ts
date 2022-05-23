@@ -198,6 +198,7 @@ function findExpression(e: Expression, currentEnv: Env | null, info: SearchInfo)
         case "HasTagExpression":
         case "CastExpression":
             if (isInside(pos, e.kind.loc)) return findType(e.kind, currentEnv, info);
+            if (isInside(pos, e.argument.loc)) return findExpression(e.argument, currentEnv, info);
             break;
         
         case "AllocArrayExpression":
