@@ -104,19 +104,13 @@ export function openFile(uri: string): string {
 }
 
 type Dependencies = {
-  /** Path to project.txt */
+  /** Path to README.txt */
   uri: string,
   /** List of files which should be loaded before this one, these are in URI format */
   dependencies: string[]
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
-  /** Takes a line from project.txt and removes comments and leading/trailing whitespace */
-  function parseLine(line: string): string {
-    const index = line.indexOf("//");
-    return (index === - 1 ? line : line.substr(0, index)).trim();
-  }
-
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
       const fileLines = fs.readFileSync(configPath, { encoding: "utf-8" }).split("\n");
@@ -172,10 +166,9 @@ function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> 
                   // as we do not need any files after that
                   return Just({ uri: configPath.toString(), dependencies });
                 }
-                else {
-                  // Make sure the file is a c0/h0/o0/c1/h1/o1 file
-                  if (lang.isC0File(arg)) dependencies.push(`${base}/${arg}`);
-                }
+                
+                // Make sure the file is a c0/h0/o0/c1/h1/o1 file
+                if (lang.isC0File(arg)) dependencies.push(`${base}/${arg}`);
               }
           }
         }
