@@ -5,6 +5,16 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.3.0] - May 23, 2022
+- Using a function not part of the interface of a `.o0` file will now result in a warning in the editor.
+  If an `.o0` file has no interface section, then all functions are assumed to be part of the interface
+- If a command line in `README.txt` references a file that does not exist, that file will be ignored. 
+  This is to reduce unexpected behavior when editing a "test file". For example, consider a file
+  `images-test.c0` which tests functionality from `blur.c0` and `reflect.c0`. If `reflect.c0` does not exist,
+  then we could still process `images-test.c0` using just `blur.c0`. 
+- Fixed Windows-specific problems with `.o0` files
+- Fixed hover info for the expression components of `\hastag` and casts. 
+
 ## [2.2.7] - May 9, 2022
 - In a `README.txt`, globbed files are now processed in alphabetical order. This matches what shells do
 - Allow ambiguous parses since the parser sometimes falsely claims a file has two parses, when they are really identical.
