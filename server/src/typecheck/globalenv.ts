@@ -104,7 +104,8 @@ export function initMain(): GlobalEnv {
 }
 
 /**
- * Insert a (typechecked) declaration into the global environment.
+ * Insert a (typechecked) declaration into the global environment, properly
+ * updating the list of library structs and functions
  */
 export function addDecl(library: boolean, genv: GlobalEnv, decl: ast.Declaration) {
     genv.decls.push(decl);

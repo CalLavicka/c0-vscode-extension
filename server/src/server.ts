@@ -5,7 +5,6 @@
 import {
   createConnection,
   TextDocuments,
-  Diagnostic,
   ProposedFeatures,
   InitializeParams,
   CompletionItem,
@@ -19,6 +18,7 @@ import {
   TextDocumentChangeEvent,
   ParameterInformation,
   MarkupKind,
+  WorkspaceFolder,
 } from 'vscode-languageserver';
 
 import { basicLexing } from './lex';
@@ -74,13 +74,17 @@ connection.onInitialize((params: InitializeParams) => {
   };
 });
 
-// TODO: we will use this once we support the ability
-// to turn off notifications for files with no README.txt
-// connection.onInitialized(() => {
-//   if (hasConfigurationCapability) {
-//     connection.client.register(DidChangeConfigurationNotification.type, undefined);
-//   }
-// });
+let workspaceFolders: WorkspaceFolder[] | null = null;
+
+connection.onInitialized(async () => {
+  workspaceFolders = await connection.workspace.getWorkspaceFolders();
+
+  // TODO: we will use this once we support the ability
+  // to turn off notifications for files with no README.txt
+  // if (hasConfigurationCapability) {
+  //   connection.client.register(DidChangeConfigurationNotification.type, undefined);
+  // }
+});
 
 /**
  * Returns the text of the given file, possibly using a file
@@ -111,12 +115,6 @@ type Dependencies = {
 };
 
 function getDependencies(name: string, configPaths: URL[]): Maybe<Dependencies> {
-  /** Takes a line from project.txt and removes comments and leading/trailing whitespace */
-  function parseLine(line: string): string {
-    const index = line.indexOf("//");
-    return (index === - 1 ? line : line.substr(0, index)).trim();
-  }
-
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
       const fileLines = fs.readFileSync(configPath, { encoding: "utf-8" }).split("\n");
@@ -237,7 +235,6 @@ documents.onDidChangeContent(async (change) => {
 // when the text document first opened or when its content has changed.
 async function validateTextDocument(change: TextDocumentChangeEvent) {
   let dependencies: string[] = [];
-  const diagnostics: Diagnostic[] = [];
 
   const project = cachedProjects.get(change.document.uri);
   if (project) {
@@ -276,9 +273,11 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     if (lang.isC0ObjectFile(dependency)) {
       const unpackedFiles = await readTarFile(new URL(dependency).pathname);
 
-      // Each object file turns into multiple
+      // Each object file turns into multiple source files
       for (const [fileName, contents] of unpackedFiles) {
         // The virtual name would be like some/path/compressedLib.o0/source.c0
+        // It's useful since we have various places in the source code
+        // which need a unique name for each source file
         const virtualFileName = `${dependency}/${fileName}`;
         processedDependencies.push(new C0ObjectSourceFile(virtualFileName, contents, dependency));
       }
@@ -287,9 +286,9 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
     }
   }
 
-  const parseErrors = await parseTextDocument(processedDependencies, change.document);
+  const diagnostics = await parseTextDocument(processedDependencies, change.document);
 
-  connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [...diagnostics, ...parseErrors] });
+  connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
 }
 
 /**
@@ -311,6 +310,26 @@ function mkMarkdownCode(s: string): MarkupContent {
   };
 }
 
+/**
+ * Converts a URI-format file path to a more readable one, local to the directory.
+ * @param uri The URI to convert, with the leading file://
+ */
+export function uriToWorkspace(uri: string | undefined): string | undefined {
+  if (!uri) {
+    return undefined;
+  }
+
+  // If relative to a workspace, print relative path; otherwise, default to base file name
+  if (workspaceFolders) {
+    for (const folder of workspaceFolders) {
+      if (uri.indexOf(folder.uri) === 0) {
+        return path.relative(folder.uri, uri);
+      }
+    }
+  }
+
+  return path.parse(uri).base;
+}
 // This handler provides the initial list of the completion items.
 connection.onCompletion(async (completionInfo: CompletionParams): Promise<CompletionItem[]> => {
   // TODO: use completionInfo to figure out if we should add keywords or not
@@ -334,29 +353,6 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
   const locals: CompletionItem[] = [];
   const structNames: CompletionItem[] = [];
 
-  const folders = await connection.workspace.getWorkspaceFolders();
-
-  /**
-   * Converts a URI-format file path to a more readable one, local to the directory.
-   * @param uri The URI to convert, with the leading file://
-   */
-  function uriToWorkspace(uri: string | undefined): string | undefined {
-    if (!uri) {
-      return undefined;
-    }
-
-    // If relative to a workspace, print relative path; otherwise, default to base file name
-    if (folders) {
-      for (const folder of folders) {
-        if (uri.indexOf(folder.uri) === 0) {
-          return path.relative(folder.uri, uri);
-        }
-      }
-    }
-
-    return path.parse(uri).base;
-  }
-
   const doc = documents.get(completionInfo.textDocument.uri);
   const context = doc && getCompletionContext(
     doc.getText(),
@@ -375,6 +371,8 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
     if (inCurrentFile && comparePositions(pos, decl.loc!.start) === Ordering.Less)
       break;
 
+    const location = await uriToWorkspace(decl.loc?.source);
+
     switch (decl.tag) {
       case "TypeDefinition":
         typedefs.push({
@@ -386,7 +384,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
               mkCodeString(`typedef ${typeToString(decl.definition.kind)} ${decl.definition.id.name}`)
               + "\n" + decl.doc,
           },
-          detail: uriToWorkspace(decl.loc?.source || undefined)
+          detail: location
         });
         break;
 
@@ -395,7 +393,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
           label: decl.definition.id.name,
           kind: CompletionItemKind.Interface,
           documentation: mkMarkdownCode(`typedef ${typeToString({ tag: "FunctionType", definition: decl.definition })}`),
-          detail: uriToWorkspace(decl.loc?.source || undefined)
+          detail: location
         });
         break;
 
@@ -407,7 +405,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
             kind: MarkupKind.Markdown,
             value: mkCodeString(`struct ${decl.id.name}`) + "\n" + decl.doc
           },
-          detail: uriToWorkspace(decl.loc?.source || undefined)
+          detail: location
         });
         break;
 
@@ -435,7 +433,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
               kind: MarkupKind.Markdown,
               value: `${"```c0\n" + proto + "\n```"}\n${decl.doc}`
             },
-            detail: uriToWorkspace(decl.loc?.source || undefined)
+            detail: location
           });
         }
 
@@ -456,7 +454,8 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                     genv,
                     searchResult.environment,
                     null,
-                    <ast.Expression>context.expr
+                    <ast.Expression>context.expr,
+                    undefined
                   )
                 );
 
@@ -475,7 +474,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
                     label: field.id.name,
                     kind: CompletionItemKind.Field,
                     documentation: mkMarkdownCode(`struct ${struct.id.name} {\n  ...\n  ${typeToString(field.kind)} ${field.id.name};\n};`),
-                    detail: uriToWorkspace(field.loc?.source || undefined)
+                    detail: location
                   }));
                 }
               }
@@ -496,7 +495,7 @@ connection.onCompletion(async (completionInfo: CompletionParams): Promise<Comple
               label: name,
               kind: CompletionItemKind.Variable,
               documentation: mkMarkdownCode(`${typeToString(type)} ${name}`),
-              detail: uriToWorkspace(decl.loc?.source || undefined)
+              detail: location
             });
           }
           break;

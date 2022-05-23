@@ -16,7 +16,7 @@ import { GlobalEnv, initEmpty, cloneGenv } from "./typecheck/globalenv";
 import * as path from "path";
 import { mkParser, parseDocument, typingErrorsToDiagnostics, ParseResult } from "./parse";
 import { FileSet } from "./util";
-import { C0SourceFile, C0TextDocumentFile } from "./c0file";
+import { C0ObjectSourceFile, C0SourceFile, C0TextDocumentFile } from "./c0file";
 
 /** 
  * Map from TextDocument URI's to their last 
@@ -66,9 +66,6 @@ export function invalidateAll() {
   cachedFiles.clear();
 }
 
-// Max length a line can be before we produce a diagnostic
-const MAX_LINE_LENGTH = 80;
-
 /**
  * Parses a VSCode document, reporting any syntax or 
  * type errors. It updates the global environment representing
@@ -82,9 +79,8 @@ const MAX_LINE_LENGTH = 80;
  * VSCode document to parse. Errors will be reported only for this document
  */
 export async function parseTextDocument(dependencies: C0SourceFile[], textDocument: TextDocument): Promise<Diagnostic[]> {
-  // The validator creates diagnostics for all uppercase words length 2 and more
-  let typeIds: Set<string> = new Set();
   const decls: ast.Declaration[] = [];
+  let typeIds: Set<string> = new Set();
   let genv: GlobalEnv = initEmpty();
 
   // Find deepest cached dependency, and start parsing from there
@@ -150,6 +146,9 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
         }];
 
       case "right":
+        if (dep instanceof C0ObjectSourceFile) {
+          markNonInterfaceFunctions(dep, parseResult.result);
+        }
         decls.push(...parseResult.result);
         typeIds = parser.lexer.getTypeIds();
     }
@@ -233,9 +232,9 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
   const typecheckResult = checkProgram(genv, decls);
 
   // If there are errors in a dependency,
-  // then give up
+  // then give up. However, 
   for (const error of typecheckResult.errors) {
-    if (error.loc?.source !== textDocument.uri) {
+    if (error.loc?.source !== textDocument.uri && error.severity === DiagnosticSeverity.Error) {
       return [{
         severity: DiagnosticSeverity.Error,
         message: `Failed to typecheck '${error.loc?.source}'. Code completion and other features will not be available`,
@@ -255,22 +254,52 @@ export async function parseTextDocument(dependencies: C0SourceFile[], textDocume
 
   // Return any errors we encountered
   return typingErrorsToDiagnostics(typecheckResult.errors);
+}
 
-  // TODO: this would have to be moved somewhere else...perhaps in parseDocument
-  // while pre-processing the source 
-  // Warn about lines longer than 80 characters
-  // for (let i = 0; i < lines.length; i++) {
-  //   if (lines[i].length > MAX_LINE_LENGTH) {
-  //     const diagnostic: Diagnostic = {
-  //       severity: DiagnosticSeverity.Warning,
-  //       range: {
-  //         start: Position.create(i, 0),
-  //         end: Position.create(i, Number.MAX_VALUE)
-  //       },
-  //       message: `There are ${lines[i].length} characters in this line.\nPlease lower it to < 80.`,
-  //       source: "c0-language"
-  //     };
-  //     diagnostics.push(diagnostic);
-  //   }
-  // }
+/**
+ * Looks for an interface section in an object file,
+ * and marks any non-interface functions as being private
+ */
+function markNonInterfaceFunctions(file: C0ObjectSourceFile, decls: ast.Declaration[]) {
+  const lines = file.contents().split("\n");
+
+  // Check if there is an interface section. 
+  // An interface section begins with any line that has the word "Interface" in it
+  // and ends with the next line that has the word "End" in it, or perhaps the end of the file.
+  let interfaceStart = lines.findIndex(line => line.includes("Interface"));
+  let interfaceEnd = lines.findIndex((line, index) => index > interfaceStart && line.includes("End"));
+  if (interfaceStart === -1) return;
+  if (interfaceEnd === -1) {
+    interfaceEnd = lines.length - 1;
+  }
+  
+  // The source code positions we have are 1-indexed so we need
+  // to add 1 to the start and end positions
+  interfaceStart += 1;
+  interfaceEnd += 1;
+
+  // The interface section could be anywhere in the file,
+  // so we need to gather up the interface functions first.
+  const interfaceFuncs: Set<string> = new Set();
+  for (const decl of decls) {
+    const lineStart = decl.loc?.start.line;
+    const lineEnd = decl.loc?.end.line;
+    if (!(lineStart && lineEnd)) continue;
+    if (decl.tag !== "FunctionDeclaration") continue;
+
+    if (interfaceStart < lineStart && lineEnd < interfaceEnd) {
+      // This function is inside the interface section, so mark it as such
+      interfaceFuncs.add(decl.id.name);
+    }
+  }
+
+  // Now for every function which is not an interface function,
+  // mark it as being private to file.originalFileName().
+  
+  for (const decl of decls) {
+    if (decl.tag !== "FunctionDeclaration") continue;
+    if (interfaceFuncs.has(decl.id.name)) continue;
+
+    decl.isLocalTo = file.originalFileName();
+  }
 }

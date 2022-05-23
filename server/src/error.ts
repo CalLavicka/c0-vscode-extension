@@ -1,3 +1,4 @@
+import { DiagnosticSeverity } from "vscode-languageserver";
 import { SourceLocation } from "./ast";
 
 export class IncompleteParseError extends Error {
@@ -19,13 +20,18 @@ export class ParsingError extends Error {
 
 export class TypingError extends Error {
     public readonly name: "TypingError";
+
+    public severity: DiagnosticSeverity;
     public loc: null | SourceLocation;
+
     constructor(syn: { loc?: SourceLocation }, msg: string, ...hints: string[]) {
         const loc = syn.loc || null;
         const hintstr = hints.length === 0 ? "" : "\n\nHint: " + hints.join("\n      ");
         super(`${msg}${hintstr}`);
+        
         this.name = "TypingError";
         this.loc = loc;
+        this.severity = DiagnosticSeverity.Error;
     }
 }
 

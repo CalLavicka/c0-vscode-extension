@@ -15,6 +15,8 @@ import * as ast from "../ast";
 import { ImpossibleError, TypingError } from "../error";
 import { typeToString } from "../print";
 import * as util from "../util";
+import { DiagnosticSeverity } from "vscode-languageserver";
+import { uriToWorkspace } from "../server";
 
 export type mode =
     | null
@@ -54,8 +56,8 @@ function valueDescription(genv: GlobalEnv, tp: Synthed): string {
 }
 
 /** Asserts that a synthesized type has small type */
-export function synthLValue(genv: GlobalEnv, env: Env, mode: mode, exp: ast.LValue): ast.ValueType {
-    const synthedType = synthExpression(genv, env, mode, exp);
+export function synthLValue(genv: GlobalEnv, env: Env, mode: mode, exp: ast.LValue, sourceFile: string | undefined): ast.ValueType {
+    const synthedType = synthExpression(genv, env, mode, exp, sourceFile);
     switch (synthedType.tag) {
         case "AmbiguousNullPointer":
             throw new ImpossibleError("lvalue cannot be null");
@@ -90,7 +92,7 @@ export function synthLValue(genv: GlobalEnv, env: Env, mode: mode, exp: ast.LVal
     }
 }
 
-export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.Expression): Synthed {
+export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.Expression, sourceFile: string | undefined): Synthed {
     switch (exp.tag) {
         case "Identifier": {
             const t = env.get(exp.name);
@@ -111,19 +113,19 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
         case "NullLiteral":
             return { tag: "AmbiguousNullPointer" };
         case "ArrayMemberExpression": {
-            const objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object));
+            const objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object, sourceFile));
             if (objectType.tag !== "ArrayType") {
                 throw new TypingError(
                     exp,
                     `subject of indexing '[...]' is ${valueDescription(genv, objectType)}, not an array`
                 );
             }
-            checkExpression(genv, env, mode, exp.index, { tag: "IntType" });
+            checkExpression(genv, env, mode, exp.index, { tag: "IntType" }, sourceFile);
             exp.size = concreteType(genv, objectType.argument); // INSERTING TYPE INFORMATION HERE
             return objectType.argument;
         }
         case "StructMemberExpression": {
-            let objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object));
+            let objectType = actualSynthed(genv, synthExpression(genv, env, mode, exp.object, sourceFile));
             if (exp.deref) {
                 if (objectType.tag === "StructType") {
                     throw new TypingError(
@@ -256,9 +258,9 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     const specifier = formatSpecifiers[i];
 
                     switch (specifier) {
-                        case '%d': checkExpression(genv, env, mode, arg, { tag: "IntType" }); break;
-                        case '%s': checkExpression(genv, env, mode, arg, { tag: "StringType" }); break;
-                        case '%c': checkExpression(genv, env, mode, arg, { tag: "CharType" }); break;
+                        case '%d': checkExpression(genv, env, mode, arg, { tag: "IntType" }, sourceFile); break;
+                        case '%s': checkExpression(genv, env, mode, arg, { tag: "StringType" }, sourceFile); break;
+                        case '%c': checkExpression(genv, env, mode, arg, { tag: "CharType" }, sourceFile); break;
                         default: throw new TypingError(exp.arguments[0], `invalid format specifier '${specifier}'. options are %d, %s, %c, or %% for a literal % sign`);
                     }
                 }
@@ -289,6 +291,19 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                             hint);
                     }
                 }
+
+                // Check if the function is an interface function
+                if (func.isLocalTo && func.isLocalTo !== sourceFile) {
+                    const error = new TypingError(
+                        exp,
+                        `function ${exp.callee.name} is not part of the interface of ${uriToWorkspace(func.isLocalTo)}`
+                    );
+
+                    error.severity = DiagnosticSeverity.Warning;
+                    throw error;
+                }
+
+                // Check type and number of arguments
                 if (exp.arguments.length !== func.params.length) {
                     throw new TypingError(
                         exp,
@@ -297,12 +312,12 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                         } but was given ${exp.arguments.length}`
                     );
                 }
-                exp.arguments.forEach((e, i) => checkExpression(genv, env, mode, e, func.params[i].kind));
+                exp.arguments.forEach((e, i) => checkExpression(genv, env, mode, e, func.params[i].kind, sourceFile));
                 return func.returns;
             }
         }
         case "IndirectCallExpression": {
-            const callType = synthExpression(genv, env, mode, exp.callee);
+            const callType = synthExpression(genv, env, mode, exp.callee, sourceFile);
             if (callType.tag === "AnonymousFunctionTypePointer") {
                 throw new TypingError(
                     exp,
@@ -337,7 +352,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 );
             }
             exp.arguments.forEach((e, i) =>
-                checkExpression(genv, env, mode, e, actualFunctionType.definition.params[i].kind)
+                checkExpression(genv, env, mode, e, actualFunctionType.definition.params[i].kind, sourceFile)
             );
             return actualFunctionType.definition.returns;
         }
@@ -350,7 +365,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 );
             }
 
-            const argumentType = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument));
+            const argumentType = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument, sourceFile));
             if (argumentType.tag === "AmbiguousNullPointer") {
                 // NULL cast always ok
                 // We don't know (or care) if it's to or from void*
@@ -390,7 +405,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
         case "UnaryExpression": {
             switch (exp.operator) {
                 case "!": {
-                    checkExpression(genv, env, mode, exp.argument, { tag: "BoolType" });
+                    checkExpression(genv, env, mode, exp.argument, { tag: "BoolType" }, sourceFile);
                     return { tag: "BoolType" };
                 }
                 case "&": {
@@ -416,11 +431,11 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 }
                 case "~":
                 case "-": {
-                    checkExpression(genv, env, mode, exp.argument, { tag: "IntType" });
+                    checkExpression(genv, env, mode, exp.argument, { tag: "IntType" }, sourceFile);
                     return { tag: "IntType" };
                 }
                 case "*": {
-                    const pointerType = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument));
+                    const pointerType = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument, sourceFile));
                     switch (pointerType.tag) {
                         case "AmbiguousNullPointer": {
                             throw new TypingError(exp, "cannot dereference 'NULL'");
@@ -466,8 +481,8 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 case "&":
                 case "^":
                 case "|": {
-                    checkExpression(genv, env, mode, exp.left, { tag: "IntType" });
-                    checkExpression(genv, env, mode, exp.right, { tag: "IntType" });
+                    checkExpression(genv, env, mode, exp.left, { tag: "IntType" }, sourceFile);
+                    checkExpression(genv, env, mode, exp.right, { tag: "IntType" }, sourceFile);
                     return { tag: "IntType" };
                 }
 
@@ -475,13 +490,13 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                 case "<=":
                 case ">=":
                 case ">": {
-                    const leftType = actualSynthed(genv, synthExpression(genv, env, mode, exp.left));
+                    const leftType = actualSynthed(genv, synthExpression(genv, env, mode, exp.left, sourceFile));
                     switch (leftType.tag) {
                         case "IntType":
                         case "CharType": {
                             // INSERTING TYPE INFORMATION HERE
                             exp.size = leftType;
-                            checkExpression(genv, env, mode, exp.right, leftType);
+                            checkExpression(genv, env, mode, exp.right, leftType, sourceFile);
                             return { tag: "BoolType" };
                         }
                         case "StringType": {
@@ -503,8 +518,8 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
 
                 case "==":
                 case "!=": {
-                    const left = synthExpression(genv, env, mode, exp.left);
-                    const right = synthExpression(genv, env, mode, exp.right);
+                    const left = synthExpression(genv, env, mode, exp.left, sourceFile);
+                    const right = synthExpression(genv, env, mode, exp.right, sourceFile);
                     const lub = leastUpperBoundSmallSynthedType(genv, exp, left, right, false);
                     if (lub.tag === "StringType") {
                         throw new TypingError(
@@ -524,7 +539,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
             }
         }
         case "LogicalExpression": {
-            const left = actualSynthed(genv, synthExpression(genv, env, mode, exp.left));
+            const left = actualSynthed(genv, synthExpression(genv, env, mode, exp.left, sourceFile));
             if (left.tag === "IntType") {
                 throw new TypingError(
                     exp,
@@ -542,13 +557,13 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     )}`
                 );
             }
-            checkExpression(genv, env, mode, exp.right, { tag: "BoolType" });
+            checkExpression(genv, env, mode, exp.right, { tag: "BoolType" }, sourceFile);
             return { tag: "BoolType" };
         }
         case "ConditionalExpression": {
-            checkExpression(genv, env, mode, exp.test, { tag: "BoolType" });
-            const left = synthExpression(genv, env, mode, exp.consequent);
-            const right = synthExpression(genv, env, mode, exp.alternate);
+            checkExpression(genv, env, mode, exp.test, { tag: "BoolType" }, sourceFile);
+            const left = synthExpression(genv, env, mode, exp.consequent, sourceFile);
+            const right = synthExpression(genv, env, mode, exp.alternate, sourceFile);
             const lub = leastUpperBoundSmallSynthedType(genv, exp, left, right, true);
             return lub;
         }
@@ -581,7 +596,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     );
                 }
             }
-            checkExpression(genv, env, mode, exp.argument, { tag: "IntType" });
+            checkExpression(genv, env, mode, exp.argument, { tag: "IntType" }, sourceFile);
             exp.size = concreteType(genv, exp.kind); // INSERTING TYPE INFORMATION HERE
             return { tag: "ArrayType", argument: exp.kind };
         }
@@ -613,7 +628,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
                     "use only in annotations"
                 );
             }
-            const tp = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument));
+            const tp = actualSynthed(genv, synthExpression(genv, env, mode, exp.argument, sourceFile));
             if (tp.tag !== "ArrayType") {
                 throw new TypingError(
                     exp,
@@ -644,7 +659,7 @@ export function synthExpression(genv: GlobalEnv, env: Env, mode: mode, exp: ast.
             if (kind.argument.tag === "VoidType") { throw new TypingError(exp, "tag cannot be 'void*'"); }
 
             // Validate expression
-            checkExpression(genv, env, mode, exp.argument, { tag: "PointerType", argument: { tag: "VoidType" } });
+            checkExpression(genv, env, mode, exp.argument, { tag: "PointerType", argument: { tag: "VoidType" } }, sourceFile);
             return { tag: "BoolType" };
         }
         default:
@@ -657,9 +672,10 @@ export function checkExpression(
     env: Env,
     mode: mode,
     exp: ast.Expression,
-    tp: ast.Type
+    tp: ast.Type,
+    sourceFile: string | undefined
 ): void {
-    const synthed = synthExpression(genv, env, mode, exp);
+    const synthed = synthExpression(genv, env, mode, exp, sourceFile);
     if (!isSubtype(genv, synthed, tp)) {
         throw new TypingError(
             exp,
