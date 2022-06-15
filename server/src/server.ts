@@ -230,6 +230,8 @@ documents.onDidChangeContent(async (change) => {
   await validateTextDocument(change);
 });
 
+const filesShownNoReadmeWarning = new Set<string>();
+
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 async function validateTextDocument(change: TextDocumentChangeEvent) {
@@ -253,10 +255,13 @@ async function validateTextDocument(change: TextDocumentChangeEvent) {
       folders?.length ? `${folders[0].uri}/project.txt` : ""
     ].filter(s => s !== "").map(p => new URL(p)));
 
-    if (!maybeDependencies.hasValue && !(change.document.uri.endsWith("h0")
-      || change.document.uri.endsWith("h1"))) {
-      // TODO: whether this is displayed or not should be controlled via a diagnostic
+    if (!maybeDependencies.hasValue 
+        && !(change.document.uri.endsWith("h0")
+             || change.document.uri.endsWith("h1"))
+        && !filesShownNoReadmeWarning.has(change.document.uri)) {
       connection.window.showInformationMessage(`No README.txt found for ${uriToWorkspace(change.document.uri)}.\nRed squiggles and code completion might be incorrect`);
+      // Make sure we don't show it again
+      filesShownNoReadmeWarning.add(change.document.uri);
       dependencies = [];
     } else if (maybeDependencies.hasValue) {
       dependencies = maybeDependencies.value.dependencies;
