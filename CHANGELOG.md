@@ -5,6 +5,10 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.3.2] - June 15, 2022
+- Fixed the "No README.md" warning being shown at every keystroke for files with no dependencies
+- Fixed the server crashing when typing in //@
+
 ## [2.3.1] - June 15, 2022
 - Fixed an issue where line comments after a line-contract were considered to be the "end location" of the line contract, and therefore incorrectly raised an error:
 ```c
