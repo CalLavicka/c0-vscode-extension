@@ -751,13 +751,14 @@ export function AnnoSet(
     const absend = annos[5];
     const end: Token = absend ? absend : annos[3];
 
-    if (start.type === "anno_line_start") {
+    const contracts = annos[2];
+
+    if (start.type === "anno_line_start" && contracts.length > 0) {
         // Line annotations may have multiple contracts.
         // e.g. //@requires x > 0; ensures \result >= 0; 
         // We need to make sure that the last contract ends on the same line.
         // We can't just use "end" here because that could be whitespace or a comment,
         // so instead we grab the location of the last contract, which should properly ignore comments
-        const contracts = annos[2];
         const lastContract = contracts[contracts.length - 1];
         const lastContractEnd = lastContract.loc.end;
         
@@ -768,7 +769,7 @@ export function AnnoSet(
             );
         }
     }
-    return annos[2];
+    return contracts;
 }
 
 export function FunctionDeclarationArgs([s1, params]: [
