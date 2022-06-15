@@ -10,11 +10,10 @@ export class IncompleteParseError extends Error {
 
 export class ParsingError extends Error {
     public readonly name: "ParsingError" = "ParsingError";
-    public loc: null | SourceLocation;
-    constructor(syn: SourceLocation | { loc?: SourceLocation }, msg: string) {
+    public loc: SourceLocation;
+    constructor(syn: SourceLocation | { loc: SourceLocation }, msg: string) {
         super(msg);
-        const loc = "start" in syn ? syn : syn.loc ? syn.loc : null;
-        this.loc = loc;
+        this.loc = "start" in syn ? syn : syn.loc;
     }
 }
 

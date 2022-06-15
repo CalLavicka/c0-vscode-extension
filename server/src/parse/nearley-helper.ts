@@ -750,11 +750,24 @@ export function AnnoSet(
     const start: Token = annos[0];
     const absend = annos[5];
     const end: Token = absend ? absend : annos[3];
-    if (start.type === "anno_line_start" && start.line !== end.line)
-        throw new ParsingError(
-            { start: tokloc(start).start, end: tokloc(end).start },
-            "Single-line annotations cannot be extended to multiple lines with /* multiline comments */ like this"
-        );
+
+    if (start.type === "anno_line_start") {
+        // Line annotations may have multiple contracts.
+        // e.g. //@requires x > 0; ensures \result >= 0; 
+        // We need to make sure that the last contract ends on the same line.
+        // We can't just use "end" here because that could be whitespace or a comment,
+        // so instead we grab the location of the last contract, which should properly ignore comments
+        const contracts = annos[2];
+        const lastContract = contracts[contracts.length - 1];
+        const lastContractEnd = lastContract.loc.end;
+        
+        if (start.line !== lastContractEnd.line) {
+            throw new ParsingError(
+                { start: tokloc(start).start, end: tokloc(end).start },
+                "Single-line annotations cannot be extended to multiple lines with /* multiline comments */ like this"
+            );
+        }
+    }
     return annos[2];
 }
 

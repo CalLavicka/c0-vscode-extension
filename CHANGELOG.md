@@ -5,6 +5,13 @@
 *New major feature*: Indentor. "Format document" will now properly indent the document 
 -->
 
+## [2.3.1] - June 15, 2022
+- Fixed an issue where line comments after a line-contract were considered to be the "end location" of the line contract, and therefore incorrectly raised an error:
+```c
+//@assert is_heap_safe(H);    // basic invariants hold
+// but ordering invariant may be violated
+```
+
 ## [2.3.0] - May 23, 2022
 - Using a function not part of the interface of a `.o0` file will now result in a warning in the editor.
   If an `.o0` file has no interface section, then all functions are assumed to be part of the interface

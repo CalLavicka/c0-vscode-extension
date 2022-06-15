@@ -1,4 +1,4 @@
-import { TypingError } from "./error";
+import { ParsingError, TypingError } from "./error";
 import { Diagnostic, DiagnosticSeverity, Position, TextDocument } from "vscode-languageserver";
 import { Either, Right, Left } from "./util";
 import { TypeLexer } from "./lex";
@@ -489,12 +489,16 @@ export function parseDocument(text: C0SourceFile, oldParser: C0Parser, genv: Glo
       if (segment.semicolon) {
         parser.feed(" ");
       }
-      addError(
-        err.token.line - 1,
-        err.token.col - 1,
-        err.message,
-        DiagnosticSeverity.Error
-      );
+      if (err instanceof ParsingError) {
+        addError(err.loc.start.line, err.loc.start.column, err.message, DiagnosticSeverity.Error);
+      } else {
+        addError(
+          err.token.line - 1,
+          err.token.col - 1,
+          err.message,
+          DiagnosticSeverity.Error
+        );
+      }
     }
   }
 
